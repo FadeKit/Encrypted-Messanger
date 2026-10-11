@@ -88,6 +88,7 @@ for (const id of ids) {
   errors.length = 0;
   await page.evaluate((surface) => {
     Windows.closeAll && Windows.closeAll();
+    ConsoleLog.close && ConsoleLog.close();
     for (const layer of document.querySelectorAll('#modal-layer.open')) {
       layer.classList.remove('open');
       const list = layer.querySelector('.modal-list');

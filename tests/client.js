@@ -406,6 +406,26 @@ check('the console registers a flyout a link can open',
   check('the patch flow restarts the phone by default', /AE_REBOOT="\$\{AE_REBOOT:-1\}"/.test(fs.readFileSync(path.join(ROOT, 'scripts', 'termux-patch.sh'), 'utf8')));
 }
 
+// The console dropdown is the one place that says what the client is doing.
+// Entries recorded before the flyout was first opened still have to be drawn
+// when it opens, or the header counts lines the panel does not show.
+{
+  const consoleSource = fs.readFileSync(path.join(PUBLIC, 'js', 'console.js'), 'utf8');
+  check('the console draws entries recorded before it was opened', /function renderMissing\(\)/.test(consoleSource) && /open\(\) \{[\s\S]{0,400}renderMissing\(\)/.test(consoleSource));
+  check('the console keeps its own history in memory', /if \(entries\.length > CAP\)/.test(consoleSource));
+  check('the console never reaches the server', !/console\.log\s*=|fetch\('\.\/log/.test(consoleSource) && /local telemetry · no message contents/.test(consoleSource));
+}
+
+// The bar must not carry stray system words: the console says live or offline,
+// and nothing anywhere prints LINK_UP.
+{
+  const sources = fs.readdirSync(path.join(PUBLIC, 'js'))
+    .map((file) => fs.readFileSync(path.join(PUBLIC, 'js', file), 'utf8')).join('\n');
+  check('no LINK_UP text survives in the client', !/LINK_UP|link up/i.test(sources));
+  const consoleSource = fs.readFileSync(path.join(PUBLIC, 'js', 'console.js'), 'utf8');
+  check('the console names its own state plainly', /API\.connected \? 'live' : 'offline'/.test(consoleSource));
+}
+
 // A tab has to be reachable: the plate for an open window replaces the button
 // that would have launched it, and the tabs region sits next to Start so a
 // phone never has to scroll the bar to get a window back.

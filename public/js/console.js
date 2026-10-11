@@ -115,6 +115,22 @@ const ConsoleLog = (() => {
     paintMeta();
   }
 
+  /**
+   * Entries recorded before the panel was ever built have no DOM node: the log
+   * only exists once the flyout has been opened once.  Draw them, oldest first,
+   * so opening the console shows the session rather than an empty box with a
+   * count in its header.
+   */
+  function renderMissing() {
+    if (!listNode) return;
+    for (const entry of entries) {
+      if (entry.node) continue;
+      entry.node = line(entry);
+      listNode.append(entry.node);
+    }
+    listNode.scrollTop = listNode.scrollHeight;
+  }
+
   function paint(entry) {
     if (entry.node) {
       const repeat = entry.node.querySelector('.r');
@@ -133,8 +149,8 @@ const ConsoleLog = (() => {
 
   function paintMeta() {
     if (!metaNode) return;
-    const linked = API.connected ? 'link up' : 'link down';
-    metaNode.textContent = `${linked} · ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}${capturing ? '' : ' · paused'}`;
+    const connected = API.connected ? 'live' : 'offline';
+    metaNode.textContent = `${connected} · ${entries.length} ${entries.length === 1 ? 'entry' : 'entries'}${capturing ? '' : ' · paused'}`;
   }
 
   function headState() {
@@ -282,7 +298,7 @@ const ConsoleLog = (() => {
     paintBadge();
     paintMeta();
     headState();
-    listNode.scrollTop = listNode.scrollHeight;
+    renderMissing();
     // Focusing a field on a phone raises the keyboard over the log, so the
     // command line waits for a tap there.
     if (!window.matchMedia('(max-width: 760px)').matches) inputNode.focus();

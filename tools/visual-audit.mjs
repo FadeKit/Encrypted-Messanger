@@ -133,12 +133,10 @@ for (const id of await page.evaluate(() => Apps.all().map((a) => a.id))) {
   await page.evaluate((s) => Apps.open(s), id);
   await new Promise((r) => setTimeout(r, 900));
   const content = await page.evaluate((surface) => {
-    // A surface may be a window, or a modal (the editor's file-type picker and
-    // the console flyout are both legitimate surfaces).
+    // A surface may be a window, a flyout (the console), or a modal (the
+    // editor's file-type picker opens before it has a window of its own).
     const win = document.querySelector(`.window[data-win="${surface}"]`)
-      // the console is a flyout panel, not a window
       || (surface === 'console' ? document.querySelector('#console-panel') : null)
-      // the editor opens as a file-type picker before it has a window
       || document.querySelector('#modal-layer.open .modal');
     const body = win ? (win.querySelector('.window-body') || win.querySelector('.modal-body') || win) : null;
     const text = body ? body.innerText.replace(/\s+/g, ' ').trim() : '';
@@ -156,6 +154,7 @@ for (const id of await page.evaluate(() => Apps.all().map((a) => a.id))) {
   // screenshotted on its own rather than under the previous one's dialog.
   await page.evaluate(() => {
     Windows.closeAll && Windows.closeAll();
+    ConsoleLog.close && ConsoleLog.close();
     for (const layer of document.querySelectorAll('#modal-layer.open')) {
       layer.classList.remove('open');
       const list = layer.querySelector('.modal-list');
