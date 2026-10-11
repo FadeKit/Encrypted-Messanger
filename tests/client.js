@@ -64,7 +64,8 @@ function makeEl(tag = 'div') {
     appendChild(n) { if (n && typeof n === 'object') n.parentNode = this; this.children.push(n); return n; },
     prepend(...kids) { this.children.unshift(...kids); }, removeChild(n) { const i = this.children.indexOf(n); if (i >= 0) this.children.splice(i, 1); return n; },
     remove() { if (this.parentNode) this.parentNode.removeChild(this); }, before() {}, after() {}, replaceWith() {},
-    addEventListener() {}, removeEventListener() {}, dispatchEvent() {},
+    __events: [],
+    addEventListener(type) { this.__events.push(type); }, removeEventListener() {}, dispatchEvent() {},
     setAttribute(k, v) { this.attributes[k] = v; }, getAttribute(k) { return this.attributes[k]; }, removeAttribute(k) { delete this.attributes[k]; },
     querySelector: (sel) => elements(sel)[0] || null, querySelectorAll: (sel) => elements(sel), closest: () => null, contains: () => false,
     set className(v) { this.attributes.class = v; }, get className() { return this.attributes.class || ''; },
@@ -569,6 +570,54 @@ if (shim.State && shim.Apps) {
   check('section headings carry no bracketed glyphs', !/text: `\[\$\{glyph\}\]`/.test(settingsJs));
   check('auth hero lists three facts, not four', (fs.readFileSync(path.join(PUBLIC, 'js', 'app.js'), 'utf8').match(/tick\('/g) || []).length === 3);
   check('empty states are one line, not essays', !/sealed on this device before it travels/.test(fs.readFileSync(path.join(PUBLIC, 'js', 'messages.js'), 'utf8')));
+}
+
+// ------------------------------------------------- renderer contract (ui.el)
+{
+  // Handlers passed as onClick/onKeydown must land on real, lowercase DOM event
+  // types; nested arrays must be flattened instead of stringified.
+  const source = fs.readFileSync(path.join(PUBLIC, 'js', 'ui.js'), 'utf8');
+  check('el() lowercases event names', /key\.slice\(2\)\.toLowerCase\(\)/.test(source));
+  check('el() flattens nested children', /function appendChildren\(node, children\)/.test(source) && /Array\.isArray\(child\)/.test(source));
+
+  const uiScript = fs.readFileSync(path.join(PUBLIC, 'js', 'ui.js'), 'utf8');
+  check('ui.js still exports el and frag', /^window\.UI = UI;$/m.test(uiScript) && /return \{[\s\S]*\bel\b[\s\S]*\bfrag\b/.test(uiScript));
+
+  // runtime: a nested array must not become text
+  if (shim.UI) {
+    const node = shim.UI.el('div', {}, [shim.UI.el('span', { text: 'a' }), [shim.UI.el('span', { text: 'b' }), null, [shim.UI.el('span', { text: 'c' })]]]);
+    const flat = JSON.stringify(node.children.map((c) => c.tagName));
+    check('nested children are flattened, not stringified', flat === '["SPAN","SPAN","SPAN"]', flat);
+    const texts = node.children.map((child) => child.textContent).join('');
+    check('no element is ever stringified into text', !/\[object/.test(texts), texts);
+
+    // the handler must land on a lowercase DOM event type
+    let fired = 0;
+    const button = shim.UI.el('button', { onClick: () => { fired += 1; }, onKeydown: () => {} });
+    check('el() registers lowercase click and keydown listeners', button.__events.includes('click') && button.__events.includes('keydown'), button.__events.join(','));
+    const avatar = shim.UI.avatar({ id: 'u_1', displayName: 'A B' }, { onClick: () => {} });
+    check('avatar options wire a lowercase click too', !avatar.__events || avatar.__events.every((type) => /^[a-z]+$/.test(type)), (avatar.__events || []).join(','));
+  }
+}
+
+// -------------------------------------------------------- termux installer
+{
+  const scriptPath = path.join(ROOT, 'scripts', 'termux-install.sh');
+  check('termux installer ships', fs.existsSync(scriptPath));
+  if (fs.existsSync(scriptPath)) {
+    const script = fs.readFileSync(scriptPath, 'utf8');
+    check('installer is POSIX bash with strict mode', /^#!\/usr\/bin\/env bash/.test(script) && /set -uo pipefail/.test(script));
+    check('installer never stores a token in the config', !/GITHUB_TOKEN=/.test(script.split('write_config')[1] || ''));
+    check('installer resets the checkout instead of merging', (script.match(/reset --hard FETCH_HEAD/g) || []).length === 2);
+    check('installer writes a Termux:Boot hook', script.includes('.termux/boot') && script.includes('$boot_dir/ae-secure.sh'));
+    check('installer has a session fallback', (script.match(/ae-secure autostart/g) || []).length >= 3);
+    check('installer survives a missing PREFIX', /\$\{PREFIX:-\}/.test(script));
+    check('watchdog restarts on exit and on hang', /health check missed/.test(script) && /server exited \(status/.test(script));
+    check('watchdog backs off between restarts', script.includes('backoff="\\$AE_BACKOFF"') && script.includes('*) backoff=30'));
+    check('installer keeps data outside the checkout', /AE_DATA="\$\{AE_DATA:-\$HOME\/ae-secure-data\}"/.test(script));
+    check('installer prints the lan address', /on your network/.test(script));
+    check('installer can back up the data directory', /backup written/.test(script));
+  }
 }
 
 if (VERBOSE && asyncNoise.length) console.log(`  (async stub-network noise: ${asyncNoise.length})`);

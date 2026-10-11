@@ -14,20 +14,34 @@ const UI = (() => {
       else if (key === 'style' && typeof value === 'object') Object.assign(node.style, value);
       else if (key === 'dataset' && typeof value === 'object') Object.assign(node.dataset, value);
       else if (key === 'html') node.innerHTML = value;
-      else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2), value);
+      // 'onClick' and 'onclick' must both register a real 'click' listener:
+      // DOM event types are lowercase, so the suffix is normalised.
+      else if (/^on[a-z]+$/i.test(key) && typeof value === 'function') node.addEventListener(key.slice(2).toLowerCase(), value);
       else if (key === 'text') node.textContent = value;
       else node.setAttribute(key, value === true ? '' : String(value));
     }
-    for (const child of [].concat(children)) {
-      if (child === null || child === undefined || child === false) continue;
-      node.append(child.nodeType ? child : document.createTextNode(String(child)));
-    }
+    appendChildren(node, children);
     return node;
+  }
+
+  // Children may be nested (map() results inside an array literal, conditionals
+  // returning arrays). Flattening here keeps stray arrays from being stringified
+  // into "[object HTMLDivElement]" text on the page.
+  function isNodeish(value) {
+    return value !== null && typeof value === 'object' && typeof value.appendChild === 'function';
+  }
+
+  function appendChildren(node, children) {
+    for (const child of [].concat(children)) {
+      if (child === null || child === undefined || child === false || child === true || child === '') continue;
+      if (Array.isArray(child)) { appendChildren(node, child); continue; }
+      node.append(isNodeish(child) ? child : document.createTextNode(String(child)));
+    }
   }
 
   function frag(children) {
     const fragment = document.createDocumentFragment();
-    for (const child of [].concat(children)) if (child) fragment.append(child.nodeType ? child : document.createTextNode(String(child)));
+    appendChildren(fragment, children);
     return fragment;
   }
 

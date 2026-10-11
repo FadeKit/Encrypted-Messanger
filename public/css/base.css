@@ -177,6 +177,9 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
 .right { text-align: right; }
 .nowrap { white-space: nowrap; }
 
+/* An empty hint is nothing, not a dangling marker. */
+.hint:empty { display: none; }
+
 /* Eyebrow label: small mono capitals over a block. The tracking is the mark;
    no prefixes, no decorative glyphs. */
 .hud {

@@ -818,6 +818,7 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
   }
   body[data-taskbar="left"] #start-menu { left: 0; }
   .start-tile { min-height: 58px; }
+  .auth-tabs button { padding: 10px 9px; font-size: var(--text-11); letter-spacing: 0.04em; }
   .flyout {
     left: 0 !important;
     right: 0 !important;
