@@ -956,6 +956,12 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
   .btn { min-height: 42px; }
   .btn.icon { min-width: 42px; min-height: 42px; }
   .toolbar { padding: 6px 8px; gap: 6px; }
+  /* A toolbar on a phone wraps instead of squeezing: the heading and its hint
+     take the full width and the controls drop onto their own row, so nothing
+     gets crushed into a 90px column beside a button. */
+  .toolbar { flex-wrap: wrap; }
+  .toolbar > .grow { flex: 1 1 100%; }
+  .toolbar > .grow .input { max-width: none; width: 100%; }
   .switch { transform: scale(1.08); transform-origin: right center; }
 
   /* Wide data stays readable: the pane scrolls sideways, the plate never does. */

@@ -135,20 +135,33 @@ for (const id of await page.evaluate(() => Apps.all().map((a) => a.id))) {
   const content = await page.evaluate((surface) => {
     // A surface may be a window, or a modal (the editor's file-type picker and
     // the console flyout are both legitimate surfaces).
-    const win = document.querySelector(`.window[data-win="${surface}"]`) || document.querySelector('#modal-layer.open .modal');
+    const win = document.querySelector(`.window[data-win="${surface}"]`)
+      // the console is a flyout panel, not a window
+      || (surface === 'console' ? document.querySelector('#console-panel') : null)
+      // the editor opens as a file-type picker before it has a window
+      || document.querySelector('#modal-layer.open .modal');
     const body = win ? (win.querySelector('.window-body') || win.querySelector('.modal-body') || win) : null;
     const text = body ? body.innerText.replace(/\s+/g, ' ').trim() : '';
     return { window: !!win, nodes: body ? body.querySelectorAll('*').length : 0, textLength: text.length };
   }, id);
   // The console is a flyout panel, not a window: it has no .window node.
-  const popover = [].includes(id);
+  const popover = false;
   if (!popover && (!content.window || content.nodes < 6 || content.textLength < 8)) {
     console.log(`\n--- ${LABEL} :: surface:${id} :: BLANK (window=${content.window}, nodes=${content.nodes}, text=${content.textLength})`);
     total += 1;
   }
   total += await collect(`surface:${id}`);
   await page.screenshot({ path: `${SHOTS}/${LABEL}-${id}.png` });
-  await page.evaluate(() => { Windows.closeAll && Windows.closeAll(); });
+  // Close the window and any modal it left open, so the next surface is
+  // screenshotted on its own rather than under the previous one's dialog.
+  await page.evaluate(() => {
+    Windows.closeAll && Windows.closeAll();
+    for (const layer of document.querySelectorAll('#modal-layer.open')) {
+      layer.classList.remove('open');
+      const list = layer.querySelector('.modal-list');
+      if (list) list.innerHTML = '';
+    }
+  });
   await new Promise((r) => setTimeout(r, 200));
 }
 // the standalone certificate page a device opens to stop the warning
