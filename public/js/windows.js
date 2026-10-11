@@ -391,9 +391,14 @@ const Windows = (() => {
     // `registry` maps an id to a window *entry*; the title, icon and minimized
     // flag all live on `entry.record`.  Reading them off the entry left every
     // tab labelled "" with a tooltip of "undefined" and the wrong icon.
+    const tabs = $('#taskbar-tabs');
     for (const [id, entry] of registry) {
       const record = entry.record;
-      let button = taskbarButtons.get(id);
+      // An app that already has a plate in the rail uses that plate as its tab:
+      // the icon stays exactly where the finger expects it, and no second
+      // button for the same window appears further along the bar.
+      const launcher = stack.querySelector(`.tb-btn[data-app="${id}"]`);
+      let button = launcher || taskbarButtons.get(id);
       if (!button) {
         button = el('button', { class: 'tb-btn', title: record.title, dataset: { win: id } }, [
           el('span', { class: 'tb-glyph', html: UI.icon(record.icon || id) }),
@@ -416,14 +421,18 @@ const Windows = (() => {
             { icon: 'close', label: 'Close', danger: true, onClick: () => close(id) },
           ], { x: event.clientX, y: event.clientY - 150 });
         });
-        stack.append(button);
+        // Windows without a launcher of their own (a direct channel, an editor)
+        // still belong in the tabs region, right beside Start.
+        (tabs || stack).append(button);
         taskbarButtons.set(id, button);
       }
+      if (launcher && tabs && launcher.parentElement !== tabs) tabs.append(launcher);
       const glyphSlot = button.querySelector('.tb-glyph');
-      if (glyphSlot) glyphSlot.innerHTML = UI.icon(record.icon || id);
+      if (glyphSlot && !launcher) glyphSlot.innerHTML = UI.icon(record.icon || id);
       const labelSlot = button.querySelector('.tb-label');
       if (labelSlot) labelSlot.textContent = record.title;
-      button.title = record.title;
+      const nameSlot = launcher ? launcher.querySelector('.tb-name') : null;
+      if (nameSlot) nameSlot.textContent = record.title;
       button.classList.toggle('running', true);
       button.classList.toggle('focused', focusedId === id);
       button.classList.toggle('active', focusedId === id && !record.minimized);
@@ -434,6 +443,16 @@ const Windows = (() => {
     }
     for (const [id, button] of taskbarButtons) {
       if (!registry.has(id)) { button.remove(); taskbarButtons.delete(id); }
+    }
+    // Plates that became tabs go home once their window is gone: closed again,
+    // they are launchers, back in the rail in their original order.
+    for (const plate of [...document.querySelectorAll('#taskbar-tabs .tb-btn[data-app]')]) {
+      if (registry.has(plate.dataset.app)) continue;
+      plate.classList.remove('running', 'focused', 'active', 'minimized');
+      plate.title = plate.dataset.appTitle || plate.querySelector('.tb-name')?.textContent || plate.dataset.app;
+      const after = [...stack.querySelectorAll('.tb-btn[data-app]')]
+        .find((other) => Number(other.dataset.order) > Number(plate.dataset.order));
+      stack.insertBefore(plate, after || null);
     }
   }
 
@@ -499,7 +518,7 @@ const Windows = (() => {
     };
   }
 
-  return { open, close, closeAll, focus, minimize, restore, toggleMaximize, get, list, exists, focusOrOpen, setTitle, setToolbar, setContent, refreshTaskbar, APP_ICONS };
+  return { open, close, closeAll, focus, minimize, restore, toggleMaximize, get, list, exists, focusOrOpen, setTitle, setToolbar, setContent, refreshTaskbar, APP_ICONS, get focusedId() { return focusedId; } };
 })();
 
 window.Windows = Windows;

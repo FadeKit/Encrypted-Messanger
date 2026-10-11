@@ -307,13 +307,20 @@ check('HTML renders a live preview while typing',
 await clickIn(html, 'save to drive', { pause: 2400 });
 
 // -------------------------- item 2: taskbar icons, tap to come back on phone
-const tb = await page.evaluate(() => [...document.querySelectorAll('#taskbar-stack .tb-btn[data-win]')].map((b) => {
+// Open the drive so the bar has a tab that belongs to an app launcher plate.
+await page.evaluate(() => Apps.open('drive'));
+await wait(900);
+// A tab is the plate for an open window: either the launcher plate that became
+// the tab for its app (data-app) or a plate made for a window with no launcher
+// (data-win).  They all live in #taskbar-tabs, ahead of the closed launchers.
+const tb = await page.evaluate(() => [...document.querySelectorAll('#taskbar-tabs .tb-btn')].map((b) => {
   const r = b.getBoundingClientRect();
   const glyph = b.querySelector('.tb-glyph');
   const svg = glyph && glyph.querySelector('svg');
   return {
-    win: b.dataset.win,
-    label: (b.querySelector('.tb-label') || {}).innerText || b.innerText.replace(/\s+/g, ' ').trim(),
+    win: b.dataset.win || (b.dataset.app ? `app:${b.dataset.app}` : null),
+    label: b.title || (b.querySelector('.tb-name') || {}).textContent || '',
+    running: b.classList.contains('running'),
     hasIcon: !!(svg && svg.querySelector('path, rect, circle, line, polyline, polygon')),
     box: `${Math.round(r.width)}x${Math.round(r.height)}`,
     big: r.width >= 34 && r.height >= 24,
@@ -325,25 +332,40 @@ check('every taskbar tab carries a real icon at a tappable size',
 check('taskbar tabs name the window they reopen', tb.every((t) => !!t.label), tb.map((t) => t.label).slice(0, 4).join(' / '));
 await shot('taskbar-phone');
 
-const driveTab = tb.find((t) => t.win && t.win.startsWith('drive')) || tb[tb.length - 1];
+const TAB = '#taskbar-tabs .tb-btn[data-app="drive"]';
+const driveTab = tb.find((t) => t.win === 'app:drive');
+if (!driveTab) check('the drive tab is in the tabs region', false, JSON.stringify(tb.map((t) => t.win)));
 if (driveTab) {
-  await page.evaluate((w) => document.querySelector(`#taskbar-stack .tb-btn[data-win="${w}"]`).click(), driveTab.win);
+  await page.evaluate((sel) => document.querySelector(sel).click(), TAB);
   await wait(500);
-  const minimized = await page.evaluate((w) => {
-    const node = document.querySelector(`.window[data-win="${w}"]`);
+  const minimized = await page.evaluate(() => {
+    const node = document.querySelector('.window[data-win="drive"]');
     return !!(node && (node.classList.contains('minimized') || !node.getClientRects().length));
-  }, driveTab.win);
+  });
   check('tapping the tab minimizes the window', minimized);
-  const hollow = await page.evaluate((w) => document.querySelector(`#taskbar-stack .tb-btn[data-win="${w}"]`).classList.contains('minimized'), driveTab.win);
+  const hollow = await page.evaluate((sel) => document.querySelector(sel).classList.contains('minimized'), TAB);
   check('a minimized window is marked on the taskbar', hollow);
-  await page.evaluate((w) => document.querySelector(`#taskbar-stack .tb-btn[data-win="${w}"]`).click(), driveTab.win);
+  const stayedPut = await page.evaluate((sel) => {
+    const b = document.querySelector(sel);
+    return !!b && b.parentElement.id === 'taskbar-tabs' && b.getBoundingClientRect().width > 0;
+  }, TAB);
+  check('a minimized tab stays where the finger left it', stayedPut);
+  await page.evaluate((sel) => document.querySelector(sel).click(), TAB);
   await wait(700);
-  const back = await page.evaluate((w) => {
-    const node = document.querySelector(`.window[data-win="${w}"]`);
+  const back = await page.evaluate(() => {
+    const node = document.querySelector('.window[data-win="drive"]');
     return !!(node && !node.classList.contains('minimized') && node.getBoundingClientRect().width > 100 && node.getClientRects().length);
-  }, driveTab.win);
+  });
   check('tapping it again brings the window straight back', back);
   await shot('taskbar-restored');
+  // and the tab goes home to the launcher rail when the window closes
+  await page.evaluate(() => Windows.close('drive'));
+  await wait(600);
+  const home = await page.evaluate(() => {
+    const b = document.querySelector('.tb-btn[data-app="drive"]');
+    return b ? { running: b.classList.contains('running'), inTabs: b.parentElement.id === 'taskbar-tabs', title: b.title } : null;
+  });
+  check('a closed app goes back to being a plain launcher', !!home && !home.running && !home.inTabs, JSON.stringify(home));
 } else {
   check('a drive tab exists in the taskbar', false);
 }

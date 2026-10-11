@@ -702,9 +702,65 @@ lan_ip() {
   fi
 }
 
+# A phone changes address — a new network, a new lease, a reboot — and a
+# certificate that does not carry today's address is what turns the padlock
+# back into "Not secure".  Re-sign the leaf for the address this phone holds
+# right now, under the same authority, before the host starts.  Nothing leaves
+# the phone: same CA, same key file, a fresh leaf.
+refresh_tls() {
+  [ "${AE_TLS:-1}" = "1" ] || return 0
+  command -v openssl >/dev/null 2>&1 || return 0
+  local dir="${AE_TLS_DIR:-$AE_HOME/tls}"
+  local cert="$dir/server.crt" key="$dir/server.key" ca="$dir/ca.crt"
+  [ -f "$key" ] || return 0
+  local ip; ip="$(lan_ip)"
+  [ -n "$ip" ] || return 0
+  if [ -f "$cert" ] \
+     && openssl x509 -in "$cert" -noout -text 2>/dev/null | grep -q "IP Address:$ip" \
+     && [ -n "$(openssl x509 -in "$cert" -noout -checkend 604800 2>/dev/null || true)" ]; then
+    return 0
+  fi
+  local cnf="$dir/openssl.cnf"
+  mkdir -p "$dir"
+  cat > "$cnf" <<TLS
+[req]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+x509_extensions = v3_req
+[dn]
+CN = AE Secure
+O = AE Secure
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt
+[alt]
+DNS.1 = localhost
+DNS.2 = ae-secure.local
+IP.1 = 127.0.0.1
+IP.2 = $ip
+TLS
+  if [ -f "$ca" ] && [ -f "$dir/ca.key" ]; then
+    openssl req -nodes -newkey rsa:2048 -keyout "$key" -out "$dir/server.csr" -config "$cnf" >/dev/null 2>&1 \
+      && openssl x509 -req -in "$dir/server.csr" -CA "$ca" -CAkey "$dir/ca.key" -CAcreateserial \
+           -days 825 -sha256 -extfile "$cnf" -extensions v3_req -out "$cert" >/dev/null 2>&1
+    rm -f "$dir/server.csr"
+  fi
+  if [ ! -f "$cert" ] || ! openssl x509 -in "$cert" -noout >/dev/null 2>&1; then
+    openssl req -x509 -nodes -newkey rsa:2048 -days 825 \
+      -keyout "$key" -out "$cert" -config "$cnf" >/dev/null 2>&1 || return 0
+  fi
+  chmod 600 "$key" 2>/dev/null || true
+  printf 'certificate renewed for %s\n' "$ip"
+}
+
 case "${1:-status}" in
   start)
     if status_line >/dev/null; then echo "already running"; exit 0; fi
+    refresh_tls
     mkdir -p "$AE_HOME/logs" "$AE_HOME/run"
     if [ -f "$AE_LOG" ] && [ "$(wc -c < "$AE_LOG" 2>/dev/null || echo 0)" -gt 2000000 ]; then mv -f "$AE_LOG" "$AE_LOG.1"; fi
     nohup "$AE_BIN_DIR/watchdog" >/dev/null 2>&1 &
@@ -728,8 +784,10 @@ case "${1:-status}" in
   restart) "$0" stop >/dev/null; sleep 1; "$0" start ;;
   guard)
     # Called by the boot hook and by the periodic Android job. Starting an
-    # already-running service is a no-op, so this is safe to call often.
-    status_line >/dev/null && exit 0
+    # already-running service is a no-op, so this is safe to call often.  The
+    # certificate is refreshed here too: this is what runs after a reboot,
+    # which is exactly when the phone may have a different address.
+    if status_line >/dev/null; then refresh_tls >/dev/null 2>&1; exit 0; fi
     "$0" start >/dev/null 2>&1
     ;;
   status)  status_line ;;
@@ -831,6 +889,15 @@ case "${1:-status}" in
     [ "${AE_TLS:-1}" = "1" ] && [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && scheme="https"
     echo "transport : $scheme (WebCrypto needs https or localhost)"
     echo "cert      : ${AE_TLS_DIR:-$AE_HOME/tls}/server.crt $([ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && echo present || echo missing)"
+    if [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ]; then
+      ip="$(lan_ip)"
+      if [ -n "$ip" ] && openssl x509 -in "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" -noout -text 2>/dev/null | grep -q "IP Address:$ip"; then
+        echo "address   : $ip — the certificate carries this phone's address"
+      else
+        echo "address   : this phone is ${ip:-not on a network} — the certificate does NOT carry it,"
+        echo "            which is what puts 'Not secure' in the bar. 'ae-secure start' renews it."
+      fi
+    fi
     if [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/ca.crt" ]; then
       echo "authority : ${AE_TLS_DIR:-$AE_HOME/tls}/ca.crt present — install it once per device"
       echo "            $(openssl x509 -in "${AE_TLS_DIR:-$AE_HOME/tls}/ca.crt" -noout -fingerprint -sha256 2>/dev/null | sed 's/^.*=//' | cut -c1-32)…"

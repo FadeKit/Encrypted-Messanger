@@ -141,8 +141,11 @@ It finds the install through `~/.ae-secure/config.env`, or through the
 supervisor that is running, or through its pid file, and it prints the address
 to open when it is done. If the patch fails it puts the version that was
 already on the phone back up, so a failed patch never leaves the phone dark.
+The last step restarts the phone, so it comes back up clean and the boot hook
+starts the host again; press any key during the ten-second countdown to skip
+that once, or set `AE_REBOOT=0` to leave the phone on.
 Options: `AE_BRANCH`, `AE_PORT`, `AE_DATA`, `AE_HOME`, `AE_TLS=0`,
-`AE_DISCORD_URL`, `AE_SOURCE_DIR`, `AE_SOURCE_FILE`.
+`AE_DISCORD_URL`, `AE_SOURCE_DIR`, `AE_SOURCE_FILE`, `AE_REBOOT=0`.
 
 ### Private fork?
 

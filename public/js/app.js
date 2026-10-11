@@ -669,24 +669,61 @@ const Shell = (() => {
     desktop.append(grid);
   }
 
+  /**
+   * One plate per app, always in the same place.  Closed it is a launcher:
+   * tap it and the app opens.  Open, that same plate *is* the tab — the icon
+   * never moves out from under the finger, and tapping it brings the window
+   * back (or puts it away again when it already has focus).  Windows paints
+   * the running/focused/minimised state onto this button.
+   */
+  function taskbarApp(id, title) {
+    return el('button', {
+      class: 'tb-btn',
+      title,
+      dataset: { app: id, appTitle: title },
+      onClick: () => {
+        const record = Windows.get(id);
+        if (!record) { Apps.open(id); return; }
+        if (record.minimized) Windows.restore(id);
+        else if (Windows.focusedId === id) Windows.minimize(id);
+        else Windows.focus(id, true);
+      },
+    }, [
+      el('span', { class: 'tb-glyph', html: UI.icon(id) }),
+      el('span', { class: 'tb-name', text: title }),
+    ]);
+  }
+
   function buildTaskbar() {
     const stack = el('div', { id: 'taskbar-stack', class: 'row-tight' });
     const startButton = el('button', { class: 'tb-btn', title: 'Start (Ctrl+Esc)', html: `<span class="tb-glyph">${UI.icon('generic')}</span>`, onClick: (event) => toggleStart(event) });
-    stack.append(startButton);
+    // Tabs sit directly after Start, before the closed launchers: on a phone,
+    // where the rail can only hold so much, the window you are looking for is
+    // the first thing in the bar rather than something to scroll to.
+    const tabs = el('div', { id: 'taskbar-tabs', class: 'row-tight' });
+    stack.append(startButton, tabs);
     const pinned = ['messages', 'communities', 'stories', 'drive', 'airdrop'];
-    for (const id of pinned) {
+    for (const [index, id] of pinned.entries()) {
       if (S.menuHidden(id)) continue;
       const app = Apps.get(id);
-      stack.append(el('button', { class: 'tb-btn', title: app ? app.title : id, html: `<span class="tb-glyph">${UI.icon(id)}</span>`, onClick: () => Apps.open(id) }));
+      const button = taskbarApp(id, app ? app.title : id);
+      button.dataset.order = String(index);
+      // The airdrop plate carries the unread badge.
+      if (id === 'airdrop') {
+        button.id = 'tb-airdrop';
+        if (S.get('airdropCount') > 0) button.append(el('span', { class: 'tb-badge', text: String(S.get('airdropCount')) }));
+      }
+      stack.append(button);
     }
     if (S.user.role === 'owner' || S.user.role === 'admin') {
-      stack.append(el('button', { class: 'tb-btn', title: 'Admin Console', html: `<span class="tb-glyph">${UI.icon('admin')}</span>`, onClick: () => Apps.open('admin') }));
+      const button = taskbarApp('admin', 'Admin Console');
+      button.dataset.order = '10';
+      stack.append(button);
     }
-    const airdropButton = el('button', { class: 'tb-btn', id: 'tb-airdrop', title: 'Airdrop inbox', html: `<span class="tb-glyph">${UI.icon('airdrop')}</span>`, onClick: () => Apps.open('airdrop') });
-    if (S.get('airdropCount') > 0) airdropButton.append(el('span', { class: 'tb-badge', text: String(S.get('airdropCount')) }));
-    stack.append(airdropButton);
-    stack.append(el('button', { class: 'tb-btn', title: 'Settings', html: `<span class="tb-glyph">${UI.icon('settings')}</span>`, onClick: () => Apps.open('settings') }));
-    const consoleButton = el('button', { class: 'tb-btn', id: 'tb-console', title: 'Console (Ctrl+Shift+O)', html: `<span class="tb-glyph">${UI.icon('console')}</span>` });
+    const settingsButton = taskbarApp('settings', 'Settings');
+    settingsButton.dataset.order = '11';
+    stack.append(settingsButton);
+    const consoleButton = el('button', { class: 'tb-btn', id: 'tb-console', title: 'Console (Ctrl+Shift+O)', dataset: { app: 'console' }, html: `<span class="tb-glyph">${UI.icon('console')}</span>` });
     stack.append(consoleButton);
     ConsoleLog.mount(consoleButton);
 

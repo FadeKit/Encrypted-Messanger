@@ -16,6 +16,8 @@
 #    4. generates a TLS certificate for this phone's address (WebCrypto needs
 #       a secure context), re-applies the boot hooks and starts it again
 #    5. prints the https address to open
+#    6. restarts the phone, so it comes back up clean (AE_REBOOT=0 skips it;
+#       press any key during the ten-second countdown to skip it once)
 #
 #  It is safe to run repeatedly. Your accounts, messages and files are never
 #  touched: only the application directory is replaced.
@@ -28,10 +30,10 @@
 #      AE_TLS=0                 serve plain http instead of https
 #      AE_SOURCE_FILE=<path>    patch from a local .tar.gz/.zip
 #      AE_SOURCE_DIR=<dir>      patch from a local checkout
-#      AE_REBOOT=1              also restart the phone at the end, for a truly
-#                               clean slate (uses termux-reboot if it is
-#                               installed, otherwise svc power reboot, otherwise
-#                               it says what to install)
+#      AE_REBOOT=0              do not restart the phone when the patch is done
+#                               (default: restart, using termux-reboot, else
+#                               svc power reboot, else su -c reboot, else it
+#                               prints the command to run by hand)
 # =============================================================================
 
 set -uo pipefail
@@ -39,7 +41,7 @@ set -uo pipefail
 AE_OWNER="${AE_OWNER:-FadeKit}"
 AE_REPO="${AE_REPO:-Encrypted-Messanger}"
 AE_BRANCH="${AE_BRANCH:-arena/442b6c1e-encrypted-messanger}"
-AE_REBOOT="${AE_REBOOT:-0}"
+AE_REBOOT="${AE_REBOOT:-1}"
 
 if [ -t 1 ]; then C_DIM=$'\033[2m'; C_OFF=$'\033[0m'; else C_DIM=''; C_OFF=''; fi
 say()  { printf '%s\n' "$*"; }
@@ -296,24 +298,38 @@ note "Details: ae-secure doctor   ·   logs: ae-secure logs   ·   backup: ae-se
 say ""
 
 # ------------------------------------------------------------------ reboot ---
-# Optional: an operator who wants the phone itself to come up clean can ask for
-# a reboot here. The boot hook the installer wrote starts the server again.
+# The patch ends with the phone restarting, which is the cleanest state to test
+# from: the boot hook the installer wrote brings the host back by itself. The
+# reboot is skipped with AE_REBOOT=0, or by pressing a key during the countdown.
 if [ "$AE_REBOOT" = "1" ]; then
   step "Restarting the phone"
-  say "the host starts again by itself on boot (Termux:Boot keeps that hook)"
-  if have termux-reboot; then
+  say "The host starts again on its own once the phone has booted."
+  SKIP_REBOOT=0
+  # Without a terminal (a piped install) there is nobody to ask, so go straight
+  # on rather than reading from a closed stdin.
+  if [ -t 0 ]; then
+    say "Press any key in the next ten seconds to keep the phone on."
+    if read -r -t 10 -n 1 -s; then SKIP_REBOOT=1; fi
+    say ""
+  fi
+  if [ "$SKIP_REBOOT" = "1" ]; then
+    note "reboot skipped — when you are ready: svc power reboot"
+  elif have termux-reboot; then
     note "termux-reboot"
     termux-reboot
   elif [ "$ON_TERMUX" = "1" ] && have svc; then
     note "svc power reboot"
-    svc power reboot || die "the system refused the reboot — run 'reboot' yourself"
+    svc power reboot || die "the system refused the reboot — run 'svc power reboot' yourself"
+  elif [ "$ON_TERMUX" = "1" ] && have su; then
+    note "su -c reboot"
+    su -c reboot || die "the system refused the reboot — run 'svc power reboot' yourself"
   elif [ "$ON_TERMUX" = "1" ]; then
     say "no reboot helper found. Install Termux:API (pkg install termux-api), or"
-    say "run this instead:  svc power reboot"
+    say "reboot the phone yourself with:  svc power reboot"
   else
-    say "not on Termux, so the phone was left alone (AE_REBOOT was set)"
+    say "not on Termux, so the phone was left alone"
   fi
 else
-  note "Reboot the phone too? Run this again with AE_REBOOT=1, or: svc power reboot"
+  note "The phone was not restarted (AE_REBOOT=0)."
 fi
 say ""

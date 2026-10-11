@@ -392,6 +392,38 @@ check('the console registers a flyout a link can open',
   check('the client opens a direct channel through it', /async function openDirectChannel\(peerId\)/.test(messageSource) && /openDirectChannel\s*[,}]/.test(messageSource));
 }
 
+// "Not secure" comes back whenever the address in the bar is not on the
+// certificate, and a phone changes address.  The service command re-signs the
+// leaf on start and on every boot hook run, under the authority the device
+// already trusts; tools/tls-refresh-test.sh proves it against real openssl.
+{
+  const installer = fs.readFileSync(path.join(ROOT, 'scripts', 'termux-install.sh'), 'utf8');
+  check('the service command can renew the certificate', /^refresh_tls\(\) \{/m.test(installer) && /openssl x509 -req/.test(installer));
+  check('starting renews the certificate for today\'s address', /refresh_tls\n    mkdir -p "\$AE_HOME\/logs"/.test(installer));
+  check('the boot hook renews it too', /guard\)[\s\S]{0,600}refresh_tls/.test(installer));
+  check('renewing keeps the same authority', /openssl x509 -req -in "\$dir\/server\.csr" -CA "\$ca" -CAkey "\$dir\/ca\.key"/.test(installer));
+  check('doctor says whether the address is covered', /the certificate carries this phone's address/.test(installer));
+  check('the patch flow restarts the phone by default', /AE_REBOOT="\$\{AE_REBOOT:-1\}"/.test(fs.readFileSync(path.join(ROOT, 'scripts', 'termux-patch.sh'), 'utf8')));
+}
+
+// A tab has to be reachable: the plate for an open window replaces the button
+// that would have launched it, and the tabs region sits next to Start so a
+// phone never has to scroll the bar to get a window back.
+{
+  const appSource = fs.readFileSync(path.join(PUBLIC, 'js', 'app.js'), 'utf8');
+  const windowsSource = fs.readFileSync(path.join(PUBLIC, 'js', 'windows.js'), 'utf8');
+  const css = fs.readFileSync(path.join(PUBLIC, 'css', 'windows.css'), 'utf8');
+  check('launcher plates become the tab for their window', /dataset: \{ app: id, appTitle: title \}/.test(appSource)
+    && /stack\.querySelector\(`\.tb-btn\[data-app="\$\{id\}"\]`\)/.test(windowsSource)
+    && /tabs\.append\(launcher\)/.test(windowsSource));
+  check('a tab restores, focuses or minimises its window', /if \(record\.minimized\) Windows\.restore\(id\);[\s\S]{0,120}Windows\.minimize\(id\)/.test(appSource));
+  check('tabs sit beside Start, before the closed launchers', /id: 'taskbar-tabs'/.test(appSource) && /#taskbar-tabs \{ gap: 2px; flex: none; \}/.test(css));
+  check('a closed plate returns to the rail in order', /insertBefore\(plate, after \|\| null\)/.test(windowsSource));
+  check('the running plate shows its title on a desktop only', /\.tb-btn \.tb-name \{ display: none; \}/.test(css)
+    && /@media \(min-width: 761px\)[\s\S]{0,300}\.tb-name \{ display: inline; \}/.test(css));
+  check('there is one airdrop plate, not two', (appSource.match(/tb-airdrop/g) || []).length === 1);
+}
+
 // The DOM turns a null argument into the visible text "null": a message header
 // once read "operator null null" because two optional nodes were passed to
 // append() as null.  Every such call goes through UI.append(), which drops them.
@@ -771,7 +803,8 @@ if (shim.State && shim.Apps) {
     check('installer can use a local checkout', script.includes('AE_SOURCE_DIR') && script.includes('fetch_local_dir() {'));
     check('local checkout copy never inherits git or data', /--exclude=\.\/node_modules --exclude=\.\/\.git --exclude=\.\/data/.test(script));
     check('installer refuses a target inside its source', /must not sit inside AE_SOURCE_DIR/.test(script));
-    check('guard is idempotent by construction', script.includes('guard)') && script.includes('status_line >/dev/null && exit 0'));
+    check('guard is idempotent by construction', script.includes('guard)')
+      && /status_line >\/dev\/null; then refresh_tls[\s\S]{0,80}exit 0/.test(script));
     const bootHook = script.slice(script.indexOf('sleep 12'), script.indexOf('sleep 12') + 200);
     check('boot hook calls guard, not start', bootHook.includes('ae-secure" guard'));
     const shellMarker = script.indexOf('ae-secure autostart >>>');

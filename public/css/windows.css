@@ -309,7 +309,8 @@ body[data-taskbar="left"][data-taskbar="hidden"] #taskbar { transform: translate
 /* Open windows: one clickable plate per window, icon plus title, so a minimised
    window is one obvious click away. */
 .tb-btn:has(.tb-label) { width: auto; min-width: 44px; padding: 0 10px; display: flex; align-items: center; gap: 8px; }
-.tb-btn .tb-label {
+.tb-btn .tb-label,
+.tb-btn .tb-name {
   font-family: var(--font-mono);
   font-size: var(--text-11);
   text-transform: uppercase;
@@ -319,8 +320,22 @@ body[data-taskbar="left"][data-taskbar="hidden"] #taskbar { transform: translate
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A launcher plate keeps its title to itself until it is the tab for an open
+   window: the closed rail stays a row of squares, and the bar grows a titled
+   plate for exactly the windows that are open. */
+.tb-btn .tb-name { display: none; }
+@media (min-width: 761px) {
+  .tb-btn.running:has(.tb-name),
+  .tb-btn.focused:has(.tb-name) { width: auto; min-width: 44px; padding: 0 10px; display: flex; align-items: center; gap: 8px; }
+  .tb-btn.running:has(.tb-name) .tb-name,
+  .tb-btn.focused:has(.tb-name) .tb-name { display: inline; }
+}
 #taskbar-stack { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 #taskbar-stack::-webkit-scrollbar { display: none; }
+/* Tabs come first, right beside Start, so the way back to an open window is
+   never something to scroll for. */
+#taskbar-tabs { gap: 2px; flex: none; }
+#taskbar-tabs:empty { display: none; }
 .status-btn { width: auto; min-width: 44px; padding: 0 10px; display: flex; align-items: center; gap: 8px; }
 .status-btn .status-dot { width: 11px; height: 11px; display: block; border: 1px solid var(--line-strong); background: var(--status-online); flex: none; }
 .status-btn .status-when {
@@ -861,6 +876,7 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
     gap: 2px;
   }
   #taskbar-stack { gap: 2px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  #taskbar-tabs { gap: 2px; }
   #taskbar-stack::-webkit-scrollbar { display: none; }
   /* The tray keeps its own width and the stack scrolls: squeezing the tray is
      what pushed the status pill off its own plate. */
@@ -869,7 +885,8 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
   .tray-link { display: none; }
   .tray-clock { min-width: 68px; padding: 4px 6px; }
   .tray-clock .time { font-size: var(--text-14); }
-  .tb-btn .tb-label { display: none; }
+  .tb-btn .tb-label,
+  .tb-btn .tb-name { display: none; }
   .tb-btn:has(.tb-label) { padding: 0; justify-content: center; }
   /* A phone keeps AUTO / SET and drops the status name: the dot already carries
      the colour, and the name is one tap away. */
