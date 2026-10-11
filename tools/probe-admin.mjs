@@ -247,6 +247,23 @@ check('the storage endpoint reports the uploads', !!api.storage && Number(api.st
 check('the message endpoint reports the message', !!api.messages && Number(api.messages.total) >= 1, `total=${api.messages?.total}`);
 const rows = api.storage?.uploads || [];
 check('no upload row carries a handle', rows.every((row) => !new RegExp(String(handle), 'i').test(JSON.stringify(row))), `${rows.length} row(s)`);
+// the site appearance card: an operator publishes a look for the whole server
+await openSection('global');
+const appearanceCard = await owner.evaluate(() => {
+  const card = [...document.querySelectorAll('.window[data-win="admin"] .card')].find((node) => /site appearance/i.test(node.innerText));
+  if (!card) return null;
+  const selects = [...card.querySelectorAll('select')].map((node) => node.options.length);
+  const button = [...card.querySelectorAll('button')].find((node) => /publish/i.test(node.innerText));
+  if (button) button.click();
+  return { selects, button: !!button, text: card.innerText.replace(/\s+/g, ' ').slice(0, 90) };
+});
+check('the console can publish a site appearance', !!appearanceCard && appearanceCard.selects.length >= 3, JSON.stringify(appearanceCard).slice(0, 160));
+await wait(1200);
+const published = await owner.evaluate(async () => (await API.get('/api/bootstrap')).server.appearance);
+check('publishing stores the look and tells the site', !!published && !!published.siteTheme, JSON.stringify(published).slice(0, 120));
+await owner.evaluate(async () => { await API.post('/api/admin/appearance', { clear: true }); });
+
+await openSection('messages');
 const withAttachment = (api.messages?.messages || []).find((m) => (m.attachments || []).length > 0);
 check('the picture is counted as an attachment', !!withAttachment, withAttachment ? `${withAttachment.attachments.length} attachment(s)` : 'none');
 // the envelope is what lets the operator read a body; it must never contain a
