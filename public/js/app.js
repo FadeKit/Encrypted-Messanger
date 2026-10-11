@@ -83,6 +83,7 @@ const Shell = (() => {
       document.documentElement.style.setProperty('--chamfer-sm', `${Math.max(4, Math.round(settings.cornerRadius * 0.58))}px`);
     }
     const root = document.documentElement;
+    ConsoleLog.log('UI', `interface theme applied · ${settings.theme || 'nox'} / ${settings.accent || 'ink'}`);
     root.style.setProperty('--glass-alpha', String((settings.glass ?? 88) / 100));
     root.style.setProperty('--glass-blur', `${settings.blur ?? 16}px`);
     root.style.setProperty('--font-scale', String(settings.fontScale || 1));
@@ -164,7 +165,6 @@ const Shell = (() => {
     const card = el('div', { class: 'lock-card' }, [
       el('div', { class: 'auth-logo' }, [el('div', { class: 'mark', text: 'AE' }), el('div', {}, [
         el('div', { class: 'title-3', text: 'Vault locked' }),
-        el('div', { class: 'hud', text: 'keys live in this tab only while unlocked' }),
       ])]),
       S.avatarNode ? S.avatarNode() : null,
       input,
@@ -215,7 +215,6 @@ const Shell = (() => {
     panel.append(el('div', { class: 'row' }, [
       el('div', { class: 'grow' }, [
         el('div', { class: 'title-1', text: title }),
-        el('div', { class: 'caption', text: mode === 'register' ? 'Your passphrase never leaves this device — not even as a hash.' : 'Everything is decrypted locally after you sign in.' }),
       ]),
     ]));
     panel.append(el('div', { class: 'auth-tabs' }, [
@@ -242,17 +241,14 @@ const Shell = (() => {
         el('div', { class: 'mark', text: 'AE' }),
         el('div', {}, [
           el('div', { class: 'title-2', text: 'AE Secure' }),
-          el('div', { class: 'hud', text: 'zero-knowledge transport' }),
         ]),
       ]),
       el('div', { class: 'title-1', html: 'Private by<br>construction.' }),
       el('div', { class: 'stack-8' }, [
-        tick('Every message and file is sealed with AES-GCM-256 before it leaves this device.'),
-        tick('Keys live in your vault, wrapped by your passphrase with PBKDF2-SHA256.'),
-        tick('Five one-time backup codes restore your account if a device is lost or stolen.'),
-        tick('Administrators see traffic and storage statistics — never plaintext.'),
+        tick('Messages and files are sealed with AES-GCM-256 on this device.'),
+        tick('Keys are wrapped by your passphrase; the server never sees them.'),
+        tick('Five one-time codes restore your account if a device is lost.'),
       ]),
-      el('div', { class: 'notice-strip', html: '<span>⬢</span><span>Zero-knowledge by design: the server stores ciphertext, wrapped keys and counters only.</span>' }),
     ]);
   }
 
@@ -623,6 +619,9 @@ const Shell = (() => {
     if (S.get('airdropCount') > 0) airdropButton.append(el('span', { class: 'tb-badge', text: String(S.get('airdropCount')) }));
     stack.append(airdropButton);
     stack.append(el('button', { class: 'tb-btn', title: 'Settings', html: '<span>⚙</span>', onClick: () => Apps.open('settings') }));
+    const consoleButton = el('button', { class: 'tb-btn', id: 'tb-console', title: 'Console (Ctrl+Shift+O)', html: '<span>›_</span>' });
+    stack.append(consoleButton);
+    ConsoleLog.mount(consoleButton);
 
     const tray = el('div', { id: 'taskbar-tray' }, [
       el('div', { class: 'tray-link', id: 'tb-link', title: 'Realtime channel to this server', text: 'LINK_UP' }),
@@ -765,8 +764,9 @@ const Shell = (() => {
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeStart();
+    if (event.key === 'Escape') { closeStart(); ConsoleLog.close(); }
     if (event.ctrlKey && event.key === 'Escape') { event.preventDefault(); toggleStart(); }
+    if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'o') { event.preventDefault(); ConsoleLog.toggle(); }
   });
 
   // -------------------------------------------------------------- realtime
@@ -884,6 +884,7 @@ const Shell = (() => {
 
   function notify(payload) {
     const config = Object.assign({ level: 'info' }, payload);
+    ConsoleLog.log('UI', `notice shown · ${config.level}`);
     if (S.settings().notificationToasts !== false) UI.toast(config);
     if (S.settings().desktopNotifications && 'Notification' in window && Notification.permission === 'granted') {
       try { new Notification(config.title || 'AE Secure', { body: config.body || '' }); } catch { /* ignore */ }

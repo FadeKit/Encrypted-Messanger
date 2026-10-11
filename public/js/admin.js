@@ -472,7 +472,7 @@ const AdminClient = (() => {
     hostNode.append(el('div', { class: 'toolbar' }, [
       el('div', { class: 'grow' }, [
         el('div', { class: 'body-strong', text: 'Signed-in sessions' }),
-        el('div', { class: 'tiny faint', text: 'End any device session when a member reports a lost device or asks you to sign them out.' }),
+        el('div', { class: 'tiny faint', text: 'End any session you do not recognise.' }),
       ]),
       el('span', { class: 'pill', text: `${rows.length} sessions` }),
       el('button', { class: 'btn sm', text: 'Refresh', onClick: () => paintSection() }),
@@ -490,7 +490,7 @@ const AdminClient = (() => {
     hostNode.append(el('div', { class: 'toolbar' }, [
       el('div', { class: 'grow' }, [
         el('div', { class: 'body-strong', text: 'Storage & capability requests' }),
-        el('div', { class: 'tiny faint', text: 'Approving sets the new capacity immediately; denying leaves the current limits untouched.' }),
+        el('div', { class: 'tiny faint', text: 'Approving sets the new capacity; denying leaves limits untouched.' }),
       ]),
       el('span', { class: 'pill accent', text: `${data.counts.open || 0} open` }),
       el('span', { class: 'pill', text: `${data.counts.approved || 0} approved` }),
@@ -627,7 +627,7 @@ const AdminClient = (() => {
     hostNode.append(el('div', { class: 'toolbar' }, [
       el('div', { class: 'grow' }, [
         el('div', { class: 'body-strong', text: 'Story storage' }),
-        el('div', { class: 'tiny faint', text: 'Stories are counted separately from messaging, community and drive uploads and expire after 24 hours.' }),
+        el('div', { class: 'tiny faint', text: 'Stories are counted separately and expire after 24 hours.' }),
       ]),
       el('span', { class: 'pill', text: `${data.totals.active} live` }),
       el('span', { class: 'pill', text: `${data.totals.count} total` }),

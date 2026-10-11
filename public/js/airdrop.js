@@ -65,7 +65,7 @@ const AirdropClient = (() => {
     body.append(pane);
     api.setToolbar([]);
     if (!enabled) {
-      list.append(el('div', { class: 'notice-strip', html: '<span>⇣</span><span>Airdrop delivery is off for your account. Enable it in Settings → Privacy → Airdrop delivery to receive drops while online.</span>' }));
+      list.append(el('div', { class: 'notice-strip', html: '<span>⇣</span><span>Airdrop is off. Enable it in Settings → Privacy.</span>' }));
     }
     refresh();
   }
@@ -74,7 +74,7 @@ const AirdropClient = (() => {
     clear(host);
     const drops = State.get('airdrops');
     if (!drops.length) {
-      host.append(UI.empty('⇣', 'No drops yet', 'While airdrop is on and you are online, drops land here instantly.'));
+      host.append(UI.empty('⇣', 'No drops yet', 'Drops arrive while airdrop is on and you are online.'));
       return;
     }
     for (const drop of drops) {

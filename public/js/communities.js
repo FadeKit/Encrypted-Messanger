@@ -48,6 +48,10 @@ const CommunityClient = (() => {
     const split = el('div', { class: 'split' });
     listNode = el('div', { class: 'split-list' });
     mainNode = el('div', { class: 'split-main' });
+    UI.swipeBack(mainNode, () => {
+      const split = mainNode.closest('.split');
+      if (split && split.classList.contains('show-main')) split.classList.remove('show-main');
+    });
     split.append(listNode, mainNode);
     body.append(split);
     renderList();
@@ -56,8 +60,7 @@ const CommunityClient = (() => {
       el('button', { class: 'btn sm', text: 'New community', onClick: () => createDialog() }),
       el('button', { class: 'btn sm', text: 'Refresh', onClick: () => refresh().then(() => { renderList(); renderMain(); }) }),
       el('div', { class: 'spacer' }),
-      el('span', { class: 'tiny faint', text: `Media in communities: ${State.settings().forumMedia ? 'on' : 'off'}` }),
-      el('button', { class: 'btn sm subtle', text: 'Change', onClick: () => Settings.open('privacy') }),
+      el('button', { class: 'btn sm subtle', text: `Media ${State.settings().forumMedia ? 'on' : 'off'}`, title: 'Media in communities and public posts', onClick: () => Settings.open('privacy') }),
     ]);
     State.subscribe('forums', () => { if (listNode) renderList(); });
   }
@@ -111,7 +114,7 @@ const CommunityClient = (() => {
     activeThreadId = null;
     State.set('activeForumId', id);
     const split = mainNode?.closest('.split');
-    if (split && window.matchMedia('(max-width: 720px)').matches) split.classList.add('show-main');
+    if (split && window.matchMedia('(max-width: 760px)').matches) split.classList.add('show-main');
     renderList();
     await loadThreads(id);
     renderMain();
@@ -134,13 +137,13 @@ const CommunityClient = (() => {
     clear(mainNode);
     const forum = currentForum();
     if (!forum) {
-      mainNode.append(UI.empty('◍', 'Pick a community', 'Public communities are readable by every member. Private rooms need an invited key.'));
+      mainNode.append(UI.empty('◍', 'Pick a community'));
       return;
     }
     if (activeThreadId) { renderThread(forum); return; }
 
     const header = el('div', { class: 'toolbar' }, [
-      el('button', { class: 'btn icon subtle mobile-hide', text: '‹', onClick: () => mainNode.closest('.split')?.classList.remove('show-main') }),
+      el('button', { class: 'btn icon subtle split-back', text: '‹', title: 'Back to the community list', onClick: () => mainNode.closest('.split')?.classList.remove('show-main') }),
       el('div', { class: 'grow' }, [
         el('div', { class: 'row' }, [
           el('span', { class: 'body-strong', text: forum.name }),
@@ -156,7 +159,7 @@ const CommunityClient = (() => {
     if (forum.description) scroll.append(el('div', { class: 'caption', text: forum.description }));
     const threads = State.get('threads');
     if (!threads.length) {
-      scroll.append(UI.empty('✎', 'No threads yet', 'Start the first discussion — posts are encrypted before upload.'));
+      scroll.append(UI.empty('✎', 'No threads yet', 'Start the first discussion.'));
     }
     for (const thread of threads) scroll.append(threadRow(forum, thread));
     mainNode.append(header, scroll);
@@ -446,7 +449,7 @@ const CommunityClient = (() => {
       glyph: '✎',
       content: el('div', { class: 'stack-12' }, [
         title, bodyInput, status,
-        el('div', { class: 'notice-strip', html: '<span>▨</span><span>Titles and posts are encrypted on this device. Media requires “Media in communities” to be enabled in Settings.</span>' }),
+        el('div', { class: 'notice-strip', html: '<span>▨</span><span>Media needs “Media in communities” enabled in Settings.</span>' }),
       ]),
       footer: [
         el('button', { class: 'btn', text: 'Cancel', onClick: () => ref.close() }),

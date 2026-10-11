@@ -82,10 +82,12 @@ const Settings = (() => {
   }
 
   // ----------------------------------------------------------- primitives
-  function heading(glyph, title, description) {
+  // Section heading: one mono label and a rule. Per-row descriptions carry the
+  // detail; a paragraph of prose above every section was noise.
+  function heading(glyph, title) {
     return el('div', { class: 'section-title' }, [
-      el('span', { class: 'glyph', text: `[${glyph}]` }),
-      el('div', {}, [el('div', { class: 'title-3', text: title }), description ? el('div', { class: 'caption', text: description }) : null]),
+      el('span', { class: 'glyph', text: glyph }),
+      el('div', { class: 'title-3', text: title }),
     ]);
   }
 
@@ -128,11 +130,11 @@ const Settings = (() => {
   // ------------------------------------------------------------- general
   function paintGeneral(fragment) {
     const settings = State.settings();
-    fragment.append(heading('GEN', 'General', 'Everyday behaviour, feature switches and menu cleanup.'));
+    fragment.append(heading('GEN', 'General'));
 
     const display = el('input', { class: 'input', value: State.user.displayName || '' });
     const bio = el('textarea', { class: 'textarea', value: State.user.bio || '' });
-    fragment.append(heading('ID', 'Profile', 'How other members see you inside chats and communities.'));
+    fragment.append(heading('ID', 'Profile'));
     fragment.append(row('Display name', 'Shown next to your coded handle. Your handle never changes.', display));
     fragment.append(row('Private bio', 'Only visible to you and administrators.', bio, 'Private bio'));
     fragment.append(el('div', { class: 'setting-row' }, [
@@ -144,11 +146,11 @@ const Settings = (() => {
       } })]),
     ]));
 
-    fragment.append(heading('I/O', 'Messaging', 'Composer behaviour and timestamps.'));
+    fragment.append(heading('I/O', 'Messaging'));
     fragment.append(row('Enter sends the message', 'When off, Enter adds a new line and Ctrl+Enter sends.', switchControl(settings.enterToSend, (value) => save({ enterToSend: value })), 'Enter sends the message'));
     fragment.append(row('Timestamp style', 'Relative (“4m ago”) or absolute clock times.', selectControl(settings.timestamps, [['relative', 'Relative'], ['absolute', 'Absolute']], (value) => save({ timestamps: value })), 'Timestamp style'));
 
-    fragment.append(heading('UI', 'Layout', 'Reorder or hide surfaces so the app matches how you actually use it.'));
+    fragment.append(heading('UI', 'Layout'));
     const order = [...(settings.layout.order || [])];
     const orderHost = el('div', { class: 'stack-4' });
     const paintOrder = () => {
@@ -177,7 +179,7 @@ const Settings = (() => {
     }
     fragment.append(row('Compact sidebar lists', 'Tighter rows in list panes, useful on small screens.', switchControl(settings.layout.sidebarCompact, (value) => save({ layout: { sidebarCompact: value } })), 'Compact sidebar lists'));
 
-    fragment.append(heading('SYS', 'Feature switches', 'Disable individual features for your account. Disabled features disappear from your menus and stop working on this account, without changing anything for anyone else.'));
+    fragment.append(heading('SYS', 'Feature switches'));
     const disabled = settings.disabledFeatures || {};
     for (const [key, label, description] of FEATURES) {
       fragment.append(row(label, description, switchControl(disabled[key] !== true, (value) => {
@@ -187,7 +189,7 @@ const Settings = (() => {
       }), label));
     }
 
-    fragment.append(heading('DEV', 'Advanced', 'For people who want to bend the interface to their taste.'));
+    fragment.append(heading('DEV', 'Advanced'));
     const css = el('textarea', { class: 'textarea', placeholder: '/* custom css */', value: settings.customCss || '' });
     fragment.append(el('div', { class: 'setting-row' }, [
       el('div', { class: 'info' }, [el('div', { class: 'name', text: 'Custom CSS' }), el('div', { class: 'desc', text: 'Applied only in your browser. 20 KB limit. Use it to fine-tune anything the theme controls miss.' })]),
@@ -198,7 +200,7 @@ const Settings = (() => {
   // ------------------------------------------------------------ appearance
   function paintAppearance(fragment) {
     const settings = State.settings();
-    fragment.append(heading('VIS', 'Appearance', 'Greyscale themes, one optional signal colour, backdrop and geometry.'));
+    fragment.append(heading('VIS', 'Appearance'));
 
     const themes = [['nox', 'NOX · ink black'], ['acid', 'ACID · bone and graphite'], ['sector', 'SECTOR · carbon'], ['ice', 'ICE · frost'], ['chrome', 'CHROME · paper and ink']];
     const accents = [['ink', 'INK · monochrome (default)'], ['phosphor', 'PHOSPHOR · acid green'], ['lime', 'LIME · chartreuse'], ['sodium', 'SODIUM · amber'], ['plasma', 'PLASMA · burnt orange'], ['crimson', 'CRIMSON · red'], ['magenta', 'MAGENTA · magenta'], ['cyan', 'CYAN · cyan'], ['teal', 'TEAL · teal'], ['violet', 'VIOLET · violet']];
@@ -223,27 +225,12 @@ const Settings = (() => {
       document.body.dataset.wall = value === 'theme' ? '' : value;
       save({ wallpaper: value });
     }), 'Backdrop'));
-
-    fragment.append(heading('PREV', 'Preview', 'A quick look at cards, buttons and badges with the current settings.'));
-    fragment.append(el('div', { class: 'card stack-8', style: { marginTop: '10px' } }, [
-      el('div', { class: 'row wrap' }, [
-        el('button', { class: 'btn primary', text: 'Primary' }),
-        el('button', { class: 'btn', text: 'Secondary' }),
-        el('button', { class: 'btn danger', text: 'Danger' }),
-        el('span', { class: 'pill', text: 'pill' }),
-        el('span', { class: 'pill accent', text: 'accent' }),
-        el('span', { class: 'verified-badge', text: '✓' }),
-      ]),
-      el('div', { class: 'hud', text: 'sealed on this device · AES-GCM-256' }),
-      el('div', { class: 'message-text', text: 'Messages, files and stories are encrypted here before they travel.' }),
-      el('div', { class: 'bar-track' }, [el('div', { class: 'bar-fill', style: { width: '62%' } })]),
-    ]));
   }
 
   // --------------------------------------------------------- accessibility
   function paintAccessibility(fragment) {
     const settings = State.settings();
-    fragment.append(heading('A11Y', 'Accessibility', 'Everything here is client-side: it changes only how the app looks and behaves for you.'));
+    fragment.append(heading('A11Y', 'Accessibility'));
     fragment.append(row('High contrast', 'Stronger borders and solid surfaces for maximum legibility.', switchControl(settings.highContrast, (value) => save({ highContrast: value })), 'High contrast'));
     fragment.append(row('Dyslexia-friendly font', 'Wider letter spacing with a more distinct letterform set.', switchControl(settings.dyslexiaFont, (value) => save({ dyslexiaFont: value })), 'Dyslexia-friendly font'));
     fragment.append(row('Line spacing', 'Increase spacing between lines of text.', sliderControl(settings.lineHeight, 1.2, 2, 0.05, (value) => save({ lineHeight: value }), (value) => `${value.toFixed(2)}×`), 'Line spacing'));
@@ -257,7 +244,7 @@ const Settings = (() => {
   // -------------------------------------------------------- notifications
   function paintNotifications(fragment) {
     const settings = State.settings();
-    fragment.append(heading('NTF', 'Notifications', 'How the app tells you something happened.'));
+    fragment.append(heading('NTF', 'Notifications'));
     fragment.append(row('In-app toasts', 'Slide-in notifications in the corner of the desktop.', switchControl(settings.notificationToasts, (value) => save({ notificationToasts: value })), 'In-app toasts'));
     fragment.append(row('Desktop notifications', 'Use the browser notification system when the tab is in the background.', switchControl(settings.desktopNotifications, async (value) => {
       if (value && 'Notification' in window && Notification.permission !== 'granted') {
@@ -275,7 +262,7 @@ const Settings = (() => {
   // --------------------------------------------------------------- privacy
   function paintPrivacy(fragment) {
     const settings = State.settings();
-    fragment.append(heading('PRV', 'Privacy & activity', 'What you share about yourself and which features are active.'));
+    fragment.append(heading('PRV', 'Privacy & activity'));
 
     fragment.append(row('Share activity status', 'Other members see Online, Idle, Do Not Disturb or Invisible. Turn this off and you always appear offline.', switchControl(settings.activityStatus, (value) => save({ activityStatus: value })), 'Share activity status'));
 
@@ -290,7 +277,7 @@ const Settings = (() => {
     statusRow.append(el('button', { class: 'btn sm subtle', text: 'Request purple status', disabled: State.user.purpleAllowed, onClick: () => requestDialog('purple') }));
     fragment.append(row('Availability now', 'Manual overrides: Idle keeps you idle while you read, Invisible makes you appear offline, Purple is granted by the operator on request.', statusRow, 'Availability now'));
 
-    fragment.append(heading('AIR', 'Airdrop', 'Receive drops from anyone online, instantly.'));
+    fragment.append(heading('AIR', 'Airdrop'));
     fragment.append(row('Airdrop delivery', 'When on, drops reach you while you are online. Off by default.', switchControl(settings.airdrop, (value) => { save({ airdrop: value }); AirdropClient.refresh(); }), 'Airdrop delivery'));
     fragment.append(row('Airdrop sounds', 'Play a tone when a drop lands.', switchControl(settings.airdropSound, (value) => save({ airdropSound: value })), 'Airdrop sounds'));
     fragment.append(el('div', { class: 'setting-row' }, [
@@ -298,18 +285,18 @@ const Settings = (() => {
       el('div', { class: 'control' }, [el('button', { class: 'btn', text: 'Open airdrop', onClick: () => AirdropClient.composer() })]),
     ]));
 
-    fragment.append(heading('COM', 'Communities and public posting', ''));
+    fragment.append(heading('COM', 'Communities and public posting'));
     fragment.append(row('Media in communities and public posts', 'Off by default. When off, you cannot upload or attach images in communities or the public square, and you are not shown their media.', switchControl(settings.forumMedia, (value) => { save({ forumMedia: value }); UI.toast({ level: 'info', title: value ? 'Community media enabled' : 'Community media disabled', body: value ? 'You can attach images to community and public posts.' : 'Uploads and image display in communities are now blocked.', duration: 4200 }); }), 'Media in communities and public posts'));
     fragment.append(row('Autoplay stories', 'Start videos automatically in the story viewer.', switchControl(settings.storyAutoplay, (value) => save({ storyAutoplay: value })), 'Autoplay stories'));
 
-    fragment.append(heading('FUN', 'Click Me', 'A shared counter for the whole server. Pure fun.'));
+    fragment.append(heading('FUN', 'Click Me'));
     fragment.append(row('Show the Click Me box', 'Hide the counter if you would rather not see it.', switchControl(State.featureEnabled('clickMe'), (value) => save({ disabledFeatures: Object.assign({}, settings.disabledFeatures, { clickMe: !value }) })), 'Click Me'));
     fragment.append(Clicker.card());
   }
 
   // -------------------------------------------------------------- requests
   function paintRequests(fragment) {
-    fragment.append(heading('QTA', 'Storage & requests', 'Ask the operator for more capacity, contact the administration, and manage your recovery codes.'));
+    fragment.append(heading('QTA', 'Storage & requests'));
     const limits = State.user.limits;
 
     fragment.append(el('div', { class: 'card stack-8' }, [
@@ -331,21 +318,21 @@ const Settings = (() => {
       requestCard('◉', 'Bigger story items', 'Ask for larger story images and videos.', 'story', [2, 5].map((gb) => [gb * 1024 * 1024 * 1024, `${gb} GB`])),
       requestCard('◉', 'Purple availability status', 'Adds the purple ring to your status options.', 'purple', []),
     );
-    fragment.append(heading('REQ', 'Requests', 'Approvals and denials both arrive as notifications and are logged on this page.'));
+    fragment.append(heading('REQ', 'Requests'));
     fragment.append(requestGrid);
 
-    fragment.append(heading('OPS', 'Contact the administration', 'Open a private, masked channel with the operator without exposing their account name.'));
+    fragment.append(heading('OPS', 'Contact the administration'));
     fragment.append(contactCard());
 
-    fragment.append(heading('CODE', 'One-time DM codes', 'Single-use codes that open a private channel with the operator. Redeeming consumes the code; none of your other conversations are affected.'));
+    fragment.append(heading('CODE', 'One-time DM codes'));
 
-    fragment.append(heading('KEY', 'Backup codes', 'Five one-time codes that restore this account if a device is lost or an account is taken over.'));
+    fragment.append(heading('KEY', 'Backup codes'));
     fragment.append(backupCard());
 
-    fragment.append(heading('DEV', 'Signed-in devices', 'End any session, including one you no longer recognise.'));
+    fragment.append(heading('DEV', 'Signed-in devices'));
     fragment.append(sessionsCard());
 
-    fragment.append(heading('LOG', 'Request history', 'Every request you have filed and its outcome.'));
+    fragment.append(heading('LOG', 'Request history'));
     const history = el('div', { class: 'stack-6' });
     fragment.append(history);
     API.get('/api/requests').then((data) => {
@@ -587,7 +574,7 @@ const Settings = (() => {
   // ---------------------------------------------------------------- public
   function paintPublic(fragment) {
     const profile = State.user.publicProfile;
-    fragment.append(heading('PUB', 'Public profile', 'A public identity that other members can follow: alias, bio, permanent photos and 24-hour stories.'));
+    fragment.append(heading('PUB', 'Public profile'));
     fragment.append(el('div', { class: 'card stack-8' }, [
       el('div', { class: 'row' }, [
         el('span', { class: 'grow' }, [
@@ -599,7 +586,7 @@ const Settings = (() => {
       el('button', { class: 'btn primary', text: 'Edit public profile', onClick: () => StoriesClient.profileEditor({ then: () => paintRefresh() }) }),
       el('div', { class: 'hint', text: 'Turning the switch off hides your alias, bio, photos, stories and posts from everyone immediately. Turning it back on restores them.' }),
     ]));
-    fragment.append(heading('STORY', 'Stories', 'Stories expire 24 hours after posting and can be up to 1 GB each.'));
+    fragment.append(heading('STORY', 'Stories'));
     fragment.append(el('div', { class: 'row' }, [
       el('button', { class: 'btn', text: 'Post a story', onClick: () => Apps.open('stories') }),
       el('button', { class: 'btn', text: 'Open the public square', onClick: () => Apps.open('stories') }),
@@ -608,7 +595,7 @@ const Settings = (() => {
 
   // --------------------------------------------------------------- account
   function paintAccount(fragment) {
-    fragment.append(heading('ACC', 'Account & security', 'Identity, passphrase and recovery.'));
+    fragment.append(heading('ACC', 'Account & security'));
     fragment.append(el('div', { class: 'card stack-6' }, [
       el('div', { class: 'row' }, [
         UI.avatar(State.user, { size: 'lg' }),
@@ -626,7 +613,7 @@ const Settings = (() => {
     const current = el('input', { class: 'input', type: 'password', placeholder: 'Current passphrase' });
     const next = el('input', { class: 'input', type: 'password', placeholder: 'New passphrase (12+ characters)' });
     const confirm = el('input', { class: 'input', type: 'password', placeholder: 'Repeat new passphrase' });
-    fragment.append(heading('PASS', 'Change passphrase', 'Re-seals your vault. Every other device is signed out unless you keep them.'));
+    fragment.append(heading('PASS', 'Change passphrase'));
     fragment.append(el('div', { class: 'card stack-8' }, [
       current, next, confirm,
       el('div', { class: 'row' }, [
@@ -667,13 +654,13 @@ const Settings = (() => {
       el('div', { class: 'hint', text: 'The passphrase never leaves this device. Your authKey is derived with PBKDF2-SHA256 (210 000 iterations) and only its hash reaches the server.' }),
     ]));
 
-    fragment.append(heading('SESS', 'Sessions', 'Sign out of everything else if you are unsure about a device.'));
+    fragment.append(heading('SESS', 'Sessions'));
     fragment.append(sessionsCard());
   }
 
   // -------------------------------------------------------------- tutorial
   function paintTutorial(fragment) {
-    fragment.append(heading('DOC', 'Tutorial & help', 'A guided walkthrough plus a searchable manual for every feature.'));
+    fragment.append(heading('DOC', 'Tutorial & help'));
     fragment.append(el('div', { class: 'card stack-8' }, [
       el('div', { class: 'body-strong', text: 'App usage tutorial' }),
       el('div', { class: 'small muted', text: 'The tour highlights each part of the interface in order — messages, communities, drive, airdrops, requests and the operator tools.' }),
@@ -682,13 +669,13 @@ const Settings = (() => {
         el('button', { class: 'btn', text: 'Open the help centre', onClick: () => Help.open() }),
       ]),
     ]));
-    fragment.append(heading('FIND', 'How do I…?', 'Type the name of any setting or feature to read a longer explanation.'));
+    fragment.append(heading('FIND', 'How do I…?'));
     const search = el('input', { class: 'input', placeholder: 'Search: airdrop, backup codes, drive quota, purple status…' });
     const results = el('div', { class: 'stack-6' });
     const paint = () => {
       clear(results);
       const matches = Help.search(search.value).slice(0, 12);
-      if (!matches.length) { results.append(el('div', { class: 'caption', text: 'Nothing matched that phrasing. Try a feature name such as “stories” or “one-time code”.' })); return; }
+      if (!matches.length) { results.append(el('div', { class: 'caption', text: 'Nothing matched. Try a feature name, such as “stories”.' })); return; }
       for (const article of matches) {
         results.append(el('div', { class: 'help-article' }, [
           el('h4', { text: article.title }),
@@ -707,7 +694,7 @@ const Settings = (() => {
   }
 
   function paintAbout(fragment) {
-    fragment.append(heading('SYS', 'About', 'Version, security model and the operator notice.'));
+    fragment.append(heading('SYS', 'About'));
     fragment.append(el('div', { class: 'card stack-8' }, [
       el('div', { class: 'body-strong', text: `AE Secure ${State.get('boot')?.version || '1.0.0'}` }),
       el('div', { class: 'small muted', text: `Server uptime ${UI.duration(State.get('boot')?.server?.uptime || 0)} · ${State.get('boot')?.server?.counts?.users || 0} members` }),
@@ -718,7 +705,7 @@ const Settings = (() => {
         el('button', { class: 'btn', text: 'Privacy, limits & liability', onClick: () => Help.open('Usage agreement and non-liability') }),
       ]),
     ]));
-    fragment.append(heading('LAW', 'Operator notice', ''));
+    fragment.append(heading('LAW', 'Operator notice'));
     fragment.append(el('div', { class: 'notice-strip', html: '<span>§</span><span>The operator of this server is not liable for anything shared, posted, uploaded or viewed by members, takes no part in user activity, and cannot read encrypted content.</span>' }));
   }
 

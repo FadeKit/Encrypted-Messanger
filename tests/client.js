@@ -145,7 +145,7 @@ for (const file of order) {
 check(`every script loads (${booted}/${order.length})`, booted === order.length);
 
 // ------------------------------------------------------------------ globals
-const expectedGlobals = ['AE', 'API', 'UI', 'Windows', 'State', 'Media', 'Apps', 'Terms', 'ConversationClient', 'Viewer', 'Profile', 'CommunityClient', 'DriveClient', 'StoriesClient', 'AirdropClient', 'Clicker', 'Help', 'Settings', 'AdminClient', 'Shell'];
+const expectedGlobals = ['AE', 'API', 'UI', 'Windows', 'State', 'Media', 'Apps', 'Terms', 'ConversationClient', 'Viewer', 'Profile', 'CommunityClient', 'DriveClient', 'StoriesClient', 'AirdropClient', 'Clicker', 'Help', 'Settings', 'AdminClient', 'ConsoleLog', 'Shell'];
 for (const name of expectedGlobals) check(`global ${name} is exported`, !!shim[name]);
 
 // ------------------------------------------------------------------ app registry
@@ -430,6 +430,145 @@ if (shim.State && shim.Apps) {
   if (shim.Help) {
     try { shim.Help.search('status').forEach(() => {}); check('help search executes', true); } catch (error) { check('help search executes', false, error.message); }
   }
+}
+
+// ------------------------------------------------- mobile and touch support
+{
+  const windowsCss = fs.readFileSync(path.join(PUBLIC, 'css', 'windows.css'), 'utf8');
+  const baseCss = fs.readFileSync(path.join(PUBLIC, 'css', 'base.css'), 'utf8');
+  const appCss = fs.readFileSync(path.join(PUBLIC, 'css', 'app.css'), 'utf8');
+  const windowsJs = fs.readFileSync(path.join(PUBLIC, 'js', 'windows.js'), 'utf8');
+
+  // one phone breakpoint, agreed on by CSS and by the window manager
+  const cssPhones = [...windowsCss.matchAll(/@media \(max-width: (\d+)px\)/g)].map((m) => Number(m[1]));
+  const jsPhone = Number(/\(max-width: (\d+)px\)/.exec(windowsJs)[1]);
+  check('phone breakpoint exists in css', cssPhones.includes(760), `found ${cssPhones.join(', ')}`);
+  check('window manager agrees with the css phone breakpoint', jsPhone === 760, `js=${jsPhone}`);
+  check('no stray 720px breakpoint', !/max-width: 720px/.test(windowsCss + baseCss + appCss + windowsJs));
+  check('no stray 640px breakpoint', !/max-width: 640px/.test(windowsCss + baseCss + appCss));
+
+  // the phone layer must handle the browser chrome and the home indicator
+  check('windows use the dynamic viewport on phones', /100dvh/.test(windowsCss));
+  check('safe-area insets are respected', /env\(safe-area-inset-bottom/.test(windowsCss) && /env\(safe-area-inset-bottom/.test(baseCss) === false || /env\(safe-area-inset-bottom/.test(windowsCss));
+  check('taskbar clears the home indicator', /#taskbar \{[^}]*env\(safe-area-inset-bottom/.test(windowsCss.replace(/\n/g, ' ')) || /padding: 4px 6px calc\(4px \+ env\(safe-area-inset-bottom, 0px\)\)/.test(windowsCss));
+  check('popovers become sheets on phones', /@media \(max-width: 760px\)[\s\S]*\.flyout \{[\s\S]*bottom: calc\(var\(--taskbar-height\)/.test(windowsCss));
+  check('thumb-sized taskbar buttons on phones', /@media \(max-width: 760px\)[\s\S]*\.tb-btn \{ width: 46px; height: 46px; \}/.test(windowsCss));
+  check('thumb-sized window controls on phones', /@media \(max-width: 760px\)[\s\S]*\.caption-btn \{ width: 46px; min-height: 44px; \}/.test(windowsCss));
+  check('phone fields do not trigger ios zoom', /@media \(max-width: 760px\)[\s\S]*input, textarea, select[^{]*\{ font-size: 16px; \}/.test(baseCss));
+  check('wide tables scroll on phones', /@media \(max-width: 760px\)[\s\S]*\.pane-scroll \{ overflow-x: auto; \}/.test(windowsCss) && /@media \(max-width: 760px\)[\s\S]*\.table \{ min-width:/.test(windowsCss));
+  check('hover-only controls are revealed on touch', /@media \(max-width: 760px\)[\s\S]*\.message-actions \{ opacity: 1 !important; \}/.test(baseCss));
+
+  // list ⇄ detail: the back control must exist where the panes take turns, and
+  // must not be hidden by a rule meant for everything else
+  const messagesJs = fs.readFileSync(path.join(PUBLIC, 'js', 'messages.js'), 'utf8');
+  const communitiesJs = fs.readFileSync(path.join(PUBLIC, 'js', 'communities.js'), 'utf8');
+  check('back control exists in messages', /class: 'btn icon subtle split-back'/.test(messagesJs));
+  check('back control exists in communities', /class: 'btn icon subtle split-back'/.test(communitiesJs));
+  check('back control is shown only in the compact layout', /\.split-back \{ display: none; \}/.test(appCss) && /@media \(max-width: 900px\)[\s\S]*\.split-back \{ display: inline-flex; \}/.test(windowsCss));
+  check('the inverted mobile-hide class is gone', !/mobile-hide/.test(windowsCss + messagesJs + communitiesJs));
+  check('swipe-back is wired in both list surfaces', /UI\.swipeBack\(mainNode/.test(messagesJs) && /UI\.swipeBack\(mainNode/.test(communitiesJs));
+  check('swipe-back helper ships in the ui module', /function swipeBack\(node, handler\)/.test(fs.readFileSync(path.join(PUBLIC, 'js', 'ui.js'), 'utf8')));
+  check('swipe-back ignores vertical scrolling', /dy < 56/.test(fs.readFileSync(path.join(PUBLIC, 'js', 'ui.js'), 'utf8')));
+}
+
+// ------------------------------------------------------------ console panel
+{
+  const consoleJs = fs.readFileSync(path.join(PUBLIC, 'js', 'console.js'), 'utf8');
+  const consoleCss = /@media \(max-width: 760px\)[\s\S]*\.console-panel \{[\s\S]*left: 0;/.test(windowsCssForPhones());
+  function windowsCssForPhones() { return fs.readFileSync(path.join(PUBLIC, 'css', 'windows.css'), 'utf8'); }
+
+  check('console is registered as a surface', !!shim.Apps && !!shim.Apps.get('console'));
+  check('console surface is reachable by deep link', !!shim.ConsoleLog);
+  check('console docks above the taskbar', /\.console-panel \{[\s\S]*bottom: calc\(var\(--taskbar-height\) \+ 10px\)/.test(fs.readFileSync(path.join(PUBLIC, 'css', 'windows.css'), 'utf8')));
+  check('console becomes a full-width sheet on phones', consoleCss);
+  check('console ships a bounded buffer', shim.ConsoleLog.cap === 240);
+  check('console labels entries by kind', shim.ConsoleLog.kindCount() >= 5, `kinds=${shim.ConsoleLog.kindCount()}`);
+  check('console keyboard shortcut is bound', /Ctrl\+Shift\+O/.test(fs.readFileSync(path.join(PUBLIC, 'js', 'app.js'), 'utf8')));
+  check('console button sits in the taskbar', /id: 'tb-console'/.test(fs.readFileSync(path.join(PUBLIC, 'js', 'app.js'), 'utf8')));
+
+  // privacy: paths are masked, and the log can never be handed a secret
+  const masked = shim.ConsoleLog.maskPath('/api/files/f_9f2c1a7b45e3/chunks');
+  check('console masks record ids in paths', masked === '/api/files/•••/chunks', masked);
+  check('console masks numeric ids in paths', shim.ConsoleLog.maskPath('/api/stories/42/seen') === '/api/stories/•••/seen');
+  check('console keeps readable route names', shim.ConsoleLog.maskPath('/api/auth/register') === '/api/auth/register');
+  check('console drops query strings', shim.ConsoleLog.maskPath('/api/files?kind=drive&q=secret') === '/api/files');
+
+  const feedBlock = consoleJs.slice(consoleJs.indexOf('const FEED = {'), consoleJs.indexOf('function attach()'));
+  const interpolations = [...feedBlock.matchAll(/\$\{([^}]*)\}/g)].map((m) => m[1]);
+  const allowedInterpolation = (expr) => {
+    const compact = expr.replace(/\s+/g, '');
+    return /^payload&&payload\.(method|status)\?payload\.(method|status):'[A-Z]+'$/.test(compact)
+      || /^\(payload&&payload\.status\)\|\|0$/.test(compact)
+      || /^maskPath\(payload&&payload\.path\)$/.test(compact);
+  };
+  check('console templates interpolate only masked traffic fields', interpolations.every(allowedInterpolation), interpolations.join(' | '));
+  check('console never reads message bodies or secrets', !/payload\.(body|text|ciphertext|token|name|username|file|blob|key|keys|message)\b/.test(consoleJs));
+  check('console records notifications by level only', /notice shown · \$\{config\.level\}/.test(fs.readFileSync(path.join(PUBLIC, 'js', 'app.js'), 'utf8')));
+
+  // the command line is local: nothing that changes server state
+  const commands = shim.ConsoleLog.commands();
+  check('console commands are local only', commands.every((name) => /^(help|clear|status|log|theme|accent|wall|open|lock|whoami|net|time|ver)$/.test(name)), commands.join(','));
+  check('console has no destructive verbs', !/(delete|remove|kick|ban|purge|wipe|reset|admin)\b/.test(commands.join(' ')));
+  check('console never posts to the api', !/API\.post|API\.delete|API\.patch|fetch\(/.test(consoleJs));
+
+  // runtime: a real request must be logged with its identifier masked
+  {
+    const before = shim.ConsoleLog.entries().length;
+    shim.ConsoleLog.clear();
+    shim.API.get('/api/files/f_secret123456/chunks').catch(() => {});
+    const lines = shim.ConsoleLog.entries().map((entry) => entry.text).join('\n');
+    check('a live request is logged with a masked path', lines.includes('/api/files/•••/chunks'), lines || '(no entries)');
+    check('no raw identifier reaches the log', !lines.includes('secret123456'), lines);
+    const shown = shim.ConsoleLog.entries().map((entry) => `${entry.kind} ${entry.text}`).join('\n');
+    check('the log carries no ciphertext or token shapes', !/[A-Za-z0-9+/]{32,}={0,2}/.test(shown), shown);
+    shim.ConsoleLog.clear();
+    shim.ConsoleLog.log('LINK', 'probe');
+    check('entries can be cleared', shim.ConsoleLog.entries().length === 1 && before >= 0);
+    shim.ConsoleLog.clear();
+  }
+
+  // the event bus itself must never carry a query string
+  {
+    const frames = [];
+    const off = shim.API.on('api.request', (payload) => frames.push(payload));
+    shim.API.get('/api/files?token=leaky&kind=drive').catch(() => {});
+    off();
+    check('traffic frames reach the console with the route only', frames.length === 1 && frames[0].path === '/api/files', JSON.stringify(frames));
+    check('traffic frames carry no query string', frames.every((frame) => !String(frame.path).includes('?')));
+  }
+
+  // every command that touches nothing but this tab runs without throwing
+  {
+    const safe = ['help', 'status', 'log on', 'open', 'whoami', 'net', 'time', 'ver', 'nonsense', 'log off'];
+    let thrown = null;
+    try {
+      for (const line of safe) shim.ConsoleLog.execute(line);
+    } catch (error) { thrown = `${error.message}`; }
+    check('console commands never throw', !thrown, thrown || '');
+    const text = shim.ConsoleLog.entries().map((entry) => entry.text).join('\n');
+    check('unknown commands are refused, not executed', /unknown command “nonsense”/.test(text), text.slice(-120));
+    shim.ConsoleLog.clear();
+  }
+
+  // the traffic frames the panel listens for exist in the api client
+  const apiJs = fs.readFileSync(path.join(PUBLIC, 'js', 'api.js'), 'utf8');
+  check('api announces requests to the console', /emit\('api\.request'/.test(apiJs));
+  check('api announces failed requests to the console', /emit\('api\.error'/.test(apiJs) && /emit\('api\.offline'/.test(apiJs));
+}
+
+// ------------------------------------------------------------------ cleanup
+{
+  const baseCss = fs.readFileSync(path.join(PUBLIC, 'css', 'base.css'), 'utf8');
+  const deadClasses = ['term', 'scroll-shadow', 'meter-ring', 'hud-quiet', 'vdivider', 'kbd'];
+  for (const name of deadClasses) {
+    check(`dead class removed: .${name}`, !new RegExp(`\\.${name}[ ,{:.]`).test(baseCss));
+  }
+  const settingsJs = fs.readFileSync(path.join(PUBLIC, 'js', 'settings.js'), 'utf8');
+  check('settings sections drop their prose blurbs', !/heading\('[A-Z0-9]+', '[^']+', '/.test(settingsJs));
+  check('the component preview block is gone', !/heading\('PREV'/.test(settingsJs));
+  check('section headings carry no bracketed glyphs', !/text: `\[\$\{glyph\}\]`/.test(settingsJs));
+  check('auth hero lists three facts, not four', (fs.readFileSync(path.join(PUBLIC, 'js', 'app.js'), 'utf8').match(/tick\('/g) || []).length === 3);
+  check('empty states are one line, not essays', !/sealed on this device before it travels/.test(fs.readFileSync(path.join(PUBLIC, 'js', 'messages.js'), 'utf8')));
 }
 
 if (VERBOSE && asyncNoise.length) console.log(`  (async stub-network noise: ${asyncNoise.length})`);

@@ -33,6 +33,10 @@ const API = (() => {
   }
 
   async function request(method, path, body, options = {}) {
+    // Traffic is announced to the console as method plus a route path. Query
+    // strings are stripped here so no credential ever reaches the event bus.
+    const route = String(path).split('?')[0];
+    emit('api.request', { method, path: route });
     const headers = {};
     if (token) headers['x-ae-token'] = token;
     let payload;
@@ -52,9 +56,11 @@ const API = (() => {
       response = await fetch(path, { method, headers, body: payload, credentials: 'same-origin' });
     } catch (error) {
       online = false;
+      emit('api.offline', { method, path: route });
       throw new ApiError(0, { error: 'Network unreachable — the server may be offline.', code: 'offline' });
     }
     online = true;
+    if (!response.ok) emit('api.error', { method, path: route, status: response.status });
     const type = response.headers.get('content-type') || '';
     if (response.status === 204) return {};
     if (!type.includes('application/json')) {

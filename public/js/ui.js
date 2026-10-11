@@ -430,6 +430,40 @@ const UI = (() => {
     ]);
   }
 
+  /**
+   * Swipe right on a detail pane to go back to its list. Touch only: it reads
+   * nothing but pointer travel and never prevents normal scrolling.
+   */
+  function swipeBack(node, handler) {
+    if (!node || typeof handler !== 'function') return () => {};
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    const begin = (event) => {
+      const touch = event.touches ? event.touches[0] : event;
+      if (!touch) return;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      tracking = true;
+    };
+    const end = (event) => {
+      if (!tracking) return;
+      tracking = false;
+      const touch = event.changedTouches ? event.changedTouches[0] : event;
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      const dy = Math.abs(touch.clientY - startY);
+      const edge = node.getBoundingClientRect().left + 84;
+      if (dx > 64 && dy < 56 && startX <= edge) handler();
+    };
+    node.addEventListener('touchstart', begin, { passive: true });
+    node.addEventListener('touchend', end, { passive: true });
+    return () => {
+      node.removeEventListener('touchstart', begin);
+      node.removeEventListener('touchend', end);
+    };
+  }
+
   function iconButton(glyph, title, onClick, extra = '') {
     return el('button', { class: `btn icon subtle ${extra}`, text: glyph, title, onClick });
   }
@@ -438,7 +472,7 @@ const UI = (() => {
     $, $$, el, frag, clear, esc,
     timeAgo, clockTime, dateTime, duration, bytes, percent, initials, hueFor,
     avatar, statusDot, verifiedBadge, statusLabel,
-    toast, dialog, confirm, prompt, contextMenu, closeMenus,
+    toast, dialog, confirm, prompt, contextMenu, closeMenus, swipeBack,
     copy, download, debounce, throttle, sparkline, meter, skeletonList, empty, iconButton,
   };
 

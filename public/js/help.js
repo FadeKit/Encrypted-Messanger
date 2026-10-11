@@ -79,6 +79,12 @@ const Help = (() => {
       body: 'The ⋯ menu on any message offers reply, reactions, votes, copy and edit (for your own messages). Deletion is deliberately restricted: in direct messages and group chats no member can delete a message, though operators can remove anything. In public communities the author may delete their own post or thread, and operators may delete anything anywhere. Nothing is ever hard-deleted from your own screen until you reload — the ciphertext is replaced with a removal marker.',
     },
     {
+      title: 'Console and activity log',
+      tags: ['console', 'log', 'activity', 'taskbar', 'command line', 'debug', 'terminal'],
+      summary: 'A visual-only readout of client activity, with a command line that changes nothing outside this device.',
+      body: 'The console opens from the taskbar, from Start, or with Ctrl+Shift+O. It logs local events as they happen: the realtime link going up or down, inbound and outbound message counts, channel and key changes, notice levels, and request lines whose record ids are masked to “•••”. It never records message text, files, keys, tokens or account names, and it cannot change server state. Its command line accepts help, clear, status, log on|off, theme, accent, wall, open, lock, whoami, net, time and ver — each of them local to this tab.',
+    },
+    {
       title: 'One-time DM codes',
       tags: ['dm code', 'one time code', 'contact admin', 'operator chat', 'redeem'],
       summary: 'A single-use code that opens a masked channel with the operator.',
@@ -320,6 +326,13 @@ const Help = (() => {
       body: 'Encrypted storage where a file is only limited by the space that remains. Ask for more capacity from Settings and an operator decides on it.',
       target: () => Windows.get('drive')?.node || '.window',
       before: () => Apps.open('drive'),
+    },
+    {
+      title: 'Console',
+      body: 'The console on the taskbar shows what this client is doing: link state, message counts, key changes and request shapes, with record ids masked. It is a readout only — no message text, files or keys are recorded — and its command line changes nothing beyond this device.',
+      target: '#tb-console',
+      before: () => ConsoleLog.open(),
+      after: () => ConsoleLog.close(),
     },
     {
       title: 'Settings',

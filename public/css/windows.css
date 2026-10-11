@@ -362,8 +362,6 @@ body[data-taskbar="left"] #taskbar-tray { margin-left: 0; }
   white-space: nowrap;
 }
 .tray-link.down { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 60%, transparent); }
-@media (max-width: 640px) { .tray-link { display: none; } }
-
 .tray-clock .time {
   font-family: var(--font-display);
   font-size: var(--text-16);
@@ -648,6 +646,95 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
   background: var(--surface-alt);
 }
 
+/* -------------------------------------------------------------- console -- */
+/* A local activity log docked above the taskbar. Square plate, hairline
+   rules, mono labels — the same system as every other plate. */
+.console-panel {
+  position: fixed;
+  right: 14px;
+  bottom: calc(var(--taskbar-height) + 10px);
+  z-index: 870;
+  display: flex;
+  flex-direction: column;
+  width: min(430px, calc(100vw - 28px));
+  max-height: min(54vh, 470px);
+  background: var(--surface-solid);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-window);
+}
+.console-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line-strong);
+  background: var(--surface-alt);
+}
+.console-head .title {
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  text-transform: uppercase;
+  letter-spacing: var(--track-wide);
+}
+.console-head .meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--ink-muted);
+}
+.console-dot { width: 8px; height: 8px; background: var(--status-online); flex: 0 0 auto; }
+.console-dot.down { background: var(--status-offline); }
+.console-x {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+.console-x:hover { border-color: var(--line-strong); color: var(--ink); }
+.console-log {
+  flex: 1;
+  min-height: 132px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  line-height: 1.62;
+  overscroll-behavior: contain;
+}
+.console-line { display: flex; gap: 8px; }
+.console-line .t { color: var(--ink-muted); flex: 0 0 auto; }
+.console-line .k {
+  flex: 0 0 auto;
+  min-width: 38px;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.console-line .m { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.console-line .r { flex: 0 0 auto; color: var(--ink-muted); }
+.console-line.k-warn .k, .console-line.k-warn .m { color: var(--warning); }
+.console-line.k-link .k { color: var(--success); }
+.console-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--line-strong);
+}
+.console-form .prompt { font-family: var(--font-mono); color: var(--ink-muted); }
+.console-form .input { flex: 1; min-width: 0; }
+.console-foot {
+  padding: 6px 10px;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* ---------------------------------------------------------------- print -- */
 @media print {
   #taskbar, .window-controls, .window-resize, .toast, #toast-stack, .flyout, .context-menu { display: none !important; }
@@ -655,10 +742,15 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
   .window { position: static !important; width: auto !important; height: auto !important; box-shadow: none; border: 1px solid #000; }
 }
 
-/* ------------------------------------------------------------ responsive - */
+/* ------------------------------------------------------------ responsive
+   Two widths, matching the window manager's own breakpoints.
+   900px — compact: plates go full-height, the list and the detail pane take
+           turns, the rail collapses.
+   760px — phones: sheets instead of popovers, thumb-sized controls, dynamic
+           viewport height and safe-area insets.
+   ------------------------------------------------------------------------- */
 @media (max-width: 900px) {
   :root { --rail-width: 100%; }
-  .mobile-hide { display: none !important; }
   #desktop-icons { grid-template-columns: repeat(auto-fill, minmax(78px, 78px)); gap: 0; }
   .desk-icon { padding: 8px 2px; }
   .desk-icon .label { font-size: 10px; }
@@ -667,16 +759,149 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
   .window::before, .window::after { display: none; }
   .window-resize { display: none; }
   .window-titlebar { height: 46px; }
-  .split { flex-direction: column; }
+  .split { flex-direction: column; position: relative; }
   .split-list { width: 100% !important; border-right: 0; }
   .split.show-main .split-list { display: none; }
   .split-main { display: none; }
   .split.show-main .split-main { display: flex; }
   .split-list-overlay { display: none; }
+  .split-back { display: inline-flex; }
   .modal { left: 0; top: 0; transform: none; width: 100vw; max-height: 100vh; height: 100vh; }
   @keyframes modal-in { from { opacity: 0; } to { opacity: 1; } }
 }
 
 @media (min-width: 901px) {
   .split-list-overlay { display: none; }
+}
+
+/* ---------------------------------------------------------------- phones -- */
+@media (max-width: 760px) {
+  :root { --taskbar-height: 56px; }
+
+  /* Height follows the dynamic viewport so the browser chrome cannot clip a
+     plate; the taskbar keeps clear of the home indicator. */
+  .window {
+    height: calc(100vh - var(--taskbar-height)) !important;
+    height: calc(100dvh - var(--taskbar-height) - env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .window-titlebar { height: 48px; padding: 0 6px 0 10px; gap: 6px; }
+  .window-titlebar .window-title { font-size: var(--text-13); }
+  .caption-btn { width: 46px; min-height: 44px; }
+
+  #taskbar {
+    height: auto;
+    min-height: var(--taskbar-height);
+    padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px));
+    gap: 2px;
+  }
+  #taskbar-stack { gap: 2px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  #taskbar-stack::-webkit-scrollbar { display: none; }
+  #taskbar-tray { gap: 4px; padding-right: 0; }
+  .tb-btn { width: 46px; height: 46px; }
+  .tray-link { display: none; }
+  .tray-clock { min-width: 68px; padding: 4px 6px; }
+  .tray-clock .time { font-size: var(--text-14); }
+  .tray-clock .tiny { display: none; }
+  .tb-badge { min-width: 16px; height: 16px; line-height: 16px; }
+
+  /* Popovers become sheets: full width, anchored to the taskbar, scrollable. */
+  #start-menu {
+    left: 0;
+    right: 0;
+    bottom: calc(var(--taskbar-height) + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: 74vh;
+    max-height: 74dvh;
+    box-shadow: none;
+    border-left: 0;
+    border-right: 0;
+  }
+  body[data-taskbar="left"] #start-menu { left: 0; }
+  .start-tile { min-height: 58px; }
+  .flyout {
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: calc(var(--taskbar-height) + env(safe-area-inset-bottom, 0px));
+    min-width: 0;
+    width: auto;
+    max-height: 70vh;
+    max-height: 70dvh;
+    overflow-y: auto;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: none;
+  }
+  .context-menu { max-width: calc(100vw - 16px); }
+  .context-menu button { min-height: 44px; }
+
+  /* Modals fill the plate and scroll internally; the footer stays reachable. */
+  .modal {
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    box-shadow: none;
+  }
+  .modal-body { padding: 12px; -webkit-overflow-scrolling: touch; }
+  .modal-footer, .modal-header { padding: 10px 12px; }
+  .modal-footer { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .modal-footer .btn { flex: 1 1 auto; min-height: 44px; }
+
+  /* Sheets: toasts become a stacked strip above the taskbar. */
+  #toast-stack {
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: calc(var(--taskbar-height) + 8px + env(safe-area-inset-bottom, 0px));
+    align-items: stretch;
+  }
+  .toast { width: auto; }
+
+  /* The console docks to the full width of the screen. */
+  .console-panel {
+    left: 0;
+    right: 0;
+    bottom: calc(var(--taskbar-height) + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: 62dvh;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: none;
+  }
+  .console-log { font-size: var(--text-12); }
+  .console-form .input { min-height: 40px; }
+  .console-x { width: 40px; height: 40px; }
+
+  /* Thumb targets: list rows, toolbar buttons, composer controls. */
+  .list-item { min-height: 54px; }
+  .setting-row { min-height: 48px; }
+  .btn { min-height: 42px; }
+  .btn.icon { min-width: 42px; min-height: 42px; }
+  .toolbar { padding: 6px 8px; gap: 6px; }
+  .switch { transform: scale(1.08); transform-origin: right center; }
+
+  /* Wide data stays readable: the pane scrolls sideways, the plate never does. */
+  .pane-scroll { overflow-x: auto; }
+  .table { min-width: 560px; }
+  .table th, .table td { white-space: nowrap; }
+  /* Section navigation becomes a scrolling tab strip above the content, which
+     leaves the phone's full width for the settings themselves. */
+  .settings-shell, .admin-shell { flex-direction: column; }
+  .settings-nav, .admin-nav {
+    width: auto;
+    flex: none;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line-strong);
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .settings-nav button, .admin-nav button { flex: none; min-height: 44px; border-left: 0; border-bottom: 2px solid transparent; }
+  .settings-nav button.on, .admin-nav button.on { border-left: 0; border-bottom-color: var(--accent); }
+  .settings-nav button:hover, .admin-nav button:hover { border-left: 0; }
+
+  .desk-icon .label { font-size: 11px; }
+  #desktop-icons { gap: 4px; }
 }

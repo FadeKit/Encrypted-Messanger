@@ -11,7 +11,9 @@ const Windows = (() => {
   let zCounter = 100;
   let focusedId = null;
   let snapPreview = null;
-  const isMobile = () => window.matchMedia('(max-width: 720px)').matches;
+  // Matches the phone breakpoint in windows.css. Compact plates start at
+  // 900px in CSS; below 760px they behave as full-screen phones.
+  const isMobile = () => window.matchMedia('(max-width: 760px)').matches;
 
   const APP_ICONS = {
     messages: '▤', communities: '▩', stories: '◉', drive: '▦', files: '▥', airdrop: '⇣',

@@ -217,6 +217,8 @@
 .split-list { width: 302px; flex: none; border-right: 1px solid var(--line-strong); overflow-y: auto; background: var(--fill-card); }
 .split-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .split-list-overlay { display: none; }
+/* The back arrow exists only where the list and the detail pane take turns. */
+.split-back { display: none; }
 
 .list-item {
   display: flex;
@@ -1158,7 +1160,7 @@ body[data-density="compact"] .settings-body,
 body[data-density="compact"] .admin-main { padding: 12px 14px 30px; }
 
 /* --------------------------------------------------------------- mobile -- */
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .auth-card { grid-template-columns: 1fr; }
   /* The hero collapses to a masthead instead of disappearing: on a phone the
      opening statement is the first thing anyone sees, so it stays. */

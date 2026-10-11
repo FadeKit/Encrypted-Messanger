@@ -65,6 +65,10 @@ const ConversationClient = (() => {
     const split = el('div', { class: 'split' });
     const listPane = el('div', { class: 'split-list' });
     mainNode = el('div', { class: 'split-main' });
+    UI.swipeBack(mainNode, () => {
+      const split = mainNode.closest('.split');
+      if (split && split.classList.contains('show-main')) split.classList.remove('show-main');
+    });
     split.append(listPane, mainNode);
     body.append(split);
     listNode = listPane;
@@ -74,7 +78,6 @@ const ConversationClient = (() => {
       el('button', { class: 'btn sm', text: 'New direct message', onClick: () => newDirectDialog() }),
       el('button', { class: 'btn sm', text: 'New group', onClick: () => newGroupDialog() }),
       el('div', { class: 'spacer' }),
-      el('label', { class: 'row tiny muted' }, [el('span', { text: 'end-to-end encrypted' })]),
     ]);
   }
 
@@ -147,7 +150,7 @@ const ConversationClient = (() => {
     activeId = id;
     State.set('activeConversationId', id);
     const split = mainNode && mainNode.closest('.split');
-    if (split && window.matchMedia('(max-width: 720px)').matches) split.classList.add('show-main');
+    if (split && window.matchMedia('(max-width: 760px)').matches) split.classList.add('show-main');
     renderList();
     await loadMessages(id);
     renderMain();
@@ -170,12 +173,12 @@ const ConversationClient = (() => {
     clear(mainNode);
     const conversation = activeId ? conversationById(activeId) : null;
     if (!conversation) {
-      mainNode.append(UI.empty('▨', 'Pick a conversation', 'Everything you send is sealed on this device before it travels.'));
+      mainNode.append(UI.empty('▨', 'Pick a conversation'));
       return;
     }
     const peer = conversation.members.find((member) => member.id !== State.user.id) || conversation.members[0] || {};
     const header = el('div', { class: 'toolbar' }, [
-      el('button', { class: 'btn icon subtle mobile-hide', text: '‹', title: 'Back', onClick: () => {
+      el('button', { class: 'btn icon subtle split-back', text: '‹', title: 'Back to the conversation list', onClick: () => {
         const split = mainNode.closest('.split');
         if (split) split.classList.remove('show-main');
       } }),
@@ -208,7 +211,7 @@ const ConversationClient = (() => {
     clear(list);
     const messages = (State.get('messages').get(conversation.id) || []);
     if (!messages.length) {
-      list.append(UI.empty('▸', 'No messages yet', 'Say hello — the first message creates the encrypted channel.'));
+      list.append(UI.empty('▸', 'No messages yet', 'Say hello.'));
       return;
     }
     let lastAuthor = null;

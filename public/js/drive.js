@@ -278,7 +278,7 @@ const DriveClient = (() => {
         groups[file.kind].push(file);
       }
       if (!status.files.length) {
-        list.append(UI.empty('▥', 'Nothing uploaded yet', 'Files you send in chats, communities or your drive appear here.'));
+        list.append(UI.empty('▥', 'Nothing uploaded yet', 'Chats, communities and drive files appear here.'));
         return;
       }
       const labels = { dm: '▤ Chat attachments', forum: '▩ Community media', drive: '▦ Drive files', story: '◉ Stories', airdrop: '⇣ Airdrops', avatar: '◧ Avatars', public: '◍ Public posts' };
