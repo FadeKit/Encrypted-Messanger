@@ -58,7 +58,11 @@ const State = (() => {
   }
 
   function emit(key, value) {
-    for (const handler of listeners.get(key) || []) {
+    // Iterate a copy.  A handler that subscribes while it runs would otherwise
+    // be visited by this same loop, and a handler that re-subscribes itself
+    // (a render function that subscribes on every paint) turns one state change
+    // into an endless loop — the tab stops responding entirely.
+    for (const handler of [...(listeners.get(key) || [])]) {
       try { handler(value, key); } catch (error) { console.error('[ae] state listener', key, error); }
     }
   }

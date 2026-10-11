@@ -3,6 +3,7 @@
    ========================================================================== */
 
 const CommunityClient = (() => {
+  let unsubscribeList = null;
   const { el, clear } = UI;
   const plainCache = new Map();
   const mediaUrls = new Map();
@@ -62,7 +63,9 @@ const CommunityClient = (() => {
       el('div', { class: 'spacer' }),
       el('button', { class: 'btn sm subtle', text: `Media ${State.settings().forumMedia ? 'on' : 'off'}`, title: 'Media in communities and public posts', onClick: () => Settings.open('privacy') }),
     ]);
-    State.subscribe('forums', () => { if (listNode) renderList(); });
+    // One subscription per pane, replaced on every render of the window.
+    if (unsubscribeList) unsubscribeList();
+    unsubscribeList = State.subscribe('forums', () => { if (listNode) renderList(); });
   }
 
   function renderList() {
@@ -170,7 +173,7 @@ const CommunityClient = (() => {
     const author = el('div', { class: 'row', style: { gap: '8px' } });
     const titleNode = el('div', { class: 'body-strong', text: 'Decrypting title…' });
     const bodyNode = el('div', { class: 'post-body muted', text: '' });
-    row.append(el('div', { class: 'grow stack-6' }, [
+    UI.append(row, el('div', { class: 'grow stack-6' }, [
       author, titleNode, bodyNode,
       el('div', { class: 'thread-stats' }, [
         el('span', { text: `▤ ${thread.postCount} replies` }),
@@ -191,7 +194,7 @@ const CommunityClient = (() => {
         bodyNode.textContent = 'Community key unavailable on this device.';
       }
       const authorUser = threadAuthor(forum, thread.authorId);
-      author.append(UI.avatar(authorUser, { size: 'xs' }), el('span', { class: 'small', text: authorUser.publicAlias || authorUser.displayName }), authorUser.verified ? UI.verifiedBadge(authorUser) : null);
+      UI.append(author, UI.avatar(authorUser, { size: 'xs' }), el('span', { class: 'small', text: authorUser.publicAlias || authorUser.displayName }), authorUser.verified ? UI.verifiedBadge(authorUser) : null);
     })();
     return row;
   }
@@ -244,7 +247,7 @@ const CommunityClient = (() => {
     ]);
 
     const scroll = el('div', { class: 'pane-scroll stack-12' });
-    scroll.append(el('div', { class: 'card stack-8' }, [
+    UI.append(scroll, el('div', { class: 'card stack-8' }, [
       el('div', { class: 'post-body', text: bodyText }),
       thread.attachments && thread.attachments.length ? attachmentStrip(forum, thread) : null,
       el('div', { class: 'row small muted' }, [
@@ -304,7 +307,7 @@ const CommunityClient = (() => {
     })();
 
     const author = post.own ? State.user : { id: post.authorId, displayName: 'Member', username: 'member' };
-    authorRow.append(
+    UI.append(authorRow,
       UI.avatar(author, { size: 'sm', onClick: () => post.authorId && Profile.open(post.authorId) }),
       el('span', { class: 'small body-strong', text: post.own ? State.user.displayName : 'Member' }),
       el('span', { class: 'tiny faint', text: UI.clockTime(post.createdAt, State.settings().timestamps) }),
@@ -515,7 +518,7 @@ const CommunityClient = (() => {
     const current = data.forum;
     const body = el('div', { class: 'stack-6' });
     for (const member of current.members) {
-      body.append(el('div', { class: 'list-item' }, [
+      UI.append(body, el('div', { class: 'list-item' }, [
         UI.avatar(member, { size: 'sm' }),
         el('div', { class: 'meta' }, [el('div', { class: 'name', text: member.publicAlias || member.displayName }), el('div', { class: 'sub', text: `@${member.username}` })]),
         member.verified ? UI.verifiedBadge(member) : null,

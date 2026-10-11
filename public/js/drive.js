@@ -85,7 +85,7 @@ const DriveClient = (() => {
       if (view.folderId) {
         const parent = folders.folders.find((folder) => folder.id === view.folderId);
         const root = folders.folders.find((folder) => folder.id === view.folderId && !folder.parentId);
-        toolbar2.append(
+        UI.append(toolbar2,
           el('span', { class: 'pill tiny', text: `▢ ${view.folderId.slice(0, 6)}` }),
           root ? null : el('button', { class: 'btn sm subtle', text: '‹ Up one level', onClick: () => { view.folderId = parent ? parent.parentId : null; paint(); } }),
         );

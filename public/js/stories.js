@@ -128,7 +128,7 @@ const StoriesClient = (() => {
     if (!feed.posts.length) postsHost.append(UI.empty('stories', 'The public square is quiet', 'Posts from public accounts appear here for everyone.'));
     for (const post of feed.posts) {
       const card = el('div', { class: 'card stack-8' });
-      card.append(el('div', { class: 'row' }, [
+      UI.append(card, el('div', { class: 'row' }, [
         UI.avatar(post.author, { size: 'sm', onClick: () => Profile.open(post.author.id) }),
         el('div', {}, [
           el('div', { class: 'row', style: { gap: '6px' } }, [

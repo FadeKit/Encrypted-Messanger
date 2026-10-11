@@ -174,7 +174,7 @@ const AdminClient = (() => {
       el('div', { class: 'hint', text: 'Story storage is tracked separately from messaging, community and drive uploads.' }),
     ]));
 
-    scroll.append(el('div', { class: 'grid-2' }, [
+    UI.append(scroll, el('div', { class: 'grid-2' }, [
       el('div', { class: 'card stack-8' }, [
         el('div', { class: 'uppercase', text: 'Most active members' }),
         ...data.topUsers.map((user) => el('div', { class: 'list-item', onClick: () => openUser(user.id) }, [
@@ -227,7 +227,7 @@ const AdminClient = (() => {
     ]);
     const tbody = el('tbody');
     for (const user of data.users) {
-      tbody.append(el('tr', {}, [
+      UI.append(tbody, el('tr', {}, [
         el('td', {}, [UI.avatar(user, { size: 'sm', status: user.status.key })]),
         el('td', {}, [
           el('div', { class: 'row' }, [
@@ -510,7 +510,7 @@ const AdminClient = (() => {
         story: [1, 2, 5].map((gb) => gb * 1024 * 1024 * 1024),
       }[request.kind] || [];
 
-      card.append(el('div', { class: 'row' }, [
+      UI.append(card, el('div', { class: 'row' }, [
         UI.avatar(user, { size: 'sm', status: user.status?.key }),
         el('div', { class: 'grow' }, [
           el('div', { class: 'row' }, [
@@ -523,7 +523,7 @@ const AdminClient = (() => {
         el('button', { class: 'btn sm', text: 'Open account', onClick: () => openUser(request.user.id) }),
       ]));
 
-      card.append(el('div', { class: 'row wrap small' }, [
+      UI.append(card, el('div', { class: 'row wrap small' }, [
         el('span', { class: 'pill', text: `current dm ${user.limits?.dmUploadBytes === -1 ? '∞' : UI.bytes(user.limits?.dmUploadBytes || 0)}` }),
         el('span', { class: 'pill', text: `current drive ${user.limits?.driveQuotaBytes === -1 ? '∞' : UI.bytes(user.limits?.driveQuotaBytes || 0)}` }),
         request.requestedBytes ? el('span', { class: 'pill accent', text: `asked for ${UI.bytes(request.requestedBytes)}` }) : null,
@@ -541,7 +541,7 @@ const AdminClient = (() => {
         if (request.kind === 'dm' || request.kind === 'drive' || request.kind === 'story') {
           quick.append(el('button', { class: 'btn sm subtle', text: '∞ unlimited', onClick: () => { amount.value = 'unlimited'; } }));
         }
-        card.append(el('div', { class: 'stack-6' }, [
+        UI.append(card, el('div', { class: 'stack-6' }, [
           request.kind === 'purple' ? el('div', { class: 'notice-strip', html: '<span>◉</span><span>Approving unlocks the purple availability ring for this member.</span>' }) : null,
           request.kind === 'verified' ? el('div', { class: 'notice-strip', html: '<span>✓</span><span>Approving adds the blue check mark to this member.</span>' }) : null,
           request.kind === 'dm' || request.kind === 'drive' || request.kind === 'story' ? el('div', { class: 'field' }, [el('label', { text: 'New limit' }), amount, quick]) : null,

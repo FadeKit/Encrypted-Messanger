@@ -332,6 +332,111 @@ check('no bare result.session dereference on the sign-in path', !/S\.set\('sessi
 // so reading it there silently drops whatever was being looked for
 check('boot data is read through the state store', !/S\.boot\b/.test(appSrc), (appSrc.match(/S\.boot\b[^\n]*/g) || []).join(' | ').slice(0, 120));
 
+// A window's toolbar must never be built by clearing the window body: the render
+// target lives there, and every surface that set a toolbar came up blank.
+const windowsSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'windows.js'), 'utf8');
+check('setting a toolbar never clears the window body',
+  /function ensureToolbar/.test(windowsSrc) && !/UI\.clear\(entry\.record\.toolbar \|\| entry\.record\.body\)/.test(windowsSrc));
+
+// Icons are inline SVG: unicode symbol glyphs are invisible whenever the device
+// font lacks them (which is what made every surface icon a blank square).
+const iconSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'icons.js'), 'utf8');
+check('an icon set ships with the client', /const Icons/.test(iconSrc) && /function svg/.test(iconSrc));
+check('the icon set is loaded before the interface', html.indexOf('/js/icons.js') < html.indexOf('/js/ui.js') && html.indexOf('/js/icons.js') > 0);
+check('app surfaces draw SVG icons, not unicode glyphs', !/class: 'glyph', text: app\.(glyph|label)/.test(appSrc) && /UI\.icon\(app\.id/.test(appSrc));
+check('taskbar window buttons carry an icon and a label', /tb-glyph/.test(windowsSrc) && /tb-label/.test(windowsSrc));
+// The taskbar iterates registry *entries*: reading `record.title` off the entry
+// itself left every tab labelled "" with a tooltip of "undefined".
+check('taskbar reads the window record, not the registry entry',
+  /for \(const \[id, entry\] of registry\)/.test(windowsSrc) && /const record = entry\.record;/.test(windowsSrc));
+check('the LINK_UP chip is gone', !/LINK_UP/.test(appSrc) && !/tb-link/.test(appSrc));
+
+// the click counter is a gag: no per-user ceiling
+const clicker = fs.readFileSync(path.join(ROOT, 'server', 'routes-auth.js'), 'utf8');
+check('clicking is not capped at twenty a minute', /clickLimiter/.test(clicker) && !/actionLimiter\.hit\(`click:/.test(clicker));
+
+// A file saved by the editor keeps its name sealed with the file's own key.  It
+// has to leave this device as a string, because the server drops anything that
+// is not one, and it has to be opened by importing the key rather than passing
+// raw bytes to WebCrypto.
+const crypto2 = fs.readFileSync(path.join(PUBLIC, 'js', 'crypto.js'), 'utf8');
+const editorSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'editor.js'), 'utf8');
+const driveSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'drive.js'), 'utf8');
+check('sealed names are produced and opened through one pair of helpers',
+  /async function sealJson/.test(crypto2) && /async function openSealedJson/.test(crypto2)
+  && /AE\.sealJson\(/.test(editorSrc) && /openSealedJson|Media\.fileName/.test(driveSrc));
+check('the name a file was saved under is resolved, never invented',
+  /entry\.name \|\| await Media\.fileName\(entry\)/.test(editorSrc));
+check('the sealed name is a string on the wire',
+  /sealJson[\s\S]{0,220}return `\$\{sealed\.iv\}\.\$\{sealed\.ct\}`/.test(crypto2));
+
+// `value` on a <textarea> is a property: setting the attribute left the editor
+// showing an empty file after it had just loaded one.
+const uiSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'ui.js'), 'utf8');
+check('the element helper assigns value as a property', /key === 'value' && 'value' in node/.test(uiSrc));
+
+// The console is a flyout panel, not a window: the surface audit and the deep
+// links both look for it by id.
+const consoleSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'console.js'), 'utf8');
+check('the console registers a flyout a link can open',
+  /id: 'console-panel'/.test(consoleSrc) && /Apps\.register\(\{[\s\S]{0,200}id: 'console'/.test(consoleSrc));
+
+// A direct channel has to be sealed under the id the server actually stored,
+// otherwise the wrap lands nowhere and the channel can never be decrypted.
+{
+  const social = fs.readFileSync(path.join(ROOT, 'server', 'routes-social.js'), 'utf8');
+  const dmBranch = social.slice(social.indexOf("conversation.type === 'dm'"), social.indexOf("conversation.type === 'dm'") + 400);
+  check('the server adopts the client id for a direct channel', /ensureDirectConversation\([^)]*id:\s*ctx\.body\.id/.test(social.replace(/\s+/g, ' ')), dmBranch.slice(0, 80));
+  const messageSource = fs.readFileSync(path.join(PUBLIC, 'js', 'messages.js'), 'utf8');
+  check('the client wraps for the stored channel id', /async function wrapForConversation\(conversationId, peer, rawKey\)/.test(messageSource));
+  check('the client opens a direct channel through it', /async function openDirectChannel\(peerId\)/.test(messageSource) && /openDirectChannel\s*[,}]/.test(messageSource));
+}
+
+// The DOM turns a null argument into the visible text "null": a message header
+// once read "operator null null" because two optional nodes were passed to
+// append() as null.  Every such call goes through UI.append(), which drops them.
+{
+  const offenders = [];
+  for (const file of fs.readdirSync(path.join(PUBLIC, 'js'))) {
+    if (!file.endsWith('.js')) continue;
+    const src = fs.readFileSync(path.join(PUBLIC, 'js', file), 'utf8');
+    for (let index = src.indexOf('.append('); index !== -1; index = src.indexOf('.append(', index + 1)) {
+      // UI.append() is the filtered entry point and takes the optionals on purpose.
+      if (src.slice(Math.max(0, index - 2), index) === 'UI') continue;
+      const open = index + '.append'.length;
+      let depth = 0;
+      let end = open;
+      for (; end < src.length; end += 1) {
+        if (src[end] === '(') depth += 1;
+        else if (src[end] === ')') { depth -= 1; if (!depth) break; }
+      }
+      const args = src.slice(open + 1, end);
+      let inner = 0;
+      let current = '';
+      const parts = [];
+      for (const character of args) {
+        if ('([{'.includes(character)) inner += 1;
+        else if (')]}'.includes(character)) inner -= 1;
+        if (character === ',' && !inner) { parts.push(current); current = ''; } else current += character;
+      }
+      parts.push(current);
+      const risky = parts.filter((part) => /:\s*null\b/.test(part) || /^\s*null\s*$/.test(part));
+      if (risky.length) offenders.push(`${file}:${src.slice(0, index).split('\n').length}`);
+    }
+  }
+  check('no call passes a null node to append()', offenders.length === 0, offenders.slice(0, 4).join(' '));
+  check('the append helper drops empty entries', /function append\(node, \.\.\.children\)/.test(uiSrc));
+}
+
+// The certificate the phone installs is described by a public, read-only route:
+// a page that guesses at it logs a failed request on every visit.
+const indexSrc = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
+const trustSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'trust.js'), 'utf8');
+check('the trust page asks the server before offering a certificate',
+  /ROUTES\.set\('GET \/api\/ca'/.test(indexSrc) && /fetch\('\/api\/ca'/.test(trustSrc));
+check('the fingerprint is the certificate\'s own SHA-256',
+  /createHash\('sha256'\)\.update\(der\)/.test(indexSrc) && /info\.fingerprint/.test(trustSrc));
+
 // An installer drill once ran with the repository as its home and a watchdog,
 // pid file and self-signed key landed in the checkout.  The layout the
 // installer writes belongs next to the install, never in git.

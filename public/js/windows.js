@@ -347,7 +347,7 @@ const Windows = (() => {
     const record = get(id);
     if (!record) return;
     record.title = title;
-    UI.clear(record.titleNode).append(
+    UI.append(UI.clear(record.titleNode),
       el('span', { text: title }),
       subtitle ? el('span', { class: 'sub', text: subtitle }) : null,
     );

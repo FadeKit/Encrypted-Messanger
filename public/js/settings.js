@@ -342,7 +342,7 @@ const Settings = (() => {
       clear(history);
       if (!data.requests.length) { history.append(el('div', { class: 'caption', text: 'No requests filed yet.' })); return; }
       for (const request of data.requests) {
-        history.append(el('div', { class: 'card stack-4' }, [
+        UI.append(history, el('div', { class: 'card stack-4' }, [
           el('div', { class: 'row' }, [
             el('span', { class: 'pill tiny', text: request.kind }),
             el('span', { class: `pill tiny ${request.status === 'approved' ? 'success' : request.status === 'denied' ? 'danger' : 'accent'}`, text: request.status }),

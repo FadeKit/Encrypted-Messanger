@@ -211,7 +211,10 @@ route['POST /api/conversations'] = async (ctx) => {
   if (members.some((m) => m.banned)) throw h.fail(403, 'One of those accounts is suspended.', 'forbidden');
   if (type === 'dm') {
     const peer = members[0];
-    let conversation = ensureDirectConversation(user, peer);
+    // The creator wrapped the channel key for the id it sent, so a brand-new
+    // channel has to use it.  An existing channel between the same two people
+    // wins instead (it already has working wraps for both sides).
+    let conversation = ensureDirectConversation(user, peer, { id: ctx.body.id });
     if (ctx.body.keyWraps && !Object.keys(conversation.keyWraps || {}).length) {
       conversation.keyWraps = Object.assign({}, conversation.keyWraps, sanitizeWraps(ctx.body.keyWraps, conversation.memberIds));
       store.touch();

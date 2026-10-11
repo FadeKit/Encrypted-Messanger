@@ -48,6 +48,16 @@ const UI = (() => {
     return value !== null && typeof value === 'object' && typeof value.appendChild === 'function';
   }
 
+  /**
+   * `append()`, minus the trap: the DOM stringifies a null or a boolean into the
+   * document, so an optional entry that is not there prints "null" on the page
+   * (a message header read "operator null null").  Everything is filtered here.
+   */
+  function append(node, ...children) {
+    appendChildren(node, children);
+    return node;
+  }
+
   function appendChildren(node, children) {
     for (const child of [].concat(children)) {
       if (child === null || child === undefined || child === false || child === true || child === '') continue;
@@ -231,7 +241,7 @@ const UI = (() => {
     const scrim = el('div', { class: 'modal-scrim' });
     const modal = el('div', { class: `modal ${options.size || ''}` });
     const close = () => { layer.classList.remove('open'); clear(layer); options.onClose && options.onClose(); };
-    modal.append(el('div', { class: 'modal-header' }, [
+    append(modal, el('div', { class: 'modal-header' }, [
       el('div', { class: 'row' }, [
         options.glyph
           ? (typeof Icons !== 'undefined' && Icons.has(options.glyph)
@@ -342,7 +352,7 @@ const UI = (() => {
       if (!item) continue;
       if (item.separator) { menu.append(el('div', { class: 'sep' })); continue; }
       if (item.label && !item.onClick) { menu.append(el('div', { class: 'label', text: item.label })); continue; }
-      menu.append(el('button', {
+      append(menu, el('button', {
         class: item.danger ? 'danger' : '',
         disabled: item.disabled,
         onClick: () => { closeMenus(); item.onClick && item.onClick(); },
@@ -511,7 +521,7 @@ const UI = (() => {
     timeAgo, clockTime, dateTime, duration, bytes, percent, initials, hueFor,
     avatar, statusDot, verifiedBadge, statusLabel,
     toast, dialog, confirm, prompt, contextMenu, closeMenus, swipeBack,
-    copy, download, debounce, throttle, sparkline, meter, skeletonList, empty, iconButton,
+    copy, download, debounce, throttle, sparkline, meter, skeletonList, empty, iconButton, append,
     icon, iconNode,
     get iconNames() { return typeof Icons === 'undefined' ? [] : Object.keys(Icons.PATHS); },
   };

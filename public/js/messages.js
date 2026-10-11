@@ -3,6 +3,7 @@
    ========================================================================== */
 
 const ConversationClient = (() => {
+  let unsubscribeList = null;
   const { el, clear } = UI;
   const plainCache = new Map();
   const attachmentUrls = new Map();
@@ -74,6 +75,10 @@ const ConversationClient = (() => {
     listNode = listPane;
     renderList();
     renderMain();
+    // One subscription per pane, not one per paint: a listener added inside
+    // renderList() re-registered itself on every state change.
+    if (unsubscribeList) unsubscribeList();
+    unsubscribeList = State.subscribe('conversations', () => { if (listNode) renderList(); });
     api.setToolbar([
       el('button', { class: 'btn sm', text: 'New direct message', onClick: () => newDirectDialog() }),
       el('button', { class: 'btn sm', text: 'New group', onClick: () => newGroupDialog() }),
@@ -109,7 +114,6 @@ const ConversationClient = (() => {
     paint();
     search.addEventListener('input', () => paint(search.value));
     listNode.append(head, items, el('div', { class: 'spacer' }));
-    State.subscribe('conversations', () => { if (listNode) renderList(); });
   }
 
   function conversationRow(conversation) {
@@ -245,7 +249,7 @@ const ConversationClient = (() => {
     const content = el('div', { class: 'message-content' });
     const head = el('div', { class: 'message-head' });
     if (!options.compact) {
-      head.append(
+      UI.append(head,
         el('span', { class: 'author', text: author.publicAlias || author.displayName }),
         author.masked ? el('span', { class: 'pill accent tiny', text: 'administration' }) : null,
         author.verified ? UI.verifiedBadge(author) : null,
@@ -598,7 +602,7 @@ const ConversationClient = (() => {
         .filter((user) => !query || (user.displayName || '').toLowerCase().includes(query) || user.username.toLowerCase().includes(query));
       if (!list.length) { results.append(el('div', { class: 'caption pad-8', text: 'No accounts matched.' })); return; }
       for (const user of list.slice(0, 60)) {
-        results.append(el('div', { class: `list-item ${selected.has(user.id) ? 'on' : ''}`, onClick: () => {
+        UI.append(results, el('div', { class: `list-item ${selected.has(user.id) ? 'on' : ''}`, onClick: () => {
           selected.clear();
           selected.add(user.id);
           paint();
@@ -624,16 +628,14 @@ const ConversationClient = (() => {
         el('button', { class: 'btn primary', text: 'Start chatting', onClick: async () => {
           const peerId = [...selected][0];
           if (!peerId) return;
-          const peer = users.find((user) => user.id === peerId);
-          const conversationId = freshConversationId();
-          const rawKey = await AE.generateAesRaw();
-          const wraps = {};
-          wraps[State.user.id] = await State.wrapChannelKey('conv', conversationId, rawKey, State.vault.identityPublic);
-          wraps[peerId] = await State.wrapChannelKey('conv', conversationId, rawKey, peer.identityPublic);
-          const created = await API.post('/api/conversations', { id: conversationId, type: 'dm', memberIds: [peerId], keyWraps: wraps });
-          ref.close();
-          await refresh();
-          await openConversation(created.conversation.id);
+          try {
+            const conversation = await openDirectChannel(peerId);
+            ref.close();
+            await refresh();
+            await openConversation(conversation.id);
+          } catch (error) {
+            UI.toast({ level: 'danger', title: 'Could not start that channel', body: error.message });
+          }
         } }),
       ],
     });
@@ -768,6 +770,40 @@ const ConversationClient = (() => {
     return `c_${AE.b64encode(AE.randomBytes(12)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}`;
   }
 
+  /** Seals one channel key for both sides of a direct channel. */
+  async function wrapForConversation(conversationId, peer, rawKey) {
+    const wraps = {};
+    wraps[State.user.id] = await State.wrapChannelKey('conv', conversationId, rawKey, State.vault.identityPublic);
+    wraps[peer.id] = await State.wrapChannelKey('conv', conversationId, rawKey, peer.identityPublic);
+    return wraps;
+  }
+
+  /**
+   * Opens (or reuses) a direct channel and leaves this device able to read it.
+   * The key is wrapped for the id the server actually stored: a fresh channel
+   * keeps the id we wrapped for, and a channel that already existed keeps its
+   * own key, which is already wrapped for both sides.
+   */
+  async function openDirectChannel(peerId) {
+    const data = await API.get('/api/directory').catch(() => null);
+    const peer = data && data.users ? data.users.find((user) => user.id === peerId) : null;
+    if (!peer || !peer.identityPublic) throw new Error('Public identity key unavailable.');
+    const wanted = freshConversationId();
+    const rawKey = await AE.generateAesRaw();
+    const created = await API.post('/api/conversations', {
+      id: wanted, type: 'dm', memberIds: [peerId], keyWraps: await wrapForConversation(wanted, peer, rawKey),
+    });
+    const conversation = created.conversation;
+    // An id the server could not take, or somebody else's channel: wrap the key
+    // again under the id that was stored, or the channel would never open.
+    if (conversation.id !== wanted && !conversation.keyWrap) {
+      await API.post(`/api/conversations/${conversation.id}/keys`, {
+        keyWraps: await wrapForConversation(conversation.id, peer, rawKey),
+      });
+    }
+    return conversation;
+  }
+
   // Realtime hooks
   function onIncomingMessage(payload) {
     const conversation = State.get('conversations').find((entry) => entry.id === payload.conversationId);
@@ -826,7 +862,7 @@ const ConversationClient = (() => {
     return Profile.startDirect(peerId);
   }
 
-  return { refresh, render, open: openConversation, onIncomingMessage, bumpUnread, conversationById, decryptMessage, fileIcon, startWith };
+  return { refresh, render, open: openConversation, onIncomingMessage, bumpUnread, conversationById, decryptMessage, fileIcon, startWith, openDirectChannel };
 })();
 
 window.ConversationClient = ConversationClient;
@@ -935,18 +971,17 @@ const Profile = (() => {
   }
 
   async function startDirect(peerId) {
-    const data = await API.get('/api/directory').catch(() => null);
-    const target = data?.users?.find((user) => user.id === peerId);
-    if (!target || !target.identityPublic) { UI.toast({ level: 'warning', title: 'Cannot open a channel', body: 'Public identity key unavailable.' }); return; }
-    const conversationId = `c_${AE.b64encode(AE.randomBytes(12)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}`;
-    const rawKey = await AE.generateAesRaw();
-    const wraps = {};
-    wraps[State.user.id] = await State.wrapChannelKey('conv', conversationId, rawKey, State.vault.identityPublic);
-    wraps[peerId] = await State.wrapChannelKey('conv', conversationId, rawKey, target.identityPublic);
-    const created = await API.post('/api/conversations', { id: conversationId, type: 'dm', memberIds: [peerId], keyWraps: wraps });
+    let conversation;
+    try {
+      conversation = await ConversationClient.openDirectChannel(peerId);
+    } catch (error) {
+      UI.toast({ level: 'warning', title: 'Cannot open a channel', body: error.message });
+      return null;
+    }
     await ConversationClient.refresh();
     Apps.open('messages');
-    ConversationClient.open(created.conversation.id);
+    ConversationClient.open(conversation.id);
+    return conversation.id;
   }
 
   function stat(label, value) {
