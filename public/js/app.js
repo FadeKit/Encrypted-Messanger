@@ -259,10 +259,26 @@ const Shell = (() => {
     }, extra));
   }
 
+  /**
+   * One link, one place: how to stop the browser warning on this network.
+   */
+  function trustLink(text = 'Stop the "Not secure" warning') {
+    return el('a', {
+      class: 'who', href: '/trust', target: '_blank', rel: 'noopener noreferrer', text,
+    });
+  }
+
   function creditRow() {
-    return el('div', { class: 'credit-line' }, [
-      el('span', { text: 'Web developer —' }),
-      developerLink(),
+    return el('div', { class: 'stack-6' }, [
+      el('div', { class: 'credit-line' }, [
+        el('span', { text: 'Web developer —' }),
+        developerLink(),
+      ]),
+      el('div', { class: 'credit-line' }, [
+        el('span', { text: 'Security —' }),
+        // only useful over https: on plain http there is nothing to install
+        location.protocol === 'https:' ? trustLink('Install this server\u2019s certificate') : trustLink('Why is this not secure?'),
+      ]),
     ]);
   }
 
@@ -993,6 +1009,7 @@ const Shell = (() => {
     ]);
     const card = el('div', { class: 'stack-12 pad-16', style: { maxWidth: '560px', border: '1px solid var(--line-strong)', background: 'var(--surface-solid)' } }, [
       el('div', { class: 'row' }, [el('span', { class: 'mark', text: 'AE' }), el('span', { class: 'title-2', text: 'Encryption unavailable' })]),
+      el('div', { class: 'credit-line' }, [el('span', { text: 'Transport —' }), trustLink('Install the local certificate')]),
       el('div', { class: 'small muted', text: `${problem} Without it nothing can be encrypted on this device, so account creation, sign-in, messages and uploads are all blocked.` }),
       el('div', { class: 'divider' }),
       el('div', { class: 'hud', text: 'Open the secure address' }),

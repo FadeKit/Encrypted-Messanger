@@ -21,7 +21,7 @@
 #      AE_DISCORD_URL (the developer link shown on the sign-in screen)
 #
 #  Commands: install (default) | update | start | stop | restart | status |
-#            logs | url | backup | restore <file> | uninstall | doctor
+#            logs | url | backup | restore <file> | trust | doctor
 # =============================================================================
 
 set -uo pipefail
@@ -80,6 +80,7 @@ AE_HOST="$AE_HOST"
 AE_HOME="$AE_HOME"
 AE_HTTP_PORT="$AE_HTTP_PORT"
 AE_TLS_CERT="${AE_TLS_CERT:-}"
+AE_TLS_CA="${AE_TLS_CA:-}"
 AE_TLS_KEY="${AE_TLS_KEY:-}"
 AE_TLS="$AE_TLS"
 AE_TLS_DIR="$AE_TLS_DIR"
@@ -169,7 +170,35 @@ install_tls() {
     if ! openssl x509 -in "$cert" -noout -text 2>/dev/null | grep -q "IP Address:$ip"; then needs=1; fi
   fi
 
-  if [ "$needs" = "0" ]; then
+  # A leaf signed by the install's own authority.  Installing that one
+  # certificate on a device is what removes "Not secure" — a plain self-signed
+  # leaf cannot, because nothing else knows it.
+  local ca_cert="$AE_TLS_DIR/ca.crt" ca_key="$AE_TLS_DIR/ca.key"
+  local leaf_needs_ca=0
+  if [ -f "$ca_cert" ] && [ -f "$ca_key" ]; then
+    if [ -f "$cert" ] && openssl verify -CAfile "$ca_cert" "$cert" >/dev/null 2>&1; then
+      :
+    else
+      leaf_needs_ca=1
+    fi
+  else
+    say "creating a local certificate authority (CA)"
+    openssl req -x509 -nodes -newkey rsa:2048 -days 3650 -sha256 \
+      -keyout "$ca_key" -out "$ca_cert" \
+      -subj "/CN=AE Secure local CA/O=AE Secure" \
+      -addext "basicConstraints=critical,CA:TRUE,pathlen:0" \
+      -addext "keyUsage=critical,keyCertSign,cRLSign" >/dev/null 2>&1 || true
+    chmod 600 "$ca_key" 2>/dev/null || true
+    if [ -f "$ca_cert" ]; then
+      say "authority written to $ca_cert — install it once on each device"
+      leaf_needs_ca=1
+      needs=1
+    else
+      note "could not create a local authority; falling back to a self-signed certificate"
+    fi
+  fi
+
+  if [ "$needs" = "0" ] && [ "$leaf_needs_ca" = "0" ]; then
     say "certificate already covers this address"
   else
     local cnf="$AE_TLS_DIR/openssl.cnf"
@@ -194,16 +223,45 @@ DNS.2 = ae-secure.local
 IP.1 = 127.0.0.1
 IP.2 = $ip
 CNF
-    openssl req -x509 -nodes -newkey rsa:2048 -days 825 \
-      -keyout "$key" -out "$cert" -config "$cnf" >/dev/null 2>&1 \
-      || { note "could not generate a certificate — serving plain http"; return 0; }
+    if [ -f "$ca_cert" ] && [ -f "$ca_key" ]; then
+      openssl req -nodes -newkey rsa:2048 -keyout "$key" -out "$AE_TLS_DIR/server.csr" -config "$cnf" >/dev/null 2>&1 \
+        && openssl x509 -req -in "$AE_TLS_DIR/server.csr" -CA "$ca_cert" -CAkey "$ca_key" -CAcreateserial \
+             -days 825 -sha256 -extfile "$cnf" -extensions v3_req -out "$cert" >/dev/null 2>&1
+      rm -f "$AE_TLS_DIR/server.csr"
+    fi
+    if [ ! -f "$cert" ] || ! openssl x509 -in "$cert" -noout >/dev/null 2>&1; then
+      openssl req -x509 -nodes -newkey rsa:2048 -days 825 \
+        -keyout "$key" -out "$cert" -config "$cnf" >/dev/null 2>&1 \
+        || { note "could not generate a certificate — serving plain http"; return 0; }
+      say "certificate generated for $ip (valid 825 days, self-signed)"
+    else
+      say "certificate generated for $ip (valid 825 days, signed by the local CA)"
+    fi
     chmod 600 "$key"
-    say "certificate generated for $ip (valid 825 days, self-signed)"
+  fi
+
+  if [ -f "$ca_cert" ]; then
+    local fingerprint
+    fingerprint="$(openssl x509 -in "$ca_cert" -noout -fingerprint -sha256 2>/dev/null | sed 's/^.*=//' | cut -c1-16 || true)"
+    say ""
+    say "To stop the browser warning on your phone, tablet and PC:"
+    say "  1. open  https://$ip:$AE_PORT/trust  on that device"
+    say "  2. download the certificate and install it as a CA certificate"
+    say "     Android: Settings -> Security -> Encryption & credentials -> Install a certificate"
+    say "     Windows: double-click the file -> Install -> Local Machine -> Trusted Root"
+    say "     macOS:   Keychain Access -> System -> drag it in -> Always Trust"
+    say "  3. restart the browser: the address bar then shows a plain padlock"
+    [ -n "$fingerprint" ] && note "CA fingerprint (SHA-256, first 16): $fingerprint"
   fi
 
   AE_TLS_CERT="$cert"
   AE_TLS_KEY="$key"
-  say "https enabled — the browser will ask you to accept the certificate once"
+  [ -f "$ca_cert" ] && AE_TLS_CA="$ca_cert"
+  if [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/ca.crt" ]; then
+    say "https enabled — install the local certificate once per device (see above)"
+  else
+    say "https enabled — the browser will ask you to accept the certificate once"
+  fi
 }
 
 # --------------------------------------------------------------- source ------
@@ -446,6 +504,7 @@ AE_SUP_PID="$AE_SUP_PID"
 AE_HEALTH_PATH="$AE_HEALTH_PATH"
 AE_TLS_CERT="${AE_TLS_CERT:-}"
 AE_TLS_KEY="${AE_TLS_KEY:-}"
+AE_TLS_CA="${AE_TLS_CA:-}"
 AE_HTTP_PORT="$AE_HTTP_PORT"
 AE_DISCORD_URL="$AE_DISCORD_URL"
 AE_SCHEME="http"
@@ -489,7 +548,7 @@ while :; do
   cd "\$AE_DIR" || { log "cannot enter \$AE_DIR"; exit 1; }
   log "starting: node server/index.js on \$AE_HOST:\$AE_PORT"
   AE_DATA_DIR="\$AE_DATA" PORT="\$AE_PORT" HOST="\$AE_HOST" \
-    AE_TLS_CERT="\$AE_TLS_CERT" AE_TLS_KEY="\$AE_TLS_KEY" AE_HTTP_PORT="\$AE_HTTP_PORT" \
+    AE_TLS_CERT="\$AE_TLS_CERT" AE_TLS_KEY="\$AE_TLS_KEY" AE_TLS_CA="\$AE_TLS_CA" AE_HTTP_PORT="\$AE_HTTP_PORT" \
     AE_DISCORD_URL="\$AE_DISCORD_URL" node server/index.js >> "\$AE_LOG" 2>&1 &
   CHILD=\$!
   echo "\$CHILD" > "\$AE_PID"
@@ -682,7 +741,12 @@ case "${1:-status}" in
     echo "on this phone : $scheme://127.0.0.1:${AE_PORT:-3000}"
     echo "on your network: $scheme://$ip:${AE_PORT:-3000}"
     if [ "$scheme" = "https" ]; then
-      echo "accept the self-signed certificate once, then crypto works"
+      if [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/ca.crt" ]; then
+        echo "install $scheme://$ip:${AE_PORT:-3000}/ca.crt once per device, then the"
+        echo "warning disappears ('ae-secure trust' walks through it)"
+      else
+        echo "accept the self-signed certificate once, then crypto works"
+      fi
     else
       echo "warning: plain http — phones cannot create accounts or decrypt here"
     fi
@@ -728,6 +792,34 @@ case "${1:-status}" in
       *) echo "usage: ae-secure autostart on|off"; exit 1 ;;
     esac
     ;;
+  trust)
+    # Prints what to install and hands the certificate file to Android, which
+    # opens the "install a certificate" flow for it.
+    dir="${AE_TLS_DIR:-$AE_HOME/tls}"
+    cert="$dir/ca.crt"
+    ip="${AE_HOST_IP:-}"
+    [ -n "$ip" ] || ip="$(ip -4 addr show 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | grep -v '^127\.' | head -1)"
+    if [ ! -f "$cert" ]; then
+      echo "no local authority on this install — the server is using a plain"
+      echo "self-signed certificate, so every device has to accept the warning once."
+      echo "re-run the installer (bash $0 install) to create one."
+      exit 1
+    fi
+    echo "certificate : $cert"
+    echo "fingerprint : $(openssl x509 -in "$cert" -noout -fingerprint -sha256 2>/dev/null | sed 's/^.*=//')"
+    echo
+    echo "1. on this phone, open:  https://127.0.0.1:${AE_PORT:-3000}/trust"
+    [ -n "$ip" ] && echo "   on any other device:  https://$ip:${AE_PORT:-3000}/trust"
+    echo "2. download ae-secure-ca.crt and install it as a CA certificate"
+    echo "   Android: Settings -> Security & privacy -> More security settings ->"
+    echo "            Encryption & credentials -> Install a certificate -> CA certificate"
+    echo "3. close and reopen the browser tab: the padlock replaces the warning"
+    if command -v termux-open >/dev/null 2>&1; then
+      echo
+      echo "opening the certificate file now so Android can install it…"
+      termux-open --content-type application/x-x509-ca-cert "$cert" >/dev/null 2>&1 || true
+    fi
+    ;;
   doctor)
     echo "node      : $(node -v 2>/dev/null || echo 'missing')"
     echo "code      : $AE_DIR $([ -f "$AE_DIR/server/index.js" ] && echo ok || echo MISSING)"
@@ -738,9 +830,16 @@ case "${1:-status}" in
     [ "${AE_TLS:-1}" = "1" ] && [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && scheme="https"
     echo "transport : $scheme (WebCrypto needs https or localhost)"
     echo "cert      : ${AE_TLS_DIR:-$AE_HOME/tls}/server.crt $([ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && echo present || echo missing)"
+    if [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/ca.crt" ]; then
+      echo "authority : ${AE_TLS_DIR:-$AE_HOME/tls}/ca.crt present — install it once per device"
+      echo "            $(openssl x509 -in "${AE_TLS_DIR:-$AE_HOME/tls}/ca.crt" -noout -fingerprint -sha256 2>/dev/null | sed 's/^.*=//' | cut -c1-32)…"
+      echo "            'ae-secure trust' explains how"
+    else
+      echo "authority : none (self-signed leaf: every device must accept the warning)"
+    fi
     echo "health    : $(curl -fsSk --max-time 4 "$scheme://127.0.0.1:${AE_PORT:-3000}/api/health" 2>/dev/null || echo 'no answer')"
     ;;
-  *) echo "usage: ae-secure {start|stop|restart|guard|status|logs|follow|url|update|backup|restore|autostart|doctor}"; exit 1 ;;
+  *) echo "usage: ae-secure {start|stop|restart|guard|status|logs|follow|url|update|backup|restore|autostart|trust|doctor}"; exit 1 ;;
 esac
 CLI
   # bake in this install's directory: `ae-secure status` must work in a fresh
@@ -777,7 +876,14 @@ cmd_install() {
   install_guard_job
   rotate_logs
   step "Starting"
-  "$AE_BIN_DIR/ae-secure" start
+  # A plain install over a running server replaced the code on disk, so make it
+  # reload: "start" alone would see a healthy process and leave the old files in
+  # memory.
+  if "$AE_BIN_DIR/ae-secure" status >/dev/null 2>&1; then
+    "$AE_BIN_DIR/ae-secure" restart >/dev/null 2>&1 || true
+  else
+    "$AE_BIN_DIR/ae-secure" start
+  fi
   sleep 3
   step "Result"
   "$AE_BIN_DIR/ae-secure" status
@@ -804,6 +910,7 @@ case "$COMMAND" in
   url)      load_config; cmd_cli url ;;
   backup)   load_config; cmd_cli backup "${2:-}" ;;
   restore)  load_config; cmd_cli restore "${2:-}" ;;
+  trust)    load_config; cmd_cli trust ;;
   doctor)   load_config; cmd_cli doctor ;;
   *) die "unknown command: $COMMAND" ;;
 esac

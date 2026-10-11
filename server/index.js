@@ -31,6 +31,10 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const TLS_CERT = process.env.AE_TLS_CERT || '';
 const TLS_KEY = process.env.AE_TLS_KEY || '';
 const TLS_AVAILABLE = !!(TLS_CERT && TLS_KEY && fs.existsSync(TLS_CERT) && fs.existsSync(TLS_KEY));
+// The local certificate authority the installer creates.  Handing this file to
+// a device once is what turns "Not secure" into a plain padlock.
+const TLS_CA = process.env.AE_TLS_CA || '';
+const CA_AVAILABLE = !!(TLS_CA && fs.existsSync(TLS_CA));
 const FORCE_HTTPS = String(process.env.AE_FORCE_HTTPS || '') === '1';
 const HTTP_PORT = Number(process.env.AE_HTTP_PORT || 0);
 
@@ -116,6 +120,27 @@ const SECURITY_HEADERS = {
     "frame-ancestors *",
   ].join('; '),
 };
+
+/**
+ * Serves the local CA for download.  Called before the SPA fallback so
+ * /ca.crt never returns index.html.
+ */
+function sendCaFile(res, download) {
+  if (!CA_AVAILABLE) {
+    res.writeHead(404, Object.assign({ 'Content-Type': 'text/plain' }, SECURITY_HEADERS));
+    res.end('No local certificate authority on this install.');
+    return true;
+  }
+  const body = fs.readFileSync(TLS_CA);
+  res.writeHead(200, Object.assign({
+    'Content-Type': 'application/x-x509-ca-cert',
+    'Content-Length': body.length,
+    'Cache-Control': 'no-store',
+    'Content-Disposition': download ? 'attachment; filename="ae-secure-ca.crt"' : 'inline; filename="ae-secure-ca.crt"',
+  }, SECURITY_HEADERS));
+  res.end(body);
+  return true;
+}
 
 function sendStatic(req, res, pathname) {
   let relative = pathname === '/' ? '/index.html' : pathname;
@@ -311,6 +336,11 @@ async function handleRequest(req, res) {
   }
 
   if (!isApi) {
+    if (pathname === '/ca.crt') { sendCaFile(res, true); return; }
+    if (pathname === '/ca.pem' || pathname === '/ae-secure-ca.crt') { sendCaFile(res, true); return; }
+    // /trust is a real page, not an app route: the single-page fallback would
+    // otherwise hand back index.html.
+    if (pathname === '/trust' || pathname === '/trust/') { sendStatic(req, res, '/trust.html'); return; }
     sendStatic(req, res, pathname);
     return;
   }
@@ -433,4 +463,4 @@ if (redirectServer) redirectServer.listen(HTTP_PORT, HOST, () => {
   console.log(`  redirect      http://${HOST}:${HTTP_PORT} -> https://…:${PORT}`);
 });
 
-module.exports = { server, PORT, TLS_AVAILABLE, FORCE_HTTPS };
+module.exports = { server, PORT, TLS_AVAILABLE, CA_AVAILABLE, FORCE_HTTPS };

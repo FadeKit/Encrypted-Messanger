@@ -334,6 +334,14 @@ check('boot data is read through the state store', !/S\.boot\b/.test(appSrc), (a
 
 // A window's toolbar must never be built by clearing the window body: the render
 // target lives there, and every surface that set a toolbar came up blank.
+// the certificate has to be downloadable from the site, or a device cannot install it
+const serverIndex = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
+check('the server hands out its own authority', /function sendCaFile/.test(serverIndex) && /pathname === '\/ca\.crt'/.test(serverIndex));
+check('a trust page ships with the client', fs.existsSync(path.join(PUBLIC, 'trust.html')) && fs.existsSync(path.join(PUBLIC, 'js', 'trust.js')));
+const trustHtml = fs.readFileSync(path.join(PUBLIC, 'trust.html'), 'utf8');
+check('the trust page picks a theme and a signal', /data-theme="[\w-]+"/.test(trustHtml) && /data-accent="[\w-]+"/.test(trustHtml));
+check('the sign-in screen links to the trust page', /href: '\/trust'/.test(appSrc));
+
 const windowsSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'windows.js'), 'utf8');
 check('setting a toolbar never clears the window body',
   /function ensureToolbar/.test(windowsSrc) && !/UI\.clear\(entry\.record\.toolbar \|\| entry\.record\.body\)/.test(windowsSrc));
@@ -663,7 +671,11 @@ if (shim.State && shim.Apps) {
     check('installer can back up the data directory', /backup written/.test(script));
     check('installer can point at another git remote', /AE_GIT_URL/.test(script));
     check('installer can generate its own https certificate', /install_tls/.test(script) && /AE_TLS_DIR/.test(script));
-    check('installer can carry a discord invite for the credit line', /AE_DISCORD_URL/.test(script));
+
+    check('installer creates a local certificate authority', /openssl req -x509 -nodes -newkey rsa:2048 -days 3650/.test(script) && /CA:TRUE/.test(script));
+    check('the leaf is signed by that authority', /-CA "\$ca_cert" -CAkey "\$ca_key"/.test(script));
+    check('the authority path reaches the server', /AE_TLS_CA=/.test(script) && /AE_TLS_CA="\\\$AE_TLS_CA"/.test(script));
+    check('a trust command explains the install', /^  trust\)/m.test(script) && /Install a certificate/.test(script));    check('installer can carry a discord invite for the credit line', /AE_DISCORD_URL/.test(script));
     check('the service command carries its own install path', /@AE_HOME_DEFAULT@/.test(script) && /sed -i "s\|@AE_HOME_DEFAULT@\|\$AE_HOME\|"/.test(script));
     check('installer fails loudly if the path is not baked in', /could not bake the install path/.test(script));
     const cliTemplate = (script.match(/<<'CLI'([\s\S]*?)\nCLI\n/) || [])[1] || '';

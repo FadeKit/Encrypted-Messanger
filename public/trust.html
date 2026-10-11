@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nox" data-accent="ink">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Trust this server — AE Secure</title>
+  <meta name="robots" content="noindex" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/windows.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="trust-page">
+  <main class="trust-sheet">
+    <div class="auth-logo">
+      <div class="mark">AE</div>
+      <div>
+        <div class="title-2">AE Secure</div>
+        <div class="caption">Local certificate authority</div>
+      </div>
+    </div>
+
+    <div class="title-1">Remove the warning</div>
+    <p class="small muted">
+      This server speaks https with a certificate signed by its own authority. Browsers only
+      trust authorities they know, so they show <em>Not secure</em> until you install this one —
+      once per device. Nothing else changes: your passphrase still never leaves the device, and
+      the certificate only vouches for this address on your own network.
+    </p>
+
+    <div class="trust-step">
+      <div class="trust-num">01</div>
+      <div>
+        <div class="body-strong">Download the certificate</div>
+        <div class="small muted">A single file, <code>ae-secure-ca.crt</code>, with no private key in it.</div>
+        <a class="btn primary" href="/ca.crt" download>Download ae-secure-ca.crt</a>
+      </div>
+    </div>
+
+    <div class="trust-step">
+      <div class="trust-num">02</div>
+      <div>
+        <div class="body-strong">Install it as a CA certificate</div>
+        <div class="small muted">Choose the line for the device you are holding.</div>
+        <table class="trust-table">
+          <tr><th>Android</th><td>Settings → Security &amp; privacy → More security settings → Encryption &amp; credentials → Install a certificate → <b>CA certificate</b> → pick the file. Your phone will warn that a third party can monitor traffic: that third party is this phone.</td></tr>
+          <tr><th>Windows</th><td>Double-click the file → Install Certificate → Local Machine → <b>Place all certificates in the following store</b> → Trusted Root Certification Authorities → Finish.</td></tr>
+          <tr><th>macOS</th><td>Double-click → add to <b>System</b> keychain → open the certificate → Trust → <b>Always Trust</b>.</td></tr>
+          <tr><th>iPhone / iPad</th><td>Settings → Profile Downloaded → Install (twice), then Settings → General → About → Certificate Trust Settings → enable <b>full trust</b> for “AE Secure local CA”.</td></tr>
+          <tr><th>Firefox</th><td>Settings → Privacy &amp; Security → Certificates → View Certificates → Authorities → Import → tick “Trust this CA to identify websites”.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="trust-step">
+      <div class="trust-num">03</div>
+      <div>
+        <div class="body-strong">Reopen AE Secure</div>
+        <div class="small muted">Close every tab of this site and open it again: the padlock replaces the warning.</div>
+        <a class="btn" id="back-link" href="/">Back to AE Secure</a>
+      </div>
+    </div>
+
+    <div class="stack-8" id="status-row"></div>
+    <p class="hint">
+      Fingerprint of this authority (SHA-256) — compare it with <code>ae-secure doctor</code> on the phone.
+    </p>
+    <pre class="trust-fingerprint" id="fingerprint">reading…</pre>
+    <p class="hint">
+      No certificate authority? Then this install is serving a plain self-signed certificate:
+      every device has to accept the warning once instead.
+    </p>
+  </main>
+
+  <script defer src="/js/icons.js"></script>
+  <script defer src="/js/trust.js"></script>
+</body>
+</html>
