@@ -617,6 +617,7 @@ if (shim.State && shim.Apps) {
     check('installer keeps data outside the checkout', /AE_DATA="\$\{AE_DATA:-\$HOME\/ae-secure-data\}"/.test(script));
     check('installer prints the lan address', /on your network/.test(script));
     check('installer can back up the data directory', /backup written/.test(script));
+    check('installer can point at another git remote', /AE_GIT_URL/.test(script));
     const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
     check('readme documents the installer and its commands', /scripts\/termux-install\.sh/.test(readme) && /ae-secure update/.test(readme) && /ae-secure backup/.test(readme));
     check('readme names the branch the app lives on', readme.includes('arena/442b6c1e-encrypted-messanger'));

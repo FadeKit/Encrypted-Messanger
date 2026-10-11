@@ -19,6 +19,7 @@
 #  Everything can be overridden with environment variables:
 #
 #      AE_OWNER  AE_REPO  AE_BRANCH  AE_DIR  AE_DATA  AE_PORT  AE_HOST
+#      AE_GIT_URL (another remote)  AE_SOURCE_FILE (a local .tar.gz or .zip)
 #
 #  Commands: install (default) | update | start | stop | restart | status |
 #            logs | url | backup | restore <file> | uninstall | doctor
@@ -68,6 +69,7 @@ write_config() {
 AE_OWNER="$AE_OWNER"
 AE_REPO="$AE_REPO"
 AE_BRANCH="$AE_BRANCH"
+AE_GIT_URL="${AE_GIT_URL:-}"
 AE_DIR="$AE_DIR"
 AE_DATA="$AE_DATA"
 AE_PORT="$AE_PORT"
@@ -129,7 +131,10 @@ github_token() {
   printf ''
 }
 
+# AE_GIT_URL points the installer at another remote: a mirror, a self-hosted
+# forge, or a bare repository on this phone. It defaults to GitHub.
 clone_url() {
+  if [ -n "${AE_GIT_URL:-}" ]; then printf '%s' "$AE_GIT_URL"; return; fi
   local token="$1"
   if [ -n "$token" ]; then
     printf 'https://x-access-token:%s@github.com/%s/%s.git' "$token" "$AE_OWNER" "$AE_REPO"
@@ -212,7 +217,9 @@ fetch_source() {
     else
       die "download failed — check the owner/repo/branch and your token"
     fi
-    [ -n "$token" ] && git -C "$AE_DIR" remote set-url origin "https://github.com/$AE_OWNER/$AE_REPO.git" 2>/dev/null || true
+    if [ -z "${AE_GIT_URL:-}" ]; then
+      [ -n "$token" ] && git -C "$AE_DIR" remote set-url origin "https://github.com/$AE_OWNER/$AE_REPO.git" 2>/dev/null || true
+    fi
   fi
   [ -f "$AE_DIR/server/index.js" ] || die "server/index.js is missing — is the branch correct?"
   mkdir -p "$AE_DATA"
