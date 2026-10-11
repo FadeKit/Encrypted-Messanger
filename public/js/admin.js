@@ -28,20 +28,20 @@ const AdminClient = (() => {
     body.append(shell);
 
     const sections = [
-      ['overview', '📊', 'Overview'],
-      ['neural', '🧠', 'Neural network'],
-      ['users', '👥', 'Users'],
-      ['sessions', '🔐', 'Sessions'],
-      ['requests', '📨', 'Requests'],
-      ['files', '🗄️', 'All uploads'],
-      ['stories', '📸', 'Story storage'],
-      ['karma', '⚖️', 'Karma'],
-      ['audit', '🧾', 'Audit log'],
-      ['global', '🌐', 'Global state'],
+      ['overview', '01', 'Overview'],
+      ['neural', '02', 'Neural network'],
+      ['users', '03', 'Users'],
+      ['sessions', '04', 'Sessions'],
+      ['requests', '05', 'Requests'],
+      ['files', '06', 'All uploads'],
+      ['stories', '07', 'Story storage'],
+      ['karma', '08', 'Karma'],
+      ['audit', '09', 'Audit log'],
+      ['global', '10', 'Global state'],
     ];
     for (const [id, glyph, label] of sections) {
       nav.append(el('button', { class: id === section ? 'on' : '', onClick: () => { section = id; render(body, api); } }, [
-        el('span', { text: glyph }), el('span', { text: label }),
+        el('span', { class: 'glyph', text: glyph }), el('span', { text: label }),
       ]));
     }
     if (refreshTimer) clearInterval(refreshTimer);
@@ -84,7 +84,7 @@ const AdminClient = (() => {
         el('div', { class: 'title-2', text: 'Server overview' }),
         el('div', { class: 'caption', text: `${data.server.name} ${data.server.version} · Node ${data.server.node} · ${data.server.platform} ${data.server.arch}` }),
       ]),
-      el('button', { class: 'btn sm', text: '🔄 Refresh', onClick: () => paintSection() }),
+      el('button', { class: 'btn sm', text: 'Refresh', onClick: () => paintSection() }),
     ]));
 
     scroll.append(el('div', { class: 'grid-4' }, [
@@ -194,7 +194,7 @@ const AdminClient = (() => {
           el('div', { class: 'row' }, [
             el('span', { class: 'body-strong', text: user.displayName }),
             user.verified ? UI.verifiedBadge(user) : null,
-            user.purpleAllowed ? el('span', { title: 'Purple status granted', text: '🟣' }) : null,
+            user.purpleAllowed ? el('span', { title: 'Purple status granted', text: '' }) : null,
           ]),
           el('div', { class: 'tiny faint', text: `@${user.username}${user.publicProfile.enabled ? ` · ${user.publicProfile.alias || 'public'}` : ''}` }),
         ]),
@@ -208,7 +208,7 @@ const AdminClient = (() => {
           el('div', { text: `${user.sessions} session(s)` }),
         ]),
         el('td', { class: 'tiny' }, [
-          el('div', { text: `💬 ${UI.timeAgo(user.history.lastMessageAt)}` }),
+          el('div', { text: `▤ ${UI.timeAgo(user.history.lastMessageAt)}` }),
           el('div', { text: `⬆ ${UI.timeAgo(user.history.lastUploadAt)}` }),
         ]),
         el('td', {}, [el('span', { class: 'karma-bar' }, [
@@ -235,16 +235,16 @@ const AdminClient = (() => {
 
   function userMenu(event, user) {
     UI.contextMenu([
-      { glyph: '📖', label: 'Open profile panel', onClick: () => openUser(user.id) },
-      { glyph: '💬', label: 'Chat with member', onClick: () => ConversationClient.startWith(user.id) },
-      { glyph: '🎟️', label: 'Generate one-time DM code', onClick: () => generateCode(user) },
+      { glyph: '▣', label: 'Open profile panel', onClick: () => openUser(user.id) },
+      { glyph: '▤', label: 'Chat with member', onClick: () => ConversationClient.startWith(user.id) },
+      { glyph: '#', label: 'Generate one-time DM code', onClick: () => generateCode(user) },
       { separator: true },
-      { glyph: '🛡️', label: user.banned ? 'Lift suspension' : 'Suspend account', danger: !user.banned, onClick: async () => {
+      { glyph: '⬢', label: user.banned ? 'Lift suspension' : 'Suspend account', danger: !user.banned, onClick: async () => {
         await API.patch(`/api/admin/users/${user.id}`, { banned: !user.banned });
         UI.toast({ level: 'success', title: user.banned ? 'Suspension lifted' : 'Account suspended' });
         paintUsers();
       } },
-      { glyph: '🚫', label: user.disabled ? 'Re-enable account' : 'Disable account', danger: !user.disabled, onClick: async () => {
+      { glyph: '⊘', label: user.disabled ? 'Re-enable account' : 'Disable account', danger: !user.disabled, onClick: async () => {
         await API.patch(`/api/admin/users/${user.id}`, { disabled: !user.disabled });
         paintUsers();
       } },
@@ -255,12 +255,12 @@ const AdminClient = (() => {
     const result = await API.post('/api/dm-codes', { userId: user.id });
     UI.dialog({
       title: 'One-time chat code',
-      glyph: '🎟️',
+      glyph: '#',
       subtitle: `Send this code to @${user.username} through any channel you trust.`,
       content: el('div', { class: 'stack-8' }, [
         el('div', { class: 'recovery-code', text: result.code, onClick: () => UI.copy(result.code, 'Code copied') }),
         el('div', { class: 'hint', text: `Single use · expires ${UI.dateTime(result.expiresAt)}` }),
-        el('div', { class: 'notice-strip', html: '<span>🕶️</span><span>The member sees “Server Administration” until you choose to identify yourself inside the channel.</span>' }),
+        el('div', { class: 'notice-strip', html: '<span>◍</span><span>The member sees “Server Administration” until you choose to identify yourself inside the channel.</span>' }),
       ]),
       footer: [el('button', { class: 'btn primary', text: 'Copy code', onClick: () => UI.copy(result.code, 'Code copied') })],
     });
@@ -280,7 +280,7 @@ const AdminClient = (() => {
       clear(sessionList);
       for (const session of detail.sessions) {
         sessionList.append(el('div', { class: 'session-row' }, [
-          el('span', { class: 'device-glyph', text: /phone|android|iphone|ipad/i.test(session.device) ? '📱' : /mac|windows|linux/i.test(session.device) ? '💻' : '🌐' }),
+          el('span', { class: 'device-glyph', text: /phone|android|iphone|ipad/i.test(session.device) ? '▭' : /mac|windows|linux/i.test(session.device) ? '▢' : '◈' }),
           el('div', { class: 'grow' }, [
             el('div', { class: 'small body-strong', text: `${session.device} · ${session.platform}` }),
             el('div', { class: 'tiny faint', text: `${session.ip || 'ip hidden'} · started ${UI.dateTime(session.createdAt)} · last seen ${UI.timeAgo(session.lastSeenAt)}` }),
@@ -308,12 +308,12 @@ const AdminClient = (() => {
       ]),
       el('div', { class: 'row wrap' }, [
         el('span', { class: 'pill', text: `role ${user.role}` }),
-        el('span', { class: 'pill', text: `💬 ${user.stats.messages}` }),
-        el('span', { class: 'pill', text: `📝 ${user.stats.posts}` }),
-        el('span', { class: 'pill', text: `🗂️ ${detail.files.length} files` }),
-        el('span', { class: 'pill', text: `📸 ${detail.stories.length} stories` }),
-        el('span', { class: 'pill', text: `🪂 ${user.clicks} clicks` }),
-        el('span', { class: 'pill', text: `⚖️ karma ${user.karma.score} (▲${user.karma.received.up}/▼${user.karma.received.down})` }),
+        el('span', { class: 'pill', text: `▤ ${user.stats.messages}` }),
+        el('span', { class: 'pill', text: `✎ ${user.stats.posts}` }),
+        el('span', { class: 'pill', text: `▥ ${detail.files.length} files` }),
+        el('span', { class: 'pill', text: `◉ ${detail.stories.length} stories` }),
+        el('span', { class: 'pill', text: `⊞ ${user.clicks} clicks` }),
+        el('span', { class: 'pill', text: `§ karma ${user.karma.score} (▲${user.karma.received.up}/▼${user.karma.received.down})` }),
       ]),
       el('div', { class: 'card stack-8' }, [
         el('div', { class: 'uppercase', text: 'Moderation' }),
@@ -327,7 +327,7 @@ const AdminClient = (() => {
           el('div', { class: 'row' }, [
             el('select', { class: 'select', onChange: async (event) => { await API.patch(`/api/admin/users/${user.id}`, { role: event.target.value }); openUser(userId); } },
               ['member', 'mod', 'admin', 'owner'].map((role) => el('option', { value: role, text: role, selected: role === user.role }))),
-            el('button', { class: 'btn sm', text: '🎟️ One-time DM code', onClick: () => generateCode(user) }),
+            el('button', { class: 'btn sm', text: 'One-time DM code', onClick: () => generateCode(user) }),
           ]),
         ]),
       ]),
@@ -393,7 +393,7 @@ const AdminClient = (() => {
         el('div', { class: 'hint', text: 'Filenames and contents are end-to-end encrypted and not readable here.' }),
       ]),
     ]);
-    UI.dialog({ title: `@${user.username}`, glyph: '👤', size: 'wide', content });
+    UI.dialog({ title: `@${user.username}`, glyph: '◧', size: 'wide', content });
   }
 
   function toggle(label, value, onChange, description) {
@@ -438,7 +438,7 @@ const AdminClient = (() => {
         el('div', { class: 'tiny faint', text: 'End any device session when a member reports a lost device or asks you to sign them out.' }),
       ]),
       el('span', { class: 'pill', text: `${rows.length} sessions` }),
-      el('button', { class: 'btn sm', text: '🔄 Refresh', onClick: () => paintSection() }),
+      el('button', { class: 'btn sm', text: 'Refresh', onClick: () => paintSection() }),
     ]), el('div', { class: 'pane-scroll' }, [table]));
   }
 
@@ -458,10 +458,10 @@ const AdminClient = (() => {
       el('span', { class: 'pill accent', text: `${data.counts.open || 0} open` }),
       el('span', { class: 'pill', text: `${data.counts.approved || 0} approved` }),
       el('span', { class: 'pill', text: `${data.counts.denied || 0} denied` }),
-      el('button', { class: 'btn sm', text: '🔄', onClick: () => paintSection() }),
+      el('button', { class: 'btn sm', text: '', onClick: () => paintSection() }),
     ]), scroll);
 
-    if (!data.requests.length) scroll.append(UI.empty('📨', 'No requests', 'Members can ask for bigger uploads, drive space or the purple status.'));
+    if (!data.requests.length) scroll.append(UI.empty('05', 'No requests', 'Members can ask for bigger uploads, drive space or the purple status.'));
     for (const request of data.requests) {
       const card = el('div', { class: 'card stack-8' });
       const user = request.user || { displayName: 'unknown' };
@@ -481,7 +481,7 @@ const AdminClient = (() => {
           ]),
           el('div', { class: 'tiny faint', text: `@${user.username} · ${request.kind} request · ${UI.timeAgo(request.createdAt)}` }),
         ]),
-        el('button', { class: 'btn sm', text: '👤 Open account', onClick: () => openUser(request.user.id) }),
+        el('button', { class: 'btn sm', text: 'Open account', onClick: () => openUser(request.user.id) }),
       ]));
 
       card.append(el('div', { class: 'row wrap small' }, [
@@ -503,19 +503,19 @@ const AdminClient = (() => {
           quick.append(el('button', { class: 'btn sm subtle', text: '∞ unlimited', onClick: () => { amount.value = 'unlimited'; } }));
         }
         card.append(el('div', { class: 'stack-6' }, [
-          request.kind === 'purple' ? el('div', { class: 'notice-strip', html: '<span>🟣</span><span>Approving unlocks the purple availability ring for this member.</span>' }) : null,
-          request.kind === 'verified' ? el('div', { class: 'notice-strip', html: '<span>✅</span><span>Approving adds the blue check mark to this member.</span>' }) : null,
+          request.kind === 'purple' ? el('div', { class: 'notice-strip', html: '<span>◉</span><span>Approving unlocks the purple availability ring for this member.</span>' }) : null,
+          request.kind === 'verified' ? el('div', { class: 'notice-strip', html: '<span>✓</span><span>Approving adds the blue check mark to this member.</span>' }) : null,
           request.kind === 'dm' || request.kind === 'drive' || request.kind === 'story' ? el('div', { class: 'field' }, [el('label', { text: 'New limit' }), amount, quick]) : null,
           el('div', { class: 'field' }, [el('label', { text: 'Note' }), noteInput]),
           el('div', { class: 'row' }, [
-            el('button', { class: 'btn primary', text: '✅ Accept request', onClick: () => decide(request, 'approve', amount.value, noteInput.value) }),
-            el('button', { class: 'btn', text: '⛔ Deny (leave as it was)', onClick: () => decide(request, 'deny', null, noteInput.value) }),
+            el('button', { class: 'btn primary', text: 'Accept request', onClick: () => decide(request, 'approve', amount.value, noteInput.value) }),
+            el('button', { class: 'btn', text: 'Deny (leave as it was)', onClick: () => decide(request, 'deny', null, noteInput.value) }),
             el('div', { class: 'spacer' }),
-            el('button', { class: 'btn subtle sm', text: '🎟️ Open a chat instead', onClick: () => generateCode(user) }),
+            el('button', { class: 'btn subtle sm', text: 'Open a chat instead', onClick: () => generateCode(user) }),
           ]),
         ]));
       } else if (request.decision) {
-        card.append(el('div', { class: 'notice-strip', html: `<span>🧾</span><span>${UI.esc(request.decision.status)} ${request.decision.grantedBytes ? `· granted ${UI.bytes(request.decision.grantedBytes)}` : ''} ${request.decision.note ? `· “${UI.esc(request.decision.note)}”` : ''} · ${UI.timeAgo(request.decision.at)}</span>` }));
+        card.append(el('div', { class: 'notice-strip', html: `<span>≡</span><span>${UI.esc(request.decision.status)} ${request.decision.grantedBytes ? `· granted ${UI.bytes(request.decision.grantedBytes)}` : ''} ${request.decision.note ? `· “${UI.esc(request.decision.note)}”` : ''} · ${UI.timeAgo(request.decision.at)}</span>` }));
       }
       scroll.append(card);
     }
@@ -549,7 +549,7 @@ const AdminClient = (() => {
       kindSelect,
       el('span', { class: 'pill', text: `${data.totals.count} blobs` }),
       el('span', { class: 'pill accent', text: UI.bytes(data.totals.bytes) }),
-      el('button', { class: 'btn sm', text: '🔄', onClick: () => paintSection() }),
+      el('button', { class: 'btn sm', text: '', onClick: () => paintSection() }),
     ]));
 
     hostNode.append(el('div', { class: 'row wrap pad-8' }, Object.entries(data.totals.byKind).map(([key, bytes]) => el('span', { class: 'pill tiny', text: `${key}: ${UI.bytes(bytes)}` }))));
@@ -634,7 +634,7 @@ const AdminClient = (() => {
         el('div', { class: 'body-strong', text: 'Karma leaderboard' }),
         el('div', { class: 'tiny faint', text: 'Upvote and downvote totals are visible to administrators only.' }),
       ]),
-      el('button', { class: 'btn sm', text: '🔄', onClick: () => paintKarma() }),
+      el('button', { class: 'btn sm', text: '', onClick: () => paintKarma() }),
     ]), el('div', { class: 'pane-scroll' }, [table]));
   }
 
@@ -646,7 +646,7 @@ const AdminClient = (() => {
         el('div', { class: 'body-strong', text: 'Administrative audit log' }),
         el('div', { class: 'tiny faint', text: 'Every operator action is recorded with actor, target and timestamp.' }),
       ]),
-      el('button', { class: 'btn sm', text: '🔄', onClick: () => paintAudit() }),
+      el('button', { class: 'btn sm', text: '', onClick: () => paintAudit() }),
     ]));
     const table = el('table', { class: 'table' }, [
       el('thead', {}, [el('tr', {}, ['When', 'Actor', 'Action', 'Detail'].map((label) => el('th', { text: label })))]),
@@ -698,7 +698,7 @@ const AdminClient = (() => {
             });
             UI.toast({ level: 'success', title: 'Global state saved' });
           } }),
-          el('button', { class: 'btn', text: '📄 Preview agreement', onClick: () => Terms.show() }),
+          el('button', { class: 'btn', text: 'Preview agreement', onClick: () => Terms.show() }),
         ]),
       ]),
       el('div', { class: 'card stack-8' }, [
@@ -718,7 +718,7 @@ const AdminClient = (() => {
     hostNode.append(stage);
 
     const overlay = el('div', { class: 'neural-overlay' }, [
-      el('span', { class: 'pill', text: '🧠 live activity graph' }),
+      el('span', { class: 'pill', text: 'live activity graph' }),
       el('select', { class: 'select', style: { width: '150px' }, onChange: () => pullGraph(false) }, [
         el('option', { value: '30', text: 'last 30 minutes' }),
         el('option', { value: '60', text: 'last hour', selected: true }),
@@ -730,9 +730,9 @@ const AdminClient = (() => {
         event.target.textContent = graph.running ? '⏯ Pause' : '▶ Resume';
         if (graph.running) tick();
       } }),
-      el('button', { class: 'btn sm', text: '🎯 Fit', onClick: () => fit() }),
-      el('button', { class: 'btn sm', text: '➕', title: 'Zoom in', onClick: () => zoomBy(1.25) }),
-      el('button', { class: 'btn sm', text: '➖', title: 'Zoom out', onClick: () => zoomBy(0.8) }),
+      el('button', { class: 'btn sm', text: 'Fit', onClick: () => fit() }),
+      el('button', { class: 'btn sm', text: '', title: 'Zoom in', onClick: () => zoomBy(1.25) }),
+      el('button', { class: 'btn sm', text: '–', title: 'Zoom out', onClick: () => zoomBy(0.8) }),
       el('span', { class: 'pill tiny', id: 'neural-status', text: 'connecting…' }),
     ]);
     const legend = el('div', { class: 'neural-legend' }, Object.entries({ user: 'member', dm: 'direct channel', group: 'group chat', forum: 'community' }).map(([kind, label]) => el('div', {}, [
@@ -1037,9 +1037,9 @@ const AdminClient = (() => {
       const id = node.id.replace('user:', '');
       panel.append(el('div', { class: 'row pad-8' }, [
         el('button', { class: 'btn sm', text: 'Moderate', onClick: () => openUser(id) }),
-        el('button', { class: 'btn sm', text: '🎟️ DM code', onClick: async () => {
+        el('button', { class: 'btn sm', text: 'DM code', onClick: async () => {
           const result = await API.post('/api/dm-codes', { userId: id });
-          UI.dialog({ title: 'One-time chat code', glyph: '🎟️', content: el('div', { class: 'stack-8' }, [
+          UI.dialog({ title: 'One-time chat code', glyph: '#', content: el('div', { class: 'stack-8' }, [
             el('div', { class: 'recovery-code', text: result.code, onClick: () => UI.copy(result.code, 'Code copied') }),
             el('div', { class: 'hint', text: 'Single use. The member sees “Server Administration”.' }),
           ]) });
@@ -1053,7 +1053,7 @@ const AdminClient = (() => {
     const detail = await API.get(`/api/admin/neural/node/${type}/${id}`).catch((error) => ({ error: error.message }));
 
     if (node.type === 'dm' || node.type === 'group') {
-      panel.append(el('div', { class: 'notice-strip', text: '🔐 Channel content is end-to-end encrypted; structure and timing are shown instead of plaintext.' }));
+      panel.append(el('div', { class: 'notice-strip', text: 'Channel content is end-to-end encrypted; structure and timing are shown instead of plaintext.' }));
       panel.append(el('div', { class: 'uppercase pad-8', text: 'Members' }));
       for (const member of (detail.node?.members || [])) {
         panel.append(el('div', { class: 'row small pad-8' }, [
@@ -1067,7 +1067,7 @@ const AdminClient = (() => {
       panel.append(el('div', { class: 'uppercase pad-8', text: 'Recent encrypted activity' }));
       for (const item of (detail.items || []).slice(0, 20)) {
         panel.append(el('div', { class: 'neural-event' }, [
-          el('span', { text: '🔒' }),
+          el('span', { text: '' }),
           el('div', { class: 'grow' }, [
             el('div', { class: 'small', text: `${item.author?.label || 'member'} · ${UI.timeAgo(item.at)}` }),
             el('div', { class: 'tiny faint', text: `${item.bytes} bytes of ciphertext${item.attachments.length ? ` · ${item.attachments.length} attachment(s)` : ''}` }),
@@ -1085,7 +1085,7 @@ const AdminClient = (() => {
         const row = el('div', { class: 'neural-event' });
         const title = el('div', { class: 'small body-strong', text: thread.deleted ? '(deleted thread)' : 'Decrypting…' });
         const body = el('div', { class: 'tiny faint', text: '' });
-        row.append(el('span', { text: '📝' }), el('div', { class: 'grow' }, [title, body, el('div', { class: 'tiny faint', text: `${thread.postCount} replies · ${UI.timeAgo(thread.lastActivityAt)}` })]));
+        row.append(el('span', { text: '' }), el('div', { class: 'grow' }, [title, body, el('div', { class: 'tiny faint', text: `${thread.postCount} replies · ${UI.timeAgo(thread.lastActivityAt)}` })]));
         row.addEventListener('click', () => openNodeThread(id, thread.id));
         panel.append(row);
         if (seed && thread.title) {
@@ -1094,9 +1094,9 @@ const AdminClient = (() => {
             const plainBody = thread.body ? await AE.decryptJson(key, thread.body) : null;
             title.textContent = (plainTitle && plainTitle.text) || 'Untitled';
             body.textContent = ((plainBody && plainBody.text) || '').slice(0, 160);
-          }).catch(() => { title.textContent = '🔒 encrypted'; });
+          }).catch(() => { title.textContent = '▨ encrypted'; });
         } else if (thread.title) {
-          title.textContent = '🔒 private community thread';
+          title.textContent = '▨ private community thread';
         }
       }
       return;
@@ -1113,7 +1113,7 @@ const AdminClient = (() => {
     content.append(titleNode, bodyNode);
     const replies = el('div', { class: 'stack-6' });
     content.append(el('div', { class: 'uppercase', text: `Replies (${detail.items.length})` }), replies);
-    UI.dialog({ title: forumId, glyph: '🧵', size: 'wide', content });
+    UI.dialog({ title: forumId, glyph: '≡', size: 'wide', content });
 
     let key = null;
     if (node.publicSeed) key = await AE.audienceKey(node.publicSeed, `forum:${forumId}`);
@@ -1123,7 +1123,7 @@ const AdminClient = (() => {
       titleNode.textContent = (plainTitle && plainTitle.text) || '(untitled)';
       bodyNode.textContent = (plainBody && plainBody.text) || '';
     } else {
-      titleNode.textContent = '🔒 Private community thread';
+      titleNode.textContent = '▨ Private community thread';
       bodyNode.textContent = 'Content stays encrypted — only public community material is reviewable here.';
     }
     for (const item of detail.items) {
@@ -1145,7 +1145,7 @@ const AdminClient = (() => {
         const plain = await AE.decryptJson(key, item.payload).catch(() => null);
         text.textContent = (plain && plain.text) || '(no text)';
       } else if (item.payload) {
-        text.textContent = '🔒 encrypted reply';
+        text.textContent = '▨ encrypted reply';
         text.classList.add('faint');
       }
     }
@@ -1171,11 +1171,11 @@ const AdminClient = (() => {
 window.AdminClient = AdminClient;
 
 Apps.register({
-  id: 'admin', title: 'Admin Console', glyph: '🛡️', order: 90, adminOnly: true,
+  id: 'admin', title: 'Admin Console', glyph: '⬢', order: 90, adminOnly: true,
   description: 'Server statistics, moderation, quotas, uploads and the live neural network.',
   keywords: ['admin', 'operator', 'neural', 'moderation', 'requests', 'storage', 'sessions'],
   run: () => Windows.open({
-    id: 'admin', title: 'Admin Console', glyph: '🛡️', geometry: { w: 1180, h: 760 },
+    id: 'admin', title: 'Admin Console', glyph: '⬢', geometry: { w: 1180, h: 760 },
     render: (body, api) => AdminClient.render(body, api),
   }),
 });

@@ -152,7 +152,7 @@ const UI = (() => {
     return el('span', {
       class: 'row-tight tiny',
       title: label,
-      html: `<span style="width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--status-${key === 'dnd' ? 'dnd' : key})"></span>`,
+      html: `<span style="width:8px;height:8px;display:inline-block;color:var(--status-${key === 'dnd' ? 'dnd' : key});background:var(--status-${key === 'dnd' ? 'dnd' : key});box-shadow:0 0 6px currentColor"></span>`,
     });
   }
 
@@ -167,7 +167,7 @@ const UI = (() => {
     const stack = $('#toast-stack');
     if (!stack) return null;
     const node = el('div', { class: `toast ${config.level || ''}` });
-    node.append(el('div', { class: 'toast-icon', text: config.glyph || { success: '✅', warning: '⚠️', danger: '⛔', info: 'ℹ️' }[config.level] || '🔔' }));
+    node.append(el('div', { class: 'toast-icon', text: config.glyph || { success: '✓', warning: '!', danger: '✕', info: 'i' }[config.level] || '◈' }));
     const body = el('div', { class: 'toast-body' });
     if (config.title) body.append(el('div', { class: 'body-strong', text: config.title }));
     if (config.body) body.append(el('div', { class: 'small muted', text: config.body }));
@@ -233,7 +233,7 @@ const UI = (() => {
       const dialogRef = dialog({
         title: options.title || 'Are you sure?',
         subtitle: options.subtitle,
-        glyph: options.glyph || '⚠️',
+        glyph: options.glyph || '!',
         size: 'narrow',
         content: el('div', { class: 'stack-8' }, [
           el('div', { class: 'caption', html: options.message || '' }),
@@ -262,7 +262,7 @@ const UI = (() => {
       const dialogRef = dialog({
         title: options.title || 'Enter a value',
         subtitle: options.subtitle,
-        glyph: options.glyph || '✏️',
+        glyph: options.glyph || '✎',
         size: 'narrow',
         content: el('div', { class: 'stack-8' }, [
           options.message ? el('div', { class: 'caption', html: options.message }) : null,

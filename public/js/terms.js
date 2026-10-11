@@ -18,7 +18,7 @@ const Terms = (() => {
 
   function bodyNodes() {
     return [
-      el('div', { class: 'notice-strip', html: '<span>📄</span><span>The operator of this server takes no responsibility for anything shared, posted, uploaded or viewed using this site, and takes no part in user activity.</span>' }),
+      el('div', { class: 'notice-strip', html: '<span>§</span><span>The operator of this server takes no responsibility for anything shared, posted, uploaded or viewed using this site, and takes no part in user activity.</span>' }),
       el('div', { class: 'terms-box' }, SECTIONS.map(([heading, paragraph]) => el('div', {}, [
         el('h4', { text: heading }),
         el('p', { text: paragraph }),
@@ -64,7 +64,7 @@ const Terms = (() => {
     checkbox.addEventListener('change', () => { acceptButton.disabled = !checkbox.checked; });
     dialogRef = UI.dialog({
       title: TITLE,
-      glyph: '📄',
+      glyph: '§',
       size: 'wide',
       dismissable: !requireAccept,
       content: el('div', { class: 'stack-12' }, [
@@ -93,12 +93,12 @@ const Terms = (() => {
     checkbox.addEventListener('change', () => { button.disabled = !checkbox.checked; });
     dialogRef = UI.dialog({
       title: TITLE,
-      glyph: '📄',
+      glyph: '§',
       size: 'wide',
       dismissable: false,
       content: el('div', { class: 'stack-12' }, [
         ...bodyNodes(),
-        el('div', { class: 'notice-strip warn', html: '<span>⚠️</span><span>Your account records which version of this notice you accepted.</span>' }),
+        el('div', { class: 'notice-strip warn', html: '<span>!</span><span>Your account records which version of this notice you accepted.</span>' }),
         el('label', { class: 'row small' }, [checkbox, el('span', { text: 'I have read and accept this agreement, including the non-liability notice.' })]),
       ]),
       footer: [

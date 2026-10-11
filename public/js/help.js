@@ -46,7 +46,7 @@ const Help = (() => {
       title: 'Airdrop delivery',
       tags: ['airdrop', 'drop', 'send', 'share', 'broadcast'],
       summary: 'Send encrypted drops to every online member at once.',
-      body: 'Airdrop is off by default. When it is on, a 🪂 icon appears with a badge counting drops received while you were online, and you can send text, images or files to everyone who currently has airdrop on and is online. Each drop key is wrapped individually per recipient with ECDH, so recipients can open it but the server cannot. If nobody is online, the drop goes nowhere — except for operators, who always receive drops even offline.',
+      body: 'Airdrop is off by default. When it is on, an airdrop mark (⇣) appears in the tray with a badge counting drops received while you were online, and you can send text, images or files to everyone who currently has airdrop on and is online. Each drop key is wrapped individually per recipient with ECDH, so recipients can open it but the server cannot. If nobody is online, the drop goes nowhere — except for operators, who always receive drops even offline.',
     },
     {
       title: 'Stories',
@@ -70,7 +70,7 @@ const Help = (() => {
       title: 'Reactions, votes and karma',
       tags: ['reactions', 'emoji', 'votes', 'upvote', 'downvote', 'karma'],
       summary: 'Emoji reactions plus an up/down vote that only operators can total up.',
-      body: 'Any message or post can carry reactions (tap 😊 or the three-dot menu). Votes work like a community score: upvote, downvote, or clear your vote. You cannot vote on your own content. Karma totals are visible only to administrators, who see both the votes you received and the votes you cast.',
+      body: 'Any message or post can carry reactions (the reaction button or the three-dot menu). Votes work like a community score: upvote, downvote, or clear your vote. You cannot vote on your own content. Karma totals are visible only to administrators, who see both the votes you received and the votes you cast.',
     },
     {
       title: 'Message actions menu',
@@ -116,21 +116,21 @@ const Help = (() => {
     },
     {
       title: 'Appearance',
-      tags: ['appearance', 'theme', 'accent', 'acrylic', 'glass', 'blur', 'radius', 'wallpaper', 'taskbar'],
-      summary: 'Themes, accent colours, acrylic strength, blur, radius, scale and wallpaper.',
-      body: 'Five themes ship with the app and each accepts any of nine accents. Acrylic strength controls how much of the backdrop shows through windows, blur radius controls the softness (lower is faster on phones), and corner radius controls the Windows 11-style rounding. Interface scale changes text size everywhere, and the taskbar can be centred, left-docked or set to auto-hide.',
+      tags: ['appearance', 'theme', 'accent', 'signal', 'chamfer', 'blur', 'backdrop', 'wallpaper', 'taskbar', 'nocturne', 'acid', 'sector', 'ice', 'chrome'],
+      summary: 'Five themes, nine signal colours, chamfered plates, backdrop and interface scale.',
+      body: 'The interface is built as a terminal console: hard 1px lines, chamfered panel plates, mono HUD labels and heavy uppercase titles. Five themes ship with it — NOX (phosphor on wet asphalt), ACID (sodium haze), SECTOR (red alert), ICE (server hall) and CHROME (a bleached daylight sheet). Each theme accepts any of nine signal colours, and CHROME darkens every signal automatically so accents stay legible on paper. Panel opacity controls how much of the backdrop shows through a window, blur radius controls the softness behind it (zero is sharpest and cheapest on a phone), and edge chamfer sizes the cut corner on every plate. The backdrop is a live layer: signal grid, signal bloom, data rain, dot matrix or void. Interface scale changes text size everywhere.',
     },
     {
       title: 'Accessibility',
-      tags: ['accessibility', 'contrast', 'dyslexia', 'motion', 'colour blind', 'focus', 'line spacing'],
-      summary: 'Contrast, dyslexia font, spacing, colour-blind filters and motion.',
-      body: 'Every accessibility option is applied locally in your browser. High contrast strengthens borders, the dyslexia-friendly font widens spacing, line spacing is adjustable, colour-blind filters shift hues so status colours stay distinguishable, focus outlines keep keyboard navigation visible, and Reduce motion strips animations — handy on low-end phones hosting the server.',
+      tags: ['accessibility', 'contrast', 'dyslexia', 'motion', 'colour blind', 'focus', 'line spacing', 'scanlines'],
+      summary: 'Contrast, dyslexia font, spacing, colour-blind filters, motion and the scanline layer.',
+      body: 'Every accessibility option is applied locally in your browser. High contrast hardens every border and removes text glow. The dyslexia-friendly font widens spacing across the interface. Line spacing is adjustable, and colour-blind filters shift hues so the signal and status colours stay distinguishable. Focus outlines keep keyboard navigation visible, and Reduce motion stops the moving grid, the data rain, the boot log and every transition — which also saves battery on the phone hosting your server. If the scanline layer bothers your eyes, turn on High contrast: it flattens the backdrop to a solid field.',
     },
     {
       title: 'Window management',
-      tags: ['windows', 'drag', 'snap', 'maximize', 'minimize', 'shortcuts'],
-      summary: 'Move, resize, snap and stack acrylic windows like Windows 11.',
-      body: 'Drag a title bar to move a window; drag it to an edge or a screen corner to snap it into halves or quarters. Every window remembers its position and size. Caption buttons minimise, maximise and close, Ctrl+W closes the focused window, Ctrl+M minimises it, and Ctrl+` cycles between open windows. On phones every window becomes a full-screen surface with a back arrow.',
+      tags: ['windows', 'drag', 'snap', 'maximize', 'minimize', 'shortcuts', 'plates'],
+      summary: 'Move, resize, snap and stack window plates.',
+      body: 'Drag a title bar to move a window; drag it to an edge or a screen corner to snap it into halves or quarters. Every window remembers its position and size. The focused plate lights its corner brackets in the signal colour so you always know which surface has input. Caption buttons minimise, maximise and close, Ctrl+W closes the focused window, Ctrl+M minimises it, and Ctrl+` cycles between open windows. On phones every window becomes a full-screen surface with a back arrow.',
     },
     {
       title: 'Click Me',
@@ -170,9 +170,9 @@ const Help = (() => {
     },
     {
       title: 'Self-hosting on a phone',
-      tags: ['termux', 'self host', 'phone', 'hosting', 'android'],
+      tags: ['termux', 'self host', 'phone', 'hosting', 'android', 'battery', 'performance'],
       summary: 'Running the server from Termux and keeping it fast.',
-      body: 'The server has no third-party dependencies, so it runs comfortably from Termux: start it with npm start, keep the process alive with the built-in hardware wake lock, and open the printed network URL from other devices on the same Wi-Fi. Reduce blur radius and disable animations in Accessibility to save battery. Data lives in the data/ directory — copy that folder to back the server up, and remember the operator cannot restore member keys.',
+      body: 'The server has no third-party dependencies, so it runs comfortably from Termux: start it with npm start, keep the process alive with a wake lock, and open the printed network URL from other devices on the same Wi-Fi. The interface is tuned for that: panel opacity instead of heavy blur, a backdrop you can switch to void, and Reduce motion that stops every ambient animation. Data lives in the data/ directory — copy that folder to back the server up, and remember the operator cannot restore member keys.',
     },
     {
       title: 'Keyboard shortcuts',
@@ -210,7 +210,7 @@ const Help = (() => {
       clear(list);
       const matches = search(searchInput.value).slice(0, 40);
       if (!matches.length) {
-        list.append(UI.empty('🔎', 'Nothing matched', 'Try the exact name of a setting or feature.'));
+        list.append(UI.empty('⌕', 'Nothing matched', 'Try the exact name of a setting or feature.'));
         return;
       }
       for (const article of matches) {
@@ -230,18 +230,18 @@ const Help = (() => {
     searchInput.addEventListener('input', paint);
     const dialog = UI.dialog({
       title: 'Help centre',
-      glyph: '📘',
+      glyph: '▣',
       size: 'wide',
       subtitle: `${ARTICLES.length} articles · settings docs · feature walkthroughs`,
       content: el('div', { class: 'stack-12' }, [
         el('div', { class: 'row' }, [
           el('div', { class: 'search-box grow' }, [searchInput]),
-          el('button', { class: 'btn', text: '▶ Guided tour', onClick: () => { dialog.close(); tutorial(); } }),
+          el('button', { class: 'btn', text: 'Guided tour', onClick: () => { dialog.close(); tutorial(); } }),
         ]),
         list,
       ]),
       footer: [
-        el('button', { class: 'btn', text: '📄 Usage agreement', onClick: () => Terms.show() }),
+        el('button', { class: 'btn', text: 'Usage agreement', onClick: () => Terms.show() }),
         el('button', { class: 'btn primary', text: 'Close', onClick: () => dialog.close() }),
       ],
     });
@@ -251,16 +251,16 @@ const Help = (() => {
   function article_(article) {
     UI.dialog({
       title: article.title,
-      glyph: '📘',
+      glyph: '▣',
       size: 'wide',
       subtitle: article.tags.slice(0, 6).join(' · '),
       content: el('div', { class: 'stack-8' }, [
-        el('div', { class: 'notice-strip', html: `<span>💡</span><span>${UI.esc(article.summary)}</span>` }),
+        el('div', { class: 'notice-strip', html: `<span>▸</span><span>${UI.esc(article.summary)}</span>` }),
         el('div', { class: 'small', style: { lineHeight: '1.65' }, text: article.body }),
         el('div', { class: 'row' }, [
           el('span', { class: 'tiny faint', text: `Search this title in Settings or the start menu to jump straight there.` }),
           el('div', { class: 'spacer' }),
-          el('button', { class: 'btn sm', text: '🔎 Search again', onClick: () => open(article.title) }),
+          el('button', { class: 'btn sm', text: 'Search again', onClick: () => open(article.title) }),
         ]),
       ]),
     });
@@ -311,7 +311,7 @@ const Help = (() => {
     },
     {
       title: 'Airdrop',
-      body: 'Enable airdrop to receive drops instantly while you are online. The 🪂 icon in the tray shows how many are waiting.',
+      body: 'Enable airdrop to receive drops instantly while you are online. The airdrop mark in the tray shows how many are waiting.',
       target: '#tb-airdrop',
       before: () => Apps.open('airdrop'),
     },

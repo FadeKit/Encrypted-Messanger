@@ -206,6 +206,113 @@ for (const [call, file] of calls) {
 }
 check(`every client API call resolves (${calls.size} calls, ${routePatterns.length} routes)`, unresolved === 0);
 
+// ------------------------------------------------- design language guardrails
+// The identity is deliberately not a generic AI palette: signal accents on near
+// black, machined plates, mono HUD labels and typographic chrome. These checks
+// keep that intent from eroding in later edits.
+const sheets = Object.fromEntries(['tokens', 'base', 'windows', 'app'].map((name) => [name, fs.readFileSync(path.join(PUBLIC, 'css', `${name}.css`), 'utf8')]));
+const tokensCss = sheets.tokens;
+const allCss = Object.values(sheets).join('\n');
+
+const THEMES = ['nox', 'acid', 'sector', 'ice', 'chrome'];
+const ACCENTS = ['phosphor', 'lime', 'sodium', 'plasma', 'crimson', 'magenta', 'cyan', 'teal', 'violet'];
+for (const theme of THEMES) check(`token block defines theme ${theme}`, tokensCss.includes(`[data-theme="${theme}"]`));
+for (const accent of ACCENTS) check(`token block defines signal accent ${accent}`, tokensCss.includes(`[data-accent="${accent}"]`));
+
+// accents must stay rgb-composable and every theme must define the chrome vars
+for (const accent of ACCENTS) {
+  const block = new RegExp(`\\[data-accent="${accent}"\\]\\s*\\{([^}]*)\\}`).exec(tokensCss);
+  check(`accent ${accent} declares --accent-rgb`, !!block && /--accent-rgb:\s*\d+,\s*\d+,\s*\d+/.test(block[1]));
+}
+for (const theme of THEMES) {
+  const block = new RegExp(`\\[data-theme="${theme}"\\]\\s*\\{([^}]*)\\}`).exec(tokensCss);
+  const body = block ? block[1] : '';
+  for (const token of ['--surface-solid', '--line-strong', '--ink:', '--fill-input']) {
+    check(`theme ${theme} defines ${token.replace(/[:-]/g, '')}`, body.includes(token));
+  }
+}
+
+// plates are chamfered, never rounded: no radius above 8px may survive
+const radiusValues = [...allCss.matchAll(/border-radius:\s*([^;]+);/g)].map((m) => m[1].trim());
+const roundedOffenders = radiusValues.filter((value) => !/50%/.test(value) && parseFloat(value) > 8);
+check(`no rounded-corner styling remains (${radiusValues.length} radius rules)`, roundedOffenders.length === 0, roundedOffenders.join(' | '));
+check('tokens keep the pill radius sharp', /--radius-pill:\s*2px/.test(tokensCss));
+check('chamfer geometry token exists', /--chamfer:/.test(tokensCss) && /--cut:/.test(tokensCss));
+check('display font is a heavy grotesque', /--font-display:[^;]*Archivo Black/.test(tokensCss));
+check('mono HUD font stack is declared', /--font-mono:[^;]*JetBrains Mono/.test(tokensCss));
+
+// chrome stays typographic: no emoji in any glyph field
+const emojiGlyphs = [];
+for (const file of order) {
+  const src = fs.readFileSync(path.join(PUBLIC, 'js', file), 'utf8');
+  for (const m of src.matchAll(/glyph:\s*'([^']*)'/g)) {
+    if (/[\u{1F000}-\u{1FAFF}\u{2705}\u{274C}\u{26A0}\u{2757}\u{2753}\u{2B50}\u{2764}\u{FE0F}]/u.test(m[1])) emojiGlyphs.push(`${file}: ${m[1]}`);
+  }
+}
+check(`chrome glyphs are typographic (${emojiGlyphs.length} emoji found)`, emojiGlyphs.length === 0, emojiGlyphs.join(' | '));
+
+// the document shell boots on a theme we actually ship
+const htmlTheme = /<html[^>]*data-theme="([^"]+)"/.exec(html);
+const htmlAccent = /<html[^>]*data-accent="([^"]+)"/.exec(html);
+check('index.html boots on a shipped theme', !!htmlTheme && THEMES.includes(htmlTheme[1]), htmlTheme && htmlTheme[1]);
+check('index.html boots on a shipped accent', !!htmlAccent && ACCENTS.includes(htmlAccent[1]), htmlAccent && htmlAccent[1]);
+
+// the settings picker must not offer a theme or accent that does not exist
+const settingsSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'settings.js'), 'utf8');
+const themeList = /const themes = \[([^;]+)\];/.exec(settingsSrc);
+const accentList = /const accents = \[([^;]+)\];/.exec(settingsSrc);
+const listedThemes = themeList ? [...themeList[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]).filter((v) => v !== 'theme') : [];
+const listedAccents = accentList ? [...accentList[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]) : [];
+check('picker offers every shipped theme', THEMES.every((t) => listedThemes.includes(t)), listedThemes.join(','));
+check('picker offers every shipped accent', ACCENTS.every((a) => listedAccents.includes(a)), listedAccents.join(','));
+check('picker offers no phantom theme', listedThemes.every((t) => THEMES.includes(t)), listedThemes.join(','));
+check('picker offers no phantom accent', listedAccents.every((a) => ACCENTS.includes(a)), listedAccents.join(','));
+
+// the client-side defaults must match the server-side defaults
+const stateSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'state.js'), 'utf8');
+const serverSrc = fs.readFileSync(path.join(ROOT, 'server', 'routes-auth.js'), 'utf8');
+for (const [label, src] of [['client', stateSrc], ['server', serverSrc]]) {
+  check(`${label} defaults boot on the shipped theme`, /theme:\s*'nox'/.test(src));
+  check(`${label} defaults boot on the shipped signal`, /accent:\s*'phosphor'/.test(src));
+}
+
+// every css custom property that is used must also be defined (typo guard:
+// var(--text-10) once shipped without a definition and silently fell back)
+const definedTokens = new Set();
+for (const sheet of Object.values(sheets)) {
+  for (const m of sheet.matchAll(/(--[\w-]+)\s*:/g)) definedTokens.add(m[1]);
+}
+const undefinedTokens = new Map();
+const scanFiles = [...Object.values(sheets), html];
+for (const file of order) scanFiles.push(fs.readFileSync(path.join(PUBLIC, 'js', file), 'utf8'));
+for (const src of scanFiles) {
+  for (const m of src.matchAll(/var\((--[\w-]+)([\w-]*)/g)) {
+    const tail = m[2] || '';
+    // var(--status-${key}) is a runtime-composed name: skip when the match runs into an interpolation
+    if (tail.length === 0 && src.slice(m.index + m[0].length).startsWith('${')) continue;
+    const name = m[1];
+    if (!definedTokens.has(name)) undefinedTokens.set(name, (undefinedTokens.get(name) || 0) + 1);
+  }
+}
+check(`every var(--token) is defined (${definedTokens.size} tokens)`, undefinedTokens.size === 0,
+  [...undefinedTokens.entries()].map(([k, v]) => `${k} x${v}`).join(' '));
+
+// every class the client renders must be styled somewhere (catch drift)
+const rendered = new Set();
+for (const file of order) {
+  const src = fs.readFileSync(path.join(PUBLIC, 'js', file), 'utf8');
+  for (const m of src.matchAll(/class:\s*[`'"]([^`'"]+)[`'"]/g)) {
+    for (const token of m[1].split(/\s+/)) {
+      if (!token || token.includes('$') || token.includes('{')) continue;
+      if (!/^[a-zA-Z][\w-]*$/.test(token)) continue;
+      rendered.add(token);
+    }
+  }
+}
+const styled = new Set([...allCss.matchAll(/\.([a-zA-Z][\w-]*)/g)].map((m) => m[1]));
+const unstyled = [...rendered].filter((token) => !styled.has(token) && !token.startsWith('icon-'));
+check(`every rendered class is styled (${rendered.size} classes, ${unstyled.length} bare)`, unstyled.length === 0, unstyled.join(' '));
+
 // help articles must be non-empty and searchable
 if (shim.Help) {
   check('help centre ships articles', shim.Help.ARTICLES.length >= 20, `count=${shim.Help.ARTICLES.length}`);

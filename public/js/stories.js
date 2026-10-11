@@ -35,8 +35,8 @@ const StoriesClient = (() => {
         el('div', { class: 'body-strong', text: 'Public square' }),
         el('div', { class: 'tiny faint', text: State.user.publicProfile.enabled ? `Posting as ${State.user.publicProfile.alias || State.user.displayName}` : 'Your public profile is off — turn it on in Settings → Public profile.' }),
       ]),
-      State.user.publicProfile.enabled ? el('button', { class: 'btn sm', text: '👤 Edit profile', onClick: () => profileEditor() }) : el('button', { class: 'btn sm primary', text: '✨ Turn on public profile', onClick: () => profileEditor() }),
-      el('button', { class: 'btn sm', text: '🔄 Refresh', onClick: () => refresh().then(paint) }),
+      State.user.publicProfile.enabled ? el('button', { class: 'btn sm', text: 'Edit profile', onClick: () => profileEditor() }) : el('button', { class: 'btn sm primary', text: '✨ Turn on public profile', onClick: () => profileEditor() }),
+      el('button', { class: 'btn sm', text: 'Refresh', onClick: () => refresh().then(paint) }),
     ]);
     pane.append(header, strip, scroll);
     body.append(pane);
@@ -82,14 +82,14 @@ const StoriesClient = (() => {
           const result = await API.uploadEncrypted({ kind: 'public', blob: file, meta: { type: file.type }, wrapFileKey: (raw) => AE.wrapKey(key, raw) });
           pending.push({ fileId: result.fileId, name: file.name, mime: file.type, size: file.size, type: 'image' });
           clear(pendingHost);
-          for (const entry of pending) pendingHost.append(el('span', { class: 'chip-file' }, [el('span', { text: '🖼️' }), el('span', { class: 'truncate', text: entry.name })]));
+          for (const entry of pending) pendingHost.append(el('span', { class: 'chip-file' }, [el('span', { text: '' }), el('span', { class: 'truncate', text: entry.name })]));
         }
         attach.value = '';
       });
       scroll.append(el('div', { class: 'card stack-8' }, [
         input, pendingHost,
         el('div', { class: 'row' }, [
-          el('button', { class: 'btn sm', text: '🖼️ Attach image', disabled: !mediaAllowed, title: mediaAllowed ? 'Seal and attach an image' : 'Enable “Media in communities and public posts” in Settings', onClick: () => attach.click() }),
+          el('button', { class: 'btn sm', text: 'Attach image', disabled: !mediaAllowed, title: mediaAllowed ? 'Seal and attach an image' : 'Enable “Media in communities and public posts” in Settings', onClick: () => attach.click() }),
           attach,
           el('div', { class: 'spacer' }),
           el('button', { class: 'btn sm primary', text: 'Post', onClick: async () => {
@@ -106,7 +106,7 @@ const StoriesClient = (() => {
         el('div', { class: 'hint', text: mediaAllowed ? 'Public posts are sealed with your audience key — readable by signed-in members, not by the server.' : 'Text-only: turn on “Media in communities and public posts” in Settings to attach images.' }),
       ]));
     } else {
-      scroll.append(el('div', { class: 'notice-strip', html: '<span>🕶️</span><span>Your public profile is off. Your alias, bio, photos, stories and public posts stay hidden from other members until you switch it back on.</span>' }));
+      scroll.append(el('div', { class: 'notice-strip', html: '<span>◍</span><span>Your public profile is off. Your alias, bio, photos, stories and public posts stay hidden from other members until you switch it back on.</span>' }));
     }
 
     // stories row (mine first)
@@ -115,7 +115,7 @@ const StoriesClient = (() => {
       scroll.append(el('div', { class: 'stack-6' }, [
         el('div', { class: 'uppercase', text: 'My stories' }),
         el('div', { class: 'row wrap' }, mine.map((story) => el('div', { class: 'drive-cell', style: { width: '150px' }, onClick: () => viewStory(mine, 0) }, [
-          el('div', { class: 'thumb', text: story.kind === 'video' ? '🎬' : '🖼️' }),
+          el('div', { class: 'thumb', text: story.kind === 'video' ? '▤' : '▣' }),
           el('div', { class: 'tiny', text: `expires ${UI.timeAgo(story.expiresAt).replace(' ago', '')}` }),
           el('div', { class: 'tiny faint', text: `${story.views} views` }),
         ]))),
@@ -125,7 +125,7 @@ const StoriesClient = (() => {
     // public feed
     const postsHost = el('div', { class: 'stack-12' });
     scroll.append(el('div', { class: 'uppercase', text: `Public posts (${feed.posts.length})` }), postsHost);
-    if (!feed.posts.length) postsHost.append(UI.empty('🌍', 'The public square is quiet', 'Posts from public accounts appear here for everyone.'));
+    if (!feed.posts.length) postsHost.append(UI.empty('◍', 'The public square is quiet', 'Posts from public accounts appear here for everyone.'));
     for (const post of feed.posts) {
       const card = el('div', { class: 'card stack-8' });
       card.append(el('div', { class: 'row' }, [
@@ -150,8 +150,8 @@ const StoriesClient = (() => {
           el('span', { class: 'emoji', text: emoji }), el('span', { text: String(data.count) }),
         ]));
       }
-      reactions.append(el('button', { class: 'btn icon sm subtle', text: '😊', onClick: () => {
-        const quick = ['👍', '❤️', '🔥', '😂', '👏'];
+      reactions.append(el('button', { class: 'btn icon sm subtle', text: '', onClick: () => {
+        const quick = ['👍', '❤', '🔥', '😂', '👏'];
         UI.contextMenu(quick.map((emoji) => ({ glyph: emoji, label: `React ${emoji}`, onClick: () => API.post(`/api/public/posts/${post.id}/reactions`, { emoji }).then(() => refresh().then(paint)) })), { x: window.innerWidth / 2, y: window.innerHeight / 2 });
       } }));
       card.append(reactions);
@@ -161,7 +161,7 @@ const StoriesClient = (() => {
         const plain = await AE.decryptJson(key, post.payload);
         text.textContent = (plain && plain.text) || '';
         for (const attachment of (plain && plain.attachments) || []) {
-          const node = el('div', { class: 'attachment' }, [el('div', { class: 'locked', html: '<span>🔐</span><span>Decrypting image…</span>' })]);
+          const node = el('div', { class: 'attachment' }, [el('div', { class: 'locked', html: '<span>▨</span><span>Decrypting image…</span>' })]);
           media.append(node);
           const info = await API.get(`/api/files/${attachment.fileId}`).catch(() => null);
           if (!info?.file) continue;
@@ -180,8 +180,8 @@ const StoriesClient = (() => {
 
     function postMenu(event, post) {
       UI.contextMenu([
-        { glyph: '🔗', label: 'Copy author handle', onClick: () => UI.copy(`@${post.author.username}`, 'Handle copied') },
-        { glyph: '🗑️', label: 'Delete post', danger: true, onClick: async () => {
+        { glyph: '⧉', label: 'Copy author handle', onClick: () => UI.copy(`@${post.author.username}`, 'Handle copied') },
+        { glyph: '⌫', label: 'Delete post', danger: true, onClick: async () => {
           if (!await UI.confirm({ title: 'Delete this public post?', danger: true, confirmLabel: 'Delete' })) return;
           await API.del(`/api/public/posts/${post.id}`);
           refresh().then(paint);
@@ -209,7 +209,7 @@ const StoriesClient = (() => {
     let ref;
     ref = UI.dialog({
       title: 'Post a story',
-      glyph: '📸',
+      glyph: '◉',
       subtitle: 'Sealed with your public audience key, visible to signed-in members for 24 hours.',
       content: el('div', { class: 'stack-12' }, [input, caption, status, bar]),
       footer: [
@@ -262,11 +262,11 @@ const StoriesClient = (() => {
       el('button', { class: 'btn icon subtle', text: '✕', onClick: () => overlay.remove() }),
     ]);
     const footer = el('div', { class: 'story-footer' });
-    for (const emoji of ['❤️', '🔥', '👏', '😮']) {
+    for (const emoji of ['❤', '🔥', '👏', '😮']) {
       footer.append(el('button', { class: 'react-chip', text: emoji, onClick: () => API.post(`/api/stories/${story.id}/reactions`, { emoji }) }));
     }
     footer.append(el('div', { class: 'spacer' }));
-    footer.append(el('button', { class: 'btn sm', text: '➡ Next', onClick: () => { overlay.remove(); viewStory(stories, index + 1); } }));
+    footer.append(el('button', { class: 'btn sm', text: 'Next', onClick: () => { overlay.remove(); viewStory(stories, index + 1); } }));
     if (story.own) footer.append(el('button', { class: 'btn sm danger', text: 'Delete', onClick: async () => {
       if (!await UI.confirm({ title: 'Delete this story?', danger: true, confirmLabel: 'Delete' })) return;
       await API.del(`/api/stories/${story.id}`);
@@ -285,9 +285,9 @@ const StoriesClient = (() => {
     (async () => {
       const key = await audienceKeyFor(story.author);
       const info = await API.get(`/api/files/${story.fileId}`).catch(() => null);
-      if (!key || !info?.file) { clear(media).append(el('div', { class: 'caption', text: '🔒 Story unavailable' })); return; }
+      if (!key || !info?.file) { clear(media).append(el('div', { class: 'caption', text: 'Story unavailable' })); return; }
       const raw = await AE.unwrapKey(key, info.file.keyWrap);
-      if (!raw) { clear(media).append(el('div', { class: 'caption', text: '🔒 Key unavailable' })); return; }
+      if (!raw) { clear(media).append(el('div', { class: 'caption', text: 'Key unavailable' })); return; }
       const mime = info.file.meta?.type || (story.kind === 'video' ? 'video/mp4' : 'image/jpeg');
       const blob = await API.downloadDecrypted(info.file.id, { chunks: info.file.chunks, fileKeyRaw: raw, mime });
       const url = URL.createObjectURL(blob);
@@ -322,7 +322,7 @@ const StoriesClient = (() => {
       const seed = await ensureAudienceKey();
       const key = await AE.audienceKey(seed, `public:${State.user.id}`);
       for (const fileId of gallery) {
-        const cell = el('div', { class: 'photo' }, [el('div', { class: 'caption', text: '🔐' })]);
+        const cell = el('div', { class: 'photo' }, [el('div', { class: 'caption', text: '' })]);
         const info = await API.get(`/api/files/${fileId}`).catch(() => null);
         if (info?.file) {
           const raw = await AE.unwrapKey(key, info.file.keyWrap);
@@ -358,7 +358,7 @@ const StoriesClient = (() => {
     let ref;
     ref = UI.dialog({
       title: 'Public profile',
-      glyph: '🌍',
+      glyph: '◍',
       size: 'wide',
       subtitle: 'Off by default. While it is on, your alias, bio, photos, stories and public posts are visible to signed-in members.',
       content: el('div', { class: 'stack-12' }, [
@@ -367,7 +367,7 @@ const StoriesClient = (() => {
           el('div', { class: 'field' }, [el('label', { text: 'Public alias' }), alias, el('div', { class: 'hint', text: 'Shown before your coded handle in the public square.' })]),
           el('div', { class: 'field' }, [el('label', { text: 'Bio' }), bio]),
         ]),
-        el('div', { class: 'field' }, [el('label', { text: 'Permanent photos (up to 8)' }), photosHost, el('button', { class: 'btn sm', text: '🖼️ Add photo', onClick: () => upload.click() }), upload]),
+        el('div', { class: 'field' }, [el('label', { text: 'Permanent photos (up to 8)' }), photosHost, el('button', { class: 'btn sm', text: 'Add photo', onClick: () => upload.click() }), upload]),
         status,
         el('div', { class: 'notice-strip', html: '<span>24h</span><span>Stories expire automatically. Photos stay until you remove them or switch the profile off.</span>' }),
       ]),
@@ -400,21 +400,21 @@ const StoriesClient = (() => {
 window.StoriesClient = StoriesClient;
 
 Apps.register({
-  id: 'stories', title: 'Public', glyph: '📸', order: 30, featureFlag: 'stories',
+  id: 'stories', title: 'Public', glyph: '◉', order: 30, featureFlag: 'stories',
   description: 'Stories that expire in 24 hours, public posts and profile publishing.',
   keywords: ['stories', 'public', 'profile', 'alias', 'bio', 'square', 'talk'],
   run: () => Windows.open({
-    id: 'stories', title: 'Public square', glyph: '📸', geometry: { w: 900, h: 700 },
+    id: 'stories', title: 'Public square', glyph: '◉', geometry: { w: 900, h: 700 },
     render: (body, api) => StoriesClient.render(body, api),
   }),
 });
 
 Apps.register({
-  id: 'profile', title: 'My profile', glyph: '👤', order: 46,
+  id: 'profile', title: 'My profile', glyph: '◧', order: 46,
   description: 'Display name, avatar, bio and public profile controls.',
   keywords: ['profile', 'avatar', 'bio', 'display name'],
   run: () => Windows.open({
-    id: 'profile', title: 'My profile', glyph: '👤', geometry: { w: 620, h: 620 },
+    id: 'profile', title: 'My profile', glyph: '◧', geometry: { w: 620, h: 620 },
     render: (body, api) => {
       const { el, clear } = UI;
       clear(body);
@@ -437,9 +437,9 @@ Apps.register({
         el('div', { class: 'card stack-12' }, [
           avatarHost,
           el('div', { class: 'row' }, [
-            el('button', { class: 'btn sm', text: '🖼️ Change picture', onClick: () => fileInput.click() }),
+            el('button', { class: 'btn sm', text: 'Change picture', onClick: () => fileInput.click() }),
             fileInput,
-            el('button', { class: 'btn sm', text: '🧹 Remove', onClick: async () => { await API.patch('/api/profile', { avatarId: null }); State.user.avatarId = null; AppShellRefresh(); } }),
+            el('button', { class: 'btn sm', text: 'Remove', onClick: async () => { await API.patch('/api/profile', { avatarId: null }); State.user.avatarId = null; AppShellRefresh(); } }),
           ]),
           el('div', { class: 'hint', text: 'Pictures are sealed with your master key; other members receive them through the server as ciphertext only.' }),
         ]),
@@ -452,7 +452,7 @@ Apps.register({
             UI.toast({ level: 'success', title: 'Profile saved' });
             AppShellRefresh();
           } }),
-          el('button', { class: 'btn', text: '🌍 Public profile settings', onClick: () => StoriesClient.profileEditor() }),
+          el('button', { class: 'btn', text: 'Public profile settings', onClick: () => StoriesClient.profileEditor() }),
         ]),
         el('div', { class: 'card stack-6' }, [
           el('div', { class: 'uppercase', text: 'Identity' }),

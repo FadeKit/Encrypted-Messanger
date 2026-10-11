@@ -134,7 +134,10 @@ function sendStatic(req, res, pathname) {
     'Content-Type': MIME[ext] || 'application/octet-stream',
     'Content-Length': stat.size,
     ETag: etag,
-    'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=300',
+    // Markup, styles and scripts always revalidate (304s keep it cheap) so an
+    // operator editing the app on the phone sees changes on the next reload;
+    // images, fonts and icons may sit in the browser cache.
+    'Cache-Control': ['.html', '.css', '.js', '.webmanifest', '.json'].includes(ext) ? 'no-cache' : 'public, max-age=3600',
   });
   res.writeHead(200, headers);
   fs.createReadStream(filePath).pipe(res);

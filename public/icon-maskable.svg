@@ -1,15 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AE Secure">
-  <defs>
-    <linearGradient id="gm" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#4C8DFA"/>
-      <stop offset="1" stop-color="#8A5CF6"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" fill="url(#gm)"/>
-  <g transform="translate(256 256) scale(.74) translate(-256 -256)">
-    <path d="M256 118c-52 0-93 39-93 89 0 27 11 50 29 66v36c0 11 9 20 20 20h88c11 0 20-9 20-20v-36c18-16 29-39 29-66 0-50-41-89-93-89zm0 39c29 0 52 22 52 50s-23 50-52 50-52-22-52-50 23-50 52-50z" fill="#0B0F16" fill-opacity=".34"/>
-    <path d="M288 250h40c13 0 23 11 21 23l-7 32c-8 33-37 55-71 55h-30c-34 0-63-22-71-55l-7-32c-2-12 8-23 21-23h40" fill="#0B0F16" fill-opacity=".52"/>
-    <rect x="228" y="226" width="56" height="70" rx="20" fill="#FFFFFF" fill-opacity=".92"/>
-    <circle cx="256" cy="207" r="17" fill="#FFFFFF" fill-opacity=".92"/>
+  <rect width="512" height="512" fill="#04070a"/>
+  <g stroke="#4bff9f" stroke-opacity=".08" stroke-width="1">
+    <path d="M0 14H512M0 28H512M0 42H512M0 56H512M0 470H512M0 484H512M0 498H512"/>
+  </g>
+  <g transform="translate(256 256) scale(.62) translate(-256 -256)">
+    <g fill="#4bff9f">
+      <path d="M125 341 L181 171 L211 171 L267 341 L232 341 L196 269 L159 341 Z
+               M159 269 H221 V299 H159 Z
+               M196 205 L176 269 H216 Z"/>
+      <path d="M279 171 H387 V201 H313 V236 H367 V266 H313 V311 H387 V341 H279 Z"/>
+    </g>
   </g>
 </svg>

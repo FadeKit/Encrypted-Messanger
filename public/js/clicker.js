@@ -45,10 +45,10 @@ const Clicker = (() => {
 
     const paintPodium = (count) => {
       const cells = [
-        ['all time', count.total, '🔥'],
-        ['this week', count.week, '📅'],
-        ['week', count.weekLabel, '🗓️'],
-        ['your clicks', count.mine, '🙋'],
+        ['all time', count.total, '01'],
+        ['this week', count.week, '02'],
+        ['week index', count.weekLabel, '03'],
+        ['your clicks', count.mine, '04'],
       ];
       UI.clear(podium);
       for (const [label, value, glyph] of cells) {
@@ -112,12 +112,12 @@ const Clicker = (() => {
 window.Clicker = Clicker;
 
 Apps.register({
-  id: 'clicker', title: 'Click Me', glyph: '🖱️', order: 70,
+  id: 'clicker', title: 'Click Me', glyph: '⊞', order: 70,
   description: 'The shared global click counter.',
   keywords: ['click', 'clicker', 'counter', 'fun'],
   featureFlag: 'clickMe',
   run: () => Windows.open({
-    id: 'clicker', title: 'Click Me', glyph: '🖱️', geometry: { w: 520, h: 520 },
+    id: 'clicker', title: 'Click Me', glyph: '⊞', geometry: { w: 520, h: 520 },
     render: (body) => Clicker.render(body),
   }),
 });

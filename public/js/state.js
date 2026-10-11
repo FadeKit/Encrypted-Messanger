@@ -65,7 +65,7 @@ const State = (() => {
 
   // ------------------------------------------------------------ settings
   const DEFAULT_SETTINGS = {
-    theme: 'midnight', accent: 'azure', glass: 78, blur: 22, cornerRadius: 14,
+    theme: 'nox', accent: 'phosphor', glass: 88, blur: 16, cornerRadius: 12, wallpaper: 'theme',
     density: 'comfortable', fontScale: 1, animations: true, reduceMotion: false,
     highContrast: false, dyslexiaFont: false, lineHeight: 1.45, colorBlind: 'none',
     focusRing: true, uiSounds: false, notificationToasts: true, desktopNotifications: false,

@@ -34,8 +34,9 @@ const Shell = (() => {
   function applyTheme() {
     const settings = S.settings();
     const body = document.body;
-    body.dataset.theme = settings.theme || 'midnight';
-    body.dataset.accent = settings.accent || 'azure';
+    body.dataset.theme = settings.theme || 'nox';
+    body.dataset.accent = settings.accent || 'phosphor';
+    body.dataset.wall = settings.wallpaper && settings.wallpaper !== 'theme' ? settings.wallpaper : '';
     body.dataset.contrast = settings.highContrast ? 'high' : 'normal';
     body.dataset.glass = settings.glass >= 95 ? 'solid' : 'acrylic';
     body.dataset.dyslexia = settings.dyslexiaFont ? 'on' : 'off';
@@ -43,12 +44,15 @@ const Shell = (() => {
     body.dataset.colorblind = settings.colorBlind && settings.colorBlind !== 'none' ? settings.colorBlind : 'off';
     body.dataset.focusRing = settings.focusRing === false ? 'off' : 'on';
     body.dataset.taskbar = settings.taskbarPosition || 'center';
+    if (typeof settings.cornerRadius === 'number') {
+      document.documentElement.style.setProperty('--chamfer', `${settings.cornerRadius}px`);
+      document.documentElement.style.setProperty('--chamfer-sm', `${Math.max(4, Math.round(settings.cornerRadius * 0.58))}px`);
+    }
     const root = document.documentElement;
-    root.style.setProperty('--glass-alpha', String((settings.glass ?? 78) / 100));
-    root.style.setProperty('--glass-blur', `${settings.blur ?? 22}px`);
-    root.style.setProperty('--window-radius', `${settings.cornerRadius ?? 14}px`);
+    root.style.setProperty('--glass-alpha', String((settings.glass ?? 88) / 100));
+    root.style.setProperty('--glass-blur', `${settings.blur ?? 16}px`);
     root.style.setProperty('--font-scale', String(settings.fontScale || 1));
-    root.style.setProperty('--line-height', String(settings.lineHeight || 1.45));
+    root.style.setProperty('--line-height', String(settings.lineHeight || 1.55));
     let custom = $('#custom-css');
     if (settings.customCss) {
       if (!custom) { custom = el('style', { id: 'custom-css' }); document.head.append(custom); }
@@ -125,8 +129,8 @@ const Shell = (() => {
     const error = el('div', { class: 'small', style: { color: 'var(--danger)', minHeight: '16px' } });
     const card = el('div', { class: 'lock-card' }, [
       el('div', { class: 'auth-logo' }, [el('div', { class: 'mark', text: 'AE' }), el('div', {}, [
-        el('div', { class: 'title-3', text: 'AE Secure is locked' }),
-        el('div', { class: 'caption', text: 'Your keys stay in this tab only while unlocked.' }),
+        el('div', { class: 'title-3', text: 'Vault locked' }),
+        el('div', { class: 'hud', text: 'keys live in this tab only while unlocked' }),
       ])]),
       S.avatarNode ? S.avatarNode() : null,
       input,
@@ -204,16 +208,17 @@ const Shell = (() => {
         el('div', { class: 'mark', text: 'AE' }),
         el('div', {}, [
           el('div', { class: 'title-2', text: 'AE Secure' }),
-          el('div', { class: 'caption', text: 'Encrypted messaging · communities · cloud drive' }),
+          el('div', { class: 'hud', text: 'zero-knowledge transport' }),
         ]),
       ]),
+      el('div', { class: 'title-1', html: 'Private by<br>construction.' }),
       el('div', { class: 'stack-8' }, [
         tick('Every message and file is sealed with AES-GCM-256 before it leaves this device.'),
         tick('Keys live in your vault, wrapped by your passphrase with PBKDF2-SHA256.'),
         tick('Five one-time backup codes restore your account if a device is lost or stolen.'),
         tick('Administrators see traffic and storage statistics — never plaintext.'),
       ]),
-      el('div', { class: 'notice-strip', html: '<span>🛡️</span><span>Zero-knowledge by design: the server stores ciphertext, wrapped keys and counters only.</span>' }),
+      el('div', { class: 'notice-strip', html: '<span>⬢</span><span>Zero-knowledge by design: the server stores ciphertext, wrapped keys and counters only.</span>' }),
     ]);
   }
 
@@ -271,7 +276,7 @@ const Shell = (() => {
     const strengthLabel = el('div', { class: 'hint', text: 'Aim for 12+ characters with words you can remember.' });
     const status = el('div', { class: 'small', style: { minHeight: '18px', color: 'var(--danger)' } });
     const submit = el('button', { class: 'btn primary block', text: 'Create account' });
-    const random = el('button', { class: 'btn subtle', type: 'button', text: '🎲 Suggest a handle', onClick: () => { handle.value = randomHandle(); } });
+    const random = el('button', { class: 'btn subtle', type: 'button', text: 'Suggest a handle', onClick: () => { handle.value = randomHandle(); } });
     const form = el('form', { class: 'stack-12' }, [
       el('div', { class: 'field' }, [el('label', { text: 'Handle' }), el('div', { class: 'input-row' }, [handle, random])]),
       el('div', { class: 'field' }, [el('label', { text: 'Display name' }), display]),
@@ -344,7 +349,7 @@ const Shell = (() => {
     const status = el('div', { class: 'small', style: { minHeight: '18px', color: 'var(--danger)' } });
     const submit = el('button', { class: 'btn primary block', text: 'Recover account' });
     const form = el('form', { class: 'stack-12' }, [
-      el('div', { class: 'notice-strip', html: '<span>🆘</span><span>A backup code signs you in once. Afterwards you set a new passphrase, sign out every device and generate five fresh codes.</span>' }),
+      el('div', { class: 'notice-strip', html: '<span>◇</span><span>A backup code signs you in once. Afterwards you set a new passphrase, sign out every device and generate five fresh codes.</span>' }),
       el('div', { class: 'field' }, [el('label', { text: 'Handle' }), handle]),
       el('div', { class: 'field' }, [el('label', { text: 'Backup code' }), code, el('div', { class: 'hint', text: 'Codes are single use: one is consumed every time you recover.' })]),
       status,
@@ -420,10 +425,10 @@ const Shell = (() => {
       });
       dialogRef = UI.dialog({
         title: 'Secure the account again',
-        glyph: '🛡️',
+        glyph: '⬢',
         subtitle: 'One backup code was consumed. Set a new passphrase — every other session is signed out immediately.',
         content: el('div', { class: 'stack-12' }, [
-          el('div', { class: 'notice-strip warn', html: '<span>⚠️</span><span>Your old passphrase no longer works. Save the new backup codes that appear next.</span>' }),
+          el('div', { class: 'notice-strip warn', html: '<span>!</span><span>Your old passphrase no longer works. Save the new backup codes that appear next.</span>' }),
           el('div', { class: 'field' }, [el('label', { text: 'New passphrase' }), password]),
           el('div', { class: 'field' }, [el('label', { text: 'Repeat' }), confirm]),
           status,
@@ -462,16 +467,16 @@ const Shell = (() => {
     button.addEventListener('click', () => { dialogRef.close(); done && done(); });
     const dialogRef = UI.dialog({
       title: 'Your five backup codes',
-      glyph: '🔑',
+      glyph: '◇',
       subtitle: 'Each code restores this account once — but only while it stays unused.',
       size: 'wide',
       dismissable: false,
       content: el('div', { class: 'stack-12' }, [
-        el('div', { class: 'notice-strip warn', html: '<span>⚠️</span><span>Store these somewhere offline. Anyone holding a code can sign in and reset your passphrase. They are shown only once.</span>' }),
+        el('div', { class: 'notice-strip warn', html: '<span>!</span><span>Store these somewhere offline. Anyone holding a code can sign in and reset your passphrase. They are shown only once.</span>' }),
         grid,
         el('div', { class: 'row' }, [
-          el('button', { class: 'btn sm', text: '📋 Copy all', onClick: () => UI.copy(codes.map((entry) => entry.code).join('\n'), 'All backup codes copied') }),
-          el('button', { class: 'btn sm', text: '💾 Download .txt', onClick: () => UI.download(new Blob([`AE Secure backup codes for ${S.user?.username || ''}\nGenerated ${new Date().toLocaleString()}\n\n${codes.map((entry, index) => `${index + 1}. ${entry.code}`).join('\n')}\n\nKeep this file offline. Each code works once.\n`], { type: 'text/plain' }), 'ae-secure-backup-codes.txt') }),
+          el('button', { class: 'btn sm', text: 'Copy all', onClick: () => UI.copy(codes.map((entry) => entry.code).join('\n'), 'All backup codes copied') }),
+          el('button', { class: 'btn sm', text: 'Download .txt', onClick: () => UI.download(new Blob([`AE Secure backup codes for ${S.user?.username || ''}\nGenerated ${new Date().toLocaleString()}\n\n${codes.map((entry, index) => `${index + 1}. ${entry.code}`).join('\n')}\n\nKeep this file offline. Each code works once.\n`], { type: 'text/plain' }), 'ae-secure-backup-codes.txt') }),
         ]),
         el('label', { class: 'row small' }, [ack, el('span', { text: 'I have saved my backup codes somewhere safe.' })]),
       ]),
@@ -532,14 +537,14 @@ const Shell = (() => {
       Apps.open(requested);
       if (requested !== 'messages') {
         Windows.open({
-          id: 'messages', title: 'Messages', glyph: '💬', geometry: { w: 1120, h: 720, x: null, y: null },
+          id: 'messages', title: 'Messages', glyph: '▤', geometry: { w: 1120, h: 720, x: null, y: null },
           render: (body, api) => ConversationClient.render(body, api),
         });
       }
       return;
     }
     Windows.open({
-      id: 'messages', title: 'Messages', glyph: '💬', geometry: { w: 1120, h: 720, x: null, y: null },
+      id: 'messages', title: 'Messages', glyph: '▤', geometry: { w: 1120, h: 720, x: null, y: null },
       render: (body, api) => ConversationClient.render(body, api),
     });
   }
@@ -548,15 +553,15 @@ const Shell = (() => {
     const desktop = $('#desktop');
     const grid = el('div', { id: 'desktop-icons' });
     const apps = [
-      { id: 'messages', glyph: '💬', label: 'Messages' },
-      { id: 'communities', glyph: '🗣️', label: 'Communities' },
-      { id: 'stories', glyph: '📸', label: 'Public' },
-      { id: 'drive', glyph: '☁️', label: 'Cloud Drive' },
-      { id: 'files', glyph: '🗂️', label: 'My Files' },
-      { id: 'airdrop', glyph: '🪂', label: 'Airdrop' },
-      { id: 'settings', glyph: '⚙️', label: 'Settings' },
+      { id: 'messages', glyph: '▤', label: 'Messages' },
+      { id: 'communities', glyph: '▩', label: 'Communities' },
+      { id: 'stories', glyph: '◉', label: 'Public' },
+      { id: 'drive', glyph: '▦', label: 'Drive' },
+      { id: 'files', glyph: '▥', label: 'Files' },
+      { id: 'airdrop', glyph: '⇣', label: 'Airdrop' },
+      { id: 'settings', glyph: '⚙', label: 'Settings' },
     ];
-    if (S.user.role === 'owner' || S.user.role === 'admin') apps.push({ id: 'admin', glyph: '🛡️', label: 'Admin Console' });
+    if (S.user.role === 'owner' || S.user.role === 'admin') apps.push({ id: 'admin', glyph: '⬢', label: 'Console' });
     for (const app of apps) {
       if (S.menuHidden(app.id)) continue;
       grid.append(el('button', { class: 'desk-icon', onClick: () => Apps.open(app.id), ondblclick: () => Apps.open(app.id) }, [
@@ -569,24 +574,25 @@ const Shell = (() => {
 
   function buildTaskbar() {
     const stack = el('div', { id: 'taskbar-stack', class: 'row-tight' });
-    const startButton = el('button', { class: 'tb-btn', title: 'Start (Ctrl+Esc)', html: '<span>🪟</span>', onClick: (event) => toggleStart(event) });
+    const startButton = el('button', { class: 'tb-btn', title: 'Start (Ctrl+Esc)', html: '<span>◈</span>', onClick: (event) => toggleStart(event) });
     stack.append(startButton);
     const pinned = ['messages', 'communities', 'stories', 'drive', 'airdrop'];
     for (const id of pinned) {
       if (S.menuHidden(id)) continue;
       const app = Apps.get(id);
-      stack.append(el('button', { class: 'tb-btn', title: app ? app.title : id, html: `<span>${(app && app.glyph) || '🪟'}</span>`, onClick: () => Apps.open(id) }));
+      stack.append(el('button', { class: 'tb-btn', title: app ? app.title : id, html: `<span>${(app && app.glyph) || '◈'}</span>`, onClick: () => Apps.open(id) }));
     }
     if (S.user.role === 'owner' || S.user.role === 'admin') {
-      stack.append(el('button', { class: 'tb-btn', title: 'Admin Console', html: '<span>🛡️</span>', onClick: () => Apps.open('admin') }));
+      stack.append(el('button', { class: 'tb-btn', title: 'Admin Console', html: '<span>⬢</span>', onClick: () => Apps.open('admin') }));
     }
-    const airdropButton = el('button', { class: 'tb-btn', id: 'tb-airdrop', title: 'Airdrop inbox', html: '<span>🪂</span>', onClick: () => Apps.open('airdrop') });
+    const airdropButton = el('button', { class: 'tb-btn', id: 'tb-airdrop', title: 'Airdrop inbox', html: '<span>⇣</span>', onClick: () => Apps.open('airdrop') });
     if (S.get('airdropCount') > 0) airdropButton.append(el('span', { class: 'tb-badge', text: String(S.get('airdropCount')) }));
     stack.append(airdropButton);
-    stack.append(el('button', { class: 'tb-btn', title: 'Settings', html: '<span>⚙️</span>', onClick: () => Apps.open('settings') }));
+    stack.append(el('button', { class: 'tb-btn', title: 'Settings', html: '<span>⚙</span>', onClick: () => Apps.open('settings') }));
 
     const tray = el('div', { id: 'taskbar-tray' }, [
-      el('button', { class: 'tb-btn', id: 'tb-status', title: 'Set activity status', html: `<span style="width:11px;height:11px;border-radius:50%;background:var(--status-online);display:block"></span>`, onClick: (event) => statusMenu(event) }),
+      el('div', { class: 'tray-link', id: 'tb-link', title: 'Realtime channel to this server', text: 'LINK_UP' }),
+      el('button', { class: 'tb-btn', id: 'tb-status', title: 'Set activity status', html: '<span style="width:11px;height:11px;background:var(--status-online);display:block;box-shadow:0 0 8px var(--status-online)"></span>', onClick: (event) => statusMenu(event) }),
       el('div', { class: 'tray-clock' }, [
         el('div', { class: 'time', id: 'clock-time', text: '--:--' }),
         el('div', { class: 'faint tiny', id: 'clock-date', text: '' }),
@@ -615,16 +621,16 @@ const Shell = (() => {
     const items = [];
     if (settings.activityStatus !== false) {
       items.push({ label: 'Availability' });
-      items.push({ glyph: '🟢', label: 'Online', onClick: () => setManualStatus('online') });
-      items.push({ glyph: '🌙', label: 'Idle (stay idle while here)', onClick: () => setManualStatus('idle') });
-      items.push({ glyph: '⛔', label: 'Do Not Disturb', onClick: () => setManualStatus('dnd') });
-      items.push({ glyph: '👻', label: 'Invisible (appear offline)', onClick: () => setManualStatus('invisible') });
-      if (S.user.purpleAllowed) items.push({ glyph: '🟣', label: 'Purple status (granted by the operator)', onClick: () => setManualStatus('purple') });
+      items.push({ glyph: '●', label: 'Online', onClick: () => setManualStatus('online') });
+      items.push({ glyph: '◐', label: 'Idle (stay idle while here)', onClick: () => setManualStatus('idle') });
+      items.push({ glyph: '⊘', label: 'Do Not Disturb', onClick: () => setManualStatus('dnd') });
+      items.push({ glyph: '○', label: 'Invisible (appear offline)', onClick: () => setManualStatus('invisible') });
+      if (S.user.purpleAllowed) items.push({ glyph: '◉', label: 'Purple status (granted by the operator)', onClick: () => setManualStatus('purple') });
       items.push({ separator: true });
-      items.push({ glyph: '🔄', label: 'Automatic (based on activity)', onClick: () => setManualStatus(null) });
+      items.push({ glyph: '↻', label: 'Automatic (based on activity)', onClick: () => setManualStatus(null) });
     } else {
       items.push({ label: 'Activity status is off in Settings → Privacy' });
-      items.push({ glyph: '⚙️', label: 'Open activity settings', onClick: () => Apps.open('settings', { section: 'privacy' }) });
+      items.push({ glyph: '⚙', label: 'Open activity settings', onClick: () => Apps.open('settings', { section: 'privacy' }) });
     }
     UI.contextMenu(items, { x: event.clientX - 120, y: event.clientY - 250 });
   }
@@ -649,7 +655,7 @@ const Shell = (() => {
       grid,
       el('div', { class: 'start-section-label uppercase', text: 'Help' }),
       el('div', { style: { padding: '0 16px 12px' } }, [
-        el('button', { class: 'btn block', text: '📘 Open the guided tutorial and help centre', onClick: () => { closeStart(); Help.open(); } }),
+        el('button', { class: 'btn block', text: 'Open the guided tutorial and help centre', onClick: () => { closeStart(); Help.open(); } }),
       ]),
       startFooter(),
     );
@@ -690,8 +696,8 @@ const Shell = (() => {
         el('div', { class: 'small body-strong truncate', text: user.displayName || user.username }),
         el('div', { class: 'tiny faint truncate', text: `@${user.username}${user.role !== 'member' ? ` · ${user.role}` : ''}` }),
       ]),
-      el('button', { class: 'btn icon subtle', title: 'Settings', text: '⚙️', onClick: () => { closeStart(); Apps.open('settings'); } }),
-      el('button', { class: 'btn icon subtle', title: 'Sign out', text: '⏏', onClick: async () => {
+      el('button', { class: 'btn icon subtle', title: 'Settings', text: '', onClick: () => { closeStart(); Apps.open('settings'); } }),
+      el('button', { class: 'btn icon subtle', title: 'Sign out', text: '', onClick: async () => {
         try { await API.post('/api/auth/logout', {}); } catch { /* ignore */ }
         API.disconnect();
         S.clearSession();
@@ -739,7 +745,7 @@ const Shell = (() => {
         const message = payload.message;
         ConversationClient.bumpUnread(payload.conversationId);
         if (!S.settings().hideMessagePreviews && message) {
-          notify({ title: 'New encrypted message', body: 'Open Messages to decrypt and read.', level: 'info', glyph: '💬' });
+          notify({ title: 'New encrypted message', body: 'Open Messages to decrypt and read.', level: 'info', glyph: '▤' });
         }
       }
     });
@@ -793,10 +799,14 @@ const Shell = (() => {
     API.on('disconnected', () => {
       const banner = el('div', { class: 'banner-offline', id: 'offline-banner', text: 'Reconnecting to the server…' });
       if (!$('#offline-banner')) document.body.append(banner);
+      const link = $('#tb-link');
+      if (link) { link.textContent = 'LINK_LOST'; link.classList.add('down'); }
     });
     API.on('ready', () => {
       const banner = $('#offline-banner');
       if (banner) banner.remove();
+      const link = $('#tb-link');
+      if (link) { link.textContent = 'LINK_UP'; link.classList.remove('down'); }
     });
   }
 

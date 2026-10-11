@@ -14,8 +14,8 @@ const Windows = (() => {
   const isMobile = () => window.matchMedia('(max-width: 720px)').matches;
 
   const APP_ICONS = {
-    messages: '💬', communities: '🗣️', stories: '📸', drive: '☁️', files: '🗂️', airdrop: '🪂',
-    settings: '⚙️', admin: '🛡️', profile: '👤', help: '📘', airdropInbox: '📨', cloud: '☁️',
+    messages: '▤', communities: '▩', stories: '◉', drive: '▦', files: '▥', airdrop: '⇣',
+    settings: '⚙', admin: '⬢', profile: '◧', help: '▣', clicker: '⊞', airdropInbox: '⇣', cloud: '▦',
   };
 
   function desktop() { return $('#desktop'); }
@@ -38,7 +38,7 @@ const Windows = (() => {
     const record = {
       id,
       title: options.title || 'Window',
-      glyph: options.glyph || APP_ICONS[id] || '🪟',
+      glyph: options.glyph || APP_ICONS[id] || '◈',
       subtitle: options.subtitle || '',
       minimized: false,
       maximized: false,
@@ -56,7 +56,7 @@ const Windows = (() => {
       el('span', { text: record.title }),
       record.subtitle ? el('span', { class: 'sub', text: record.subtitle }) : null,
     ]);
-    const pinButton = el('button', { class: 'caption-btn pin', title: 'Keep on top', html: '📌', onClick: () => {
+    const pinButton = el('button', { class: 'caption-btn pin', title: 'Keep on top', html: '⌖', onClick: () => {
       record.pinned = !record.pinned;
       pinButton.classList.toggle('on', record.pinned);
       if (record.pinned) focus(id, true);
@@ -117,7 +117,7 @@ const Windows = (() => {
       record.body.append(target);
       try { render(target, API(id)); } catch (error) {
         console.error('[ae] render failed for', id, error);
-        target.append(UI.empty('⚠️', 'This panel failed to render', error.message));
+        target.append(UI.empty('!', 'This panel failed to render', error.message));
       }
     }
   }
@@ -383,9 +383,9 @@ const Windows = (() => {
         button.addEventListener('contextmenu', (event) => {
           event.preventDefault();
           UI.contextMenu([
-            { glyph: '🗗', label: 'Restore', onClick: () => restore(id) },
-            { glyph: '🗕', label: 'Minimize', onClick: () => minimize(id) },
-            { glyph: '🗖', label: 'Maximize', onClick: () => toggleMaximize(id) },
+            { glyph: '⤢', label: 'Restore', onClick: () => restore(id) },
+            { glyph: '—', label: 'Minimize', onClick: () => minimize(id) },
+            { glyph: '□', label: 'Maximize', onClick: () => toggleMaximize(id) },
             { separator: true },
             { glyph: '✕', label: 'Close', danger: true, onClick: () => close(id) },
           ], { x: event.clientX, y: event.clientY - 150 });

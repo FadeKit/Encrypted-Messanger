@@ -28,21 +28,21 @@ const Settings = (() => {
   ];
 
   const MENUS = [
-    ['messages', '💬 Messages'], ['communities', '🗣️ Communities'], ['stories', '📸 Public square'],
-    ['drive', '☁️ Cloud drive'], ['files', '🗂️ My files'], ['airdrop', '🪂 Airdrop'], ['admin', '🛡️ Admin console'],
+    ['messages', '▤ Messages'], ['communities', '▩ Communities'], ['stories', '◉ Public square'],
+    ['drive', '▦ Cloud drive'], ['files', '▥ My files'], ['airdrop', '⇣ Airdrop'], ['admin', '⬢ Admin console'],
   ];
 
   const SECTIONS = [
-    ['general', '🧩', 'General'],
-    ['appearance', '🎨', 'Appearance'],
-    ['accessibility', '♿', 'Accessibility'],
-    ['notifications', '🔔', 'Notifications'],
-    ['privacy', '🕶️', 'Privacy & activity'],
-    ['requests', '📨', 'Storage & requests'],
-    ['public', '🌍', 'Public profile'],
-    ['account', '👤', 'Account & security'],
-    ['tutorial', '📘', 'Tutorial & help'],
-    ['about', 'ℹ️', 'About'],
+    ['general', '01', 'General'],
+    ['appearance', '02', 'Appearance'],
+    ['accessibility', '03', 'Accessibility'],
+    ['notifications', '04', 'Notifications'],
+    ['privacy', '05', 'Privacy & activity'],
+    ['requests', '06', 'Storage & requests'],
+    ['public', '07', 'Public profile'],
+    ['account', '08', 'Account & security'],
+    ['tutorial', '09', 'Tutorial & help'],
+    ['about', '10', 'About'],
   ];
 
   const BUILDERS = {
@@ -74,7 +74,7 @@ const Settings = (() => {
     api.setToolbar([]);
 
     for (const [id, glyph, label] of SECTIONS) {
-      nav.append(el('button', { class: id === current ? 'on' : '', onClick: () => { current = id; render(body, api); } }, [el('span', { text: glyph }), el('span', { text: label })]));
+      nav.append(el('button', { class: id === current ? 'on' : '', onClick: () => { current = id; render(body, api); } }, [el('span', { class: 'glyph', text: glyph }), el('span', { text: label })]));
     }
     const fragment = document.createDocumentFragment();
     (BUILDERS[current] || paintGeneral)(fragment);
@@ -84,7 +84,7 @@ const Settings = (() => {
   // ----------------------------------------------------------- primitives
   function heading(glyph, title, description) {
     return el('div', { class: 'section-title' }, [
-      el('span', { class: 'glyph', text: glyph }),
+      el('span', { class: 'glyph', text: `[${glyph}]` }),
       el('div', {}, [el('div', { class: 'title-3', text: title }), description ? el('div', { class: 'caption', text: description }) : null]),
     ]);
   }
@@ -93,7 +93,7 @@ const Settings = (() => {
     const info = el('div', { class: 'info' }, [
       el('div', { class: 'name' }, [
         el('span', { text: name }),
-        helpKey ? el('button', { class: 'btn icon sm subtle', text: '❔', title: 'Explain this setting', onClick: () => Help.open(helpKey) }) : null,
+        helpKey ? el('button', { class: 'btn icon sm subtle', text: '?', title: 'Explain this setting', onClick: () => Help.open(helpKey) }) : null,
       ]),
       el('div', { class: 'desc', text: description }),
     ]);
@@ -128,11 +128,11 @@ const Settings = (() => {
   // ------------------------------------------------------------- general
   function paintGeneral(fragment) {
     const settings = State.settings();
-    fragment.append(heading('🧩', 'General', 'Everyday behaviour, feature switches and menu cleanup.'));
+    fragment.append(heading('GEN', 'General', 'Everyday behaviour, feature switches and menu cleanup.'));
 
     const display = el('input', { class: 'input', value: State.user.displayName || '' });
     const bio = el('textarea', { class: 'textarea', value: State.user.bio || '' });
-    fragment.append(heading('👤', 'Profile', 'How other members see you inside chats and communities.'));
+    fragment.append(heading('ID', 'Profile', 'How other members see you inside chats and communities.'));
     fragment.append(row('Display name', 'Shown next to your coded handle. Your handle never changes.', display));
     fragment.append(row('Private bio', 'Only visible to you and administrators.', bio, 'Private bio'));
     fragment.append(el('div', { class: 'setting-row' }, [
@@ -144,11 +144,11 @@ const Settings = (() => {
       } })]),
     ]));
 
-    fragment.append(heading('⌨️', 'Messaging', 'Composer behaviour and timestamps.'));
+    fragment.append(heading('I/O', 'Messaging', 'Composer behaviour and timestamps.'));
     fragment.append(row('Enter sends the message', 'When off, Enter adds a new line and Ctrl+Enter sends.', switchControl(settings.enterToSend, (value) => save({ enterToSend: value })), 'Enter sends the message'));
     fragment.append(row('Timestamp style', 'Relative (“4m ago”) or absolute clock times.', selectControl(settings.timestamps, [['relative', 'Relative'], ['absolute', 'Absolute']], (value) => save({ timestamps: value })), 'Timestamp style'));
 
-    fragment.append(heading('🧱', 'Layout', 'Reorder or hide surfaces so the app matches how you actually use it.'));
+    fragment.append(heading('UI', 'Layout', 'Reorder or hide surfaces so the app matches how you actually use it.'));
     const order = [...(settings.layout.order || [])];
     const orderHost = el('div', { class: 'stack-4' });
     const paintOrder = () => {
@@ -177,7 +177,7 @@ const Settings = (() => {
     }
     fragment.append(row('Compact sidebar lists', 'Tighter rows in list panes, useful on small screens.', switchControl(settings.layout.sidebarCompact, (value) => save({ layout: { sidebarCompact: value } })), 'Compact sidebar lists'));
 
-    fragment.append(heading('🎚️', 'Feature switches', 'Disable individual features for your account. Disabled features disappear from your menus and stop working on this account, without changing anything for anyone else.'));
+    fragment.append(heading('SYS', 'Feature switches', 'Disable individual features for your account. Disabled features disappear from your menus and stop working on this account, without changing anything for anyone else.'));
     const disabled = settings.disabledFeatures || {};
     for (const [key, label, description] of FEATURES) {
       fragment.append(row(label, description, switchControl(disabled[key] !== true, (value) => {
@@ -187,7 +187,7 @@ const Settings = (() => {
       }), label));
     }
 
-    fragment.append(heading('🧪', 'Advanced', 'For people who want to bend the interface to their taste.'));
+    fragment.append(heading('DEV', 'Advanced', 'For people who want to bend the interface to their taste.'));
     const css = el('textarea', { class: 'textarea', placeholder: '/* custom css */', value: settings.customCss || '' });
     fragment.append(el('div', { class: 'setting-row' }, [
       el('div', { class: 'info' }, [el('div', { class: 'name', text: 'Custom CSS' }), el('div', { class: 'desc', text: 'Applied only in your browser. 20 KB limit. Use it to fine-tune anything the theme controls miss.' })]),
@@ -198,23 +198,33 @@ const Settings = (() => {
   // ------------------------------------------------------------ appearance
   function paintAppearance(fragment) {
     const settings = State.settings();
-    fragment.append(heading('🎨', 'Appearance', 'Themes, acrylic materials and window geometry.'));
+    fragment.append(heading('VIS', 'Appearance', 'Themes, acrylic materials and window geometry.'));
 
-    const themes = [['midnight', 'Midnight'], ['graphite', 'Graphite'], ['abyss', 'Abyss'], ['daylight', 'Daylight'], ['sandstone', 'Sandstone']];
-    const accents = [['azure', 'Azure'], ['violet', 'Violet'], ['emerald', 'Emerald'], ['rose', 'Rose'], ['amber', 'Amber'], ['teal', 'Teal'], ['magenta', 'Magenta'], ['steel', 'Steel'], ['windows', 'Windows blue']];
-    fragment.append(row('Theme', 'Choose the base palette. Light themes are friendlier in bright rooms.', selectControl(settings.theme, themes, (value) => save({ theme: value })), 'Theme'));
-    fragment.append(row('Accent colour', 'Used for focus states, highlights and the network graph.', selectControl(settings.accent, accents, (value) => save({ accent: value })), 'Accent colour'));
-    fragment.append(row('Acrylic strength', 'How much background shows through windows and flyouts.', sliderControl(settings.glass, 30, 100, 1, (value) => save({ glass: value }), (value) => `${value}%`), 'Acrylic strength'));
-    fragment.append(row('Blur radius', 'Higher values feel softer; lower values are faster on older phones.', sliderControl(settings.blur, 0, 40, 1, (value) => save({ blur: value }), (value) => `${value}px`), 'Blur radius'));
-    fragment.append(row('Window corner radius', 'Round windows like Windows 11 (11px) or keep them sharp.', sliderControl(settings.cornerRadius, 0, 24, 1, (value) => save({ cornerRadius: value }), (value) => `${value}px`), 'Window corner radius'));
+    const themes = [['nox', 'NOX · night signal'], ['acid', 'ACID · sodium haze'], ['sector', 'SECTOR · red alert'], ['ice', 'ICE · server hall'], ['chrome', 'CHROME · daylight']];
+    const accents = [['phosphor', 'PHOSPHOR · green'], ['lime', 'LIME · acid'], ['sodium', 'SODIUM · amber'], ['plasma', 'PLASMA · orange'], ['crimson', 'CRIMSON · alarm'], ['magenta', 'MAGENTA · neon'], ['cyan', 'CYAN · ice'], ['teal', 'TEAL · cool'], ['violet', 'VIOLET · ultraviolet']];
+    fragment.append(row('Theme', 'Five palettes: three night signals, one red-alert sector and one daylight sheet for bright rooms.', selectControl(settings.theme, themes, (value) => save({ theme: value })), 'Theme'));
+    fragment.append(row('Signal colour', 'Drives the accent, focus rings, meters, graph and every highlight in the interface.', selectControl(settings.accent, accents, (value) => save({ accent: value })), 'Signal colour'));
+    fragment.append(row('Panel opacity', 'How much of the desktop shows through window panels. Lower is more translucent.', sliderControl(settings.glass, 30, 100, 1, (value) => save({ glass: value }), (value) => `${value}%`), 'Panel opacity'));
+    fragment.append(row('Blur radius', 'Backdrop softness behind translucent panels. Zero is sharpest and cheapest on a phone.', sliderControl(settings.blur, 0, 40, 1, (value) => save({ blur: value }), (value) => `${value}px`), 'Blur radius'));
+    fragment.append(row('Edge chamfer', 'Size of the cut corner on panel plates. Zero gives perfectly square plates.', sliderControl(settings.cornerRadius, 0, 24, 1, (value) => {
+      document.documentElement.style.setProperty('--chamfer', `${value}px`);
+      document.documentElement.style.setProperty('--chamfer-sm', `${Math.max(4, Math.round(value * 0.58))}px`);
+      save({ cornerRadius: value });
+    }, (value) => `${value}px`), 'Edge chamfer'));
     fragment.append(row('Interface scale', 'Scales text and control sizes across the whole app.', sliderControl(settings.fontScale, 0.85, 1.4, 0.05, (value) => save({ fontScale: value }), (value) => `${Math.round(value * 100)}%`), 'Interface scale'));
     fragment.append(row('Taskbar position', 'Center it like Windows 11, pin it to the left, or auto-hide it.', selectControl(settings.taskbarPosition || 'center', [['center', 'Centered'], ['left', 'Left edge'], ['hidden', 'Auto-hide']], (value) => save({ taskbarPosition: value })), 'Taskbar position'));
-    fragment.append(row('Wallpaper', 'Tint the desktop backdrop. Themes set a sensible default.', selectControl(settings.wallpaper || 'theme', [['theme', 'Match theme'], ['aurora', 'Aurora'], ['ember', 'Ember'], ['forest', 'Forest'], ['mono', 'Mono']], (value) => {
+    fragment.append(row('Backdrop', 'The moving backdrop behind every window.', selectControl(settings.wallpaper || 'theme', [
+      ['theme', 'Signal grid · matches the theme'],
+      ['signal', 'Signal bloom · accent glow'],
+      ['rain', 'Data rain · falling code'],
+      ['dots', 'Dot matrix · sparse grid'],
+      ['void', 'Void · flat black'],
+    ], (value) => {
       document.body.dataset.wall = value === 'theme' ? '' : value;
       save({ wallpaper: value });
-    }), 'Wallpaper'));
+    }), 'Backdrop'));
 
-    fragment.append(heading('🧊', 'Preview', 'A quick look at cards, buttons and badges with the current settings.'));
+    fragment.append(heading('PREV', 'Preview', 'A quick look at cards, buttons and badges with the current settings.'));
     fragment.append(el('div', { class: 'card stack-8', style: { marginTop: '10px' } }, [
       el('div', { class: 'row wrap' }, [
         el('button', { class: 'btn primary', text: 'Primary' }),
@@ -224,7 +234,8 @@ const Settings = (() => {
         el('span', { class: 'pill accent', text: 'accent' }),
         el('span', { class: 'verified-badge', text: '✓' }),
       ]),
-      el('div', { class: 'message-text', text: 'Messages, files and stories are sealed on this device with AES-GCM-256.' }),
+      el('div', { class: 'hud', text: 'sealed on this device · AES-GCM-256' }),
+      el('div', { class: 'message-text', text: 'Messages, files and stories are encrypted here before they travel.' }),
       el('div', { class: 'bar-track' }, [el('div', { class: 'bar-fill', style: { width: '62%' } })]),
     ]));
   }
@@ -232,7 +243,7 @@ const Settings = (() => {
   // --------------------------------------------------------- accessibility
   function paintAccessibility(fragment) {
     const settings = State.settings();
-    fragment.append(heading('♿', 'Accessibility', 'Everything here is client-side: it changes only how the app looks and behaves for you.'));
+    fragment.append(heading('A11Y', 'Accessibility', 'Everything here is client-side: it changes only how the app looks and behaves for you.'));
     fragment.append(row('High contrast', 'Stronger borders and solid surfaces for maximum legibility.', switchControl(settings.highContrast, (value) => save({ highContrast: value })), 'High contrast'));
     fragment.append(row('Dyslexia-friendly font', 'Wider letter spacing with a more distinct letterform set.', switchControl(settings.dyslexiaFont, (value) => save({ dyslexiaFont: value })), 'Dyslexia-friendly font'));
     fragment.append(row('Line spacing', 'Increase spacing between lines of text.', sliderControl(settings.lineHeight, 1.2, 2, 0.05, (value) => save({ lineHeight: value }), (value) => `${value.toFixed(2)}×`), 'Line spacing'));
@@ -246,7 +257,7 @@ const Settings = (() => {
   // -------------------------------------------------------- notifications
   function paintNotifications(fragment) {
     const settings = State.settings();
-    fragment.append(heading('🔔', 'Notifications', 'How the app tells you something happened.'));
+    fragment.append(heading('NTF', 'Notifications', 'How the app tells you something happened.'));
     fragment.append(row('In-app toasts', 'Slide-in notifications in the corner of the desktop.', switchControl(settings.notificationToasts, (value) => save({ notificationToasts: value })), 'In-app toasts'));
     fragment.append(row('Desktop notifications', 'Use the browser notification system when the tab is in the background.', switchControl(settings.desktopNotifications, async (value) => {
       if (value && 'Notification' in window && Notification.permission !== 'granted') {
@@ -264,41 +275,41 @@ const Settings = (() => {
   // --------------------------------------------------------------- privacy
   function paintPrivacy(fragment) {
     const settings = State.settings();
-    fragment.append(heading('🕶️', 'Privacy & activity', 'What you share about yourself and which features are active.'));
+    fragment.append(heading('PRV', 'Privacy & activity', 'What you share about yourself and which features are active.'));
 
     fragment.append(row('Share activity status', 'Other members see Online, Idle, Do Not Disturb or Invisible. Turn this off and you always appear offline.', switchControl(settings.activityStatus, (value) => save({ activityStatus: value })), 'Share activity status'));
 
     const statusRow = el('div', { class: 'row wrap' });
     const manual = Shell.manualStatus;
-    const options = [['online', '🟢 Online'], ['idle', '🌙 Idle'], ['dnd', '⛔ Do Not Disturb'], ['invisible', '👻 Invisible']];
-    if (State.user.purpleAllowed) options.push(['purple', '🟣 Purple (granted)']);
-    options.push([null, '🔄 Automatic']);
+    const options = [['online', '● Online'], ['idle', '◐ Idle'], ['dnd', '⊘ Do Not Disturb'], ['invisible', '○ Invisible']];
+    if (State.user.purpleAllowed) options.push(['purple', '◉ Purple (granted)']);
+    options.push([null, '↻ Automatic']);
     for (const [value, label] of options) {
       statusRow.append(el('button', { class: `btn sm ${manual === value ? 'primary' : ''}`, text: label, onClick: () => { Shell.setManualStatus(value); paintRefresh(); } }));
     }
-    statusRow.append(el('button', { class: 'btn sm subtle', text: '🎨 Request purple status', disabled: State.user.purpleAllowed, onClick: () => requestDialog('purple') }));
+    statusRow.append(el('button', { class: 'btn sm subtle', text: 'Request purple status', disabled: State.user.purpleAllowed, onClick: () => requestDialog('purple') }));
     fragment.append(row('Availability now', 'Manual overrides: Idle keeps you idle while you read, Invisible makes you appear offline, Purple is granted by the operator on request.', statusRow, 'Availability now'));
 
-    fragment.append(heading('🪂', 'Airdrop', 'Receive drops from anyone online, instantly.'));
+    fragment.append(heading('AIR', 'Airdrop', 'Receive drops from anyone online, instantly.'));
     fragment.append(row('Airdrop delivery', 'When on, drops reach you while you are online. Off by default.', switchControl(settings.airdrop, (value) => { save({ airdrop: value }); AirdropClient.refresh(); }), 'Airdrop delivery'));
     fragment.append(row('Airdrop sounds', 'Play a tone when a drop lands.', switchControl(settings.airdropSound, (value) => save({ airdropSound: value })), 'Airdrop sounds'));
     fragment.append(el('div', { class: 'setting-row' }, [
       el('div', { class: 'info' }, [el('div', { class: 'name', text: 'Send an airdrop now' }), el('div', { class: 'desc', text: 'Delivers to every member with airdrop on who is online, plus operators at all times.' })]),
-      el('div', { class: 'control' }, [el('button', { class: 'btn', text: '📢 Open airdrop', onClick: () => AirdropClient.composer() })]),
+      el('div', { class: 'control' }, [el('button', { class: 'btn', text: 'Open airdrop', onClick: () => AirdropClient.composer() })]),
     ]));
 
-    fragment.append(heading('🗣️', 'Communities and public posting', ''));
+    fragment.append(heading('COM', 'Communities and public posting', ''));
     fragment.append(row('Media in communities and public posts', 'Off by default. When off, you cannot upload or attach images in communities or the public square, and you are not shown their media.', switchControl(settings.forumMedia, (value) => { save({ forumMedia: value }); UI.toast({ level: 'info', title: value ? 'Community media enabled' : 'Community media disabled', body: value ? 'You can attach images to community and public posts.' : 'Uploads and image display in communities are now blocked.', duration: 4200 }); }), 'Media in communities and public posts'));
     fragment.append(row('Autoplay stories', 'Start videos automatically in the story viewer.', switchControl(settings.storyAutoplay, (value) => save({ storyAutoplay: value })), 'Autoplay stories'));
 
-    fragment.append(heading('🔢', 'Click Me', 'A shared counter for the whole server. Pure fun.'));
+    fragment.append(heading('FUN', 'Click Me', 'A shared counter for the whole server. Pure fun.'));
     fragment.append(row('Show the Click Me box', 'Hide the counter if you would rather not see it.', switchControl(State.featureEnabled('clickMe'), (value) => save({ disabledFeatures: Object.assign({}, settings.disabledFeatures, { clickMe: !value }) })), 'Click Me'));
     fragment.append(Clicker.card());
   }
 
   // -------------------------------------------------------------- requests
   function paintRequests(fragment) {
-    fragment.append(heading('📨', 'Storage & requests', 'Ask the operator for more capacity, contact the administration, and manage your recovery codes.'));
+    fragment.append(heading('QTA', 'Storage & requests', 'Ask the operator for more capacity, contact the administration, and manage your recovery codes.'));
     const limits = State.user.limits;
 
     fragment.append(el('div', { class: 'card stack-8' }, [
@@ -315,26 +326,26 @@ const Settings = (() => {
 
     const requestGrid = el('div', { class: 'grid-2' });
     requestGrid.append(
-      requestCard('📎', 'Bigger message attachments', 'Ask for a larger per-file limit for chats, communities and airdrops.', 'dm', [25, 50, 100, 250].map((mb) => [mb * 1024 * 1024, `${mb} MB`])),
-      requestCard('☁️', 'More drive storage', 'Ask for more cloud drive space. Unlimited is possible.', 'drive', [[2, '2 GB'], [5, '5 GB'], [25, '25 GB'], [-1, 'Unlimited']].map(([gb, label]) => [gb === -1 ? -1 : gb * 1024 * 1024 * 1024, label])),
-      requestCard('📸', 'Bigger story items', 'Ask for larger story images and videos.', 'story', [2, 5].map((gb) => [gb * 1024 * 1024 * 1024, `${gb} GB`])),
-      requestCard('🟣', 'Purple availability status', 'Adds the purple ring to your status options.', 'purple', []),
+      requestCard('⊕', 'Bigger message attachments', 'Ask for a larger per-file limit for chats, communities and airdrops.', 'dm', [25, 50, 100, 250].map((mb) => [mb * 1024 * 1024, `${mb} MB`])),
+      requestCard('▦', 'More drive storage', 'Ask for more cloud drive space. Unlimited is possible.', 'drive', [[2, '2 GB'], [5, '5 GB'], [25, '25 GB'], [-1, 'Unlimited']].map(([gb, label]) => [gb === -1 ? -1 : gb * 1024 * 1024 * 1024, label])),
+      requestCard('◉', 'Bigger story items', 'Ask for larger story images and videos.', 'story', [2, 5].map((gb) => [gb * 1024 * 1024 * 1024, `${gb} GB`])),
+      requestCard('◉', 'Purple availability status', 'Adds the purple ring to your status options.', 'purple', []),
     );
-    fragment.append(heading('📝', 'Requests', 'Approvals and denials both arrive as notifications and are logged on this page.'));
+    fragment.append(heading('REQ', 'Requests', 'Approvals and denials both arrive as notifications and are logged on this page.'));
     fragment.append(requestGrid);
 
-    fragment.append(heading('💬', 'Contact the administration', 'Open a private, masked channel with the operator without exposing their account name.'));
+    fragment.append(heading('OPS', 'Contact the administration', 'Open a private, masked channel with the operator without exposing their account name.'));
     fragment.append(contactCard());
 
-    fragment.append(heading('🎟️', 'One-time DM codes', 'Single-use codes that open a private channel with the operator. Redeeming consumes the code; none of your other conversations are affected.'));
+    fragment.append(heading('CODE', 'One-time DM codes', 'Single-use codes that open a private channel with the operator. Redeeming consumes the code; none of your other conversations are affected.'));
 
-    fragment.append(heading('🔑', 'Backup codes', 'Five one-time codes that restore this account if a device is lost or an account is taken over.'));
+    fragment.append(heading('KEY', 'Backup codes', 'Five one-time codes that restore this account if a device is lost or an account is taken over.'));
     fragment.append(backupCard());
 
-    fragment.append(heading('🖥️', 'Signed-in devices', 'End any session, including one you no longer recognise.'));
+    fragment.append(heading('DEV', 'Signed-in devices', 'End any session, including one you no longer recognise.'));
     fragment.append(sessionsCard());
 
-    fragment.append(heading('📜', 'Request history', 'Every request you have filed and its outcome.'));
+    fragment.append(heading('LOG', 'Request history', 'Every request you have filed and its outcome.'));
     const history = el('div', { class: 'stack-6' });
     fragment.append(history);
     API.get('/api/requests').then((data) => {
@@ -350,7 +361,7 @@ const Settings = (() => {
           ]),
           request.message ? el('div', { class: 'small muted', text: request.message }) : null,
           request.requestedLabel ? el('div', { class: 'tiny faint', text: `Requested: ${request.requestedLabel}` }) : null,
-          request.decision ? el('div', { class: 'notice-strip', html: `<span>🧾</span><span>${UI.esc(request.decision.status)}${request.decision.grantedBytes ? ` · granted ${UI.bytes(request.decision.grantedBytes)}` : ''}${request.decision.note ? ` · “${UI.esc(request.decision.note)}”` : ''}</span>` }) : null,
+          request.decision ? el('div', { class: 'notice-strip', html: `<span>≡</span><span>${UI.esc(request.decision.status)}${request.decision.grantedBytes ? ` · granted ${UI.bytes(request.decision.grantedBytes)}` : ''}${request.decision.note ? ` · “${UI.esc(request.decision.note)}”` : ''}</span>` }) : null,
         ]));
       }
     });
@@ -407,20 +418,20 @@ const Settings = (() => {
       el('div', { class: 'row wrap' }, [
         el('button', {
           class: 'btn primary',
-          text: '🎟️ Generate a one-time code',
+          text: 'Generate a one-time code',
           disabled: !State.featureEnabled('dmCodes') || !State.featureEnabled('adminChat'),
           onClick: async () => {
             try {
               const result = await API.post('/api/dm-codes', {});
               UI.dialog({
                 title: 'Your operator chat code',
-                glyph: '🎟️',
+                glyph: '#',
                 size: 'narrow',
                 subtitle: 'Single use · hand it to the operator',
                 content: el('div', { class: 'stack-8' }, [
                   el('div', { class: 'recovery-code', text: result.code, title: 'Click to copy', onClick: () => UI.copy(result.code, 'Code copied') }),
                   el('div', { class: 'hint', text: `Expires ${UI.dateTime(result.expiresAt)}. The code stops working the moment it is redeemed.` }),
-                  el('div', { class: 'notice-strip', html: '<span>🕶️</span><span>Your handle is visible to the operator. Their account name is never exposed to you.</span>' }),
+                  el('div', { class: 'notice-strip', html: '<span>◍</span><span>Your handle is visible to the operator. Their account name is never exposed to you.</span>' }),
                 ]),
                 footer: [el('button', { class: 'btn primary', text: 'Copy code', onClick: () => UI.copy(result.code, 'Code copied') })],
               });
@@ -431,10 +442,10 @@ const Settings = (() => {
         }),
         el('button', {
           class: 'btn',
-          text: '⌨️ Redeem a code',
+          text: 'Redeem a code',
           disabled: !State.featureEnabled('dmCodes'),
           onClick: async () => {
-            const code = await UI.prompt({ title: 'Redeem a one-time code', placeholder: 'XXXXX-XXXXX-XXXXX-XXXXX', confirmLabel: 'Open channel', glyph: '🎟️' });
+            const code = await UI.prompt({ title: 'Redeem a one-time code', placeholder: 'XXXXX-XXXXX-XXXXX-XXXXX', confirmLabel: 'Open channel', glyph: '#' });
             if (!code) return;
             try {
               const result = await API.post('/api/dm-codes/redeem', { code });
@@ -461,7 +472,7 @@ const Settings = (() => {
       el('div', { class: 'row wrap' }, [
         el('button', {
           class: 'btn primary',
-          text: '🔑 Generate 5 new codes',
+          text: 'Generate 5 new codes',
           onClick: async () => {
             const confirmed = await UI.confirm({
               title: 'Generate new backup codes?',
@@ -479,7 +490,7 @@ const Settings = (() => {
         }),
         el('button', {
           class: 'btn danger',
-          text: '⏏ Sign out on all devices',
+          text: 'Sign out on all devices',
           onClick: async () => {
             const confirmed = await UI.confirm({
               title: 'Sign out everywhere?',
@@ -527,18 +538,18 @@ const Settings = (() => {
     const done = el('button', { class: 'btn primary', text: 'Done', disabled: true });
     const dialogRef = UI.dialog({
       title: 'Your five backup codes',
-      glyph: '🔑',
+      glyph: '◇',
       size: 'wide',
       subtitle: 'Each code restores this account once, then it stops working.',
       dismissable: false,
       content: el('div', { class: 'stack-12' }, [
-        el('div', { class: 'notice-strip warn', html: '<span>⚠️</span><span>Store these offline. Anyone holding a code can sign in and reset your passphrase. They are shown only once.</span>' }),
+        el('div', { class: 'notice-strip warn', html: '<span>!</span><span>Store these offline. Anyone holding a code can sign in and reset your passphrase. They are shown only once.</span>' }),
         grid,
         el('div', { class: 'row wrap' }, [
-          el('button', { class: 'btn sm', text: '📋 Copy all', onClick: () => UI.copy(codes.map((entry) => entry.code).join('\n'), 'All codes copied') }),
+          el('button', { class: 'btn sm', text: 'Copy all', onClick: () => UI.copy(codes.map((entry) => entry.code).join('\n'), 'All codes copied') }),
           el('button', {
             class: 'btn sm',
-            text: '💾 Download .txt',
+            text: 'Download .txt',
             onClick: () => UI.download(new Blob([`AE Secure backup codes for ${State.user.username}\nGenerated ${new Date().toLocaleString()}\n\n${codes.map((entry, index) => `${index + 1}. ${entry.code}`).join('\n')}\n\nKeep this file offline. Each code works once.\n`], { type: 'text/plain' }), 'ae-secure-backup-codes.txt'),
           }),
         ]),
@@ -557,7 +568,7 @@ const Settings = (() => {
       const data = await API.get('/api/sessions');
       for (const session of data.sessions) {
         host.append(el('div', { class: `session-row ${session.current ? 'current' : ''}` }, [
-          el('span', { class: 'device-glyph', text: /phone|android|iphone|ipad/i.test(session.device) ? '📱' : '💻' }),
+          el('span', { class: 'device-glyph', text: /phone|android|iphone|ipad/i.test(session.device) ? '▭' : '▢' }),
           el('div', { class: 'grow' }, [
             el('div', { class: 'small body-strong', text: `${session.device} · ${session.platform}${session.current ? ' (this device)' : ''}` }),
             el('div', { class: 'tiny faint', text: `${session.ip} · last seen ${UI.timeAgo(session.lastSeenAt)}` }),
@@ -570,13 +581,13 @@ const Settings = (() => {
       }
     };
     paint();
-    return el('div', { class: 'card stack-8' }, [host, el('button', { class: 'btn sm', text: '🔄 Refresh sessions', onClick: paint })]);
+    return el('div', { class: 'card stack-8' }, [host, el('button', { class: 'btn sm', text: 'Refresh sessions', onClick: paint })]);
   }
 
   // ---------------------------------------------------------------- public
   function paintPublic(fragment) {
     const profile = State.user.publicProfile;
-    fragment.append(heading('🌍', 'Public profile', 'A public identity that other members can follow: alias, bio, permanent photos and 24-hour stories.'));
+    fragment.append(heading('PUB', 'Public profile', 'A public identity that other members can follow: alias, bio, permanent photos and 24-hour stories.'));
     fragment.append(el('div', { class: 'card stack-8' }, [
       el('div', { class: 'row' }, [
         el('span', { class: 'grow' }, [
@@ -585,19 +596,19 @@ const Settings = (() => {
         ]),
         el('span', { class: `pill ${profile.enabled ? 'success' : ''}`, text: profile.enabled ? 'live' : 'hidden' }),
       ]),
-      el('button', { class: 'btn primary', text: '✏️ Edit public profile', onClick: () => StoriesClient.profileEditor({ then: () => paintRefresh() }) }),
+      el('button', { class: 'btn primary', text: 'Edit public profile', onClick: () => StoriesClient.profileEditor({ then: () => paintRefresh() }) }),
       el('div', { class: 'hint', text: 'Turning the switch off hides your alias, bio, photos, stories and posts from everyone immediately. Turning it back on restores them.' }),
     ]));
-    fragment.append(heading('📸', 'Stories', 'Stories expire 24 hours after posting and can be up to 1 GB each.'));
+    fragment.append(heading('STORY', 'Stories', 'Stories expire 24 hours after posting and can be up to 1 GB each.'));
     fragment.append(el('div', { class: 'row' }, [
-      el('button', { class: 'btn', text: '📸 Post a story', onClick: () => Apps.open('stories') }),
-      el('button', { class: 'btn', text: '🌍 Open the public square', onClick: () => Apps.open('stories') }),
+      el('button', { class: 'btn', text: 'Post a story', onClick: () => Apps.open('stories') }),
+      el('button', { class: 'btn', text: 'Open the public square', onClick: () => Apps.open('stories') }),
     ]));
   }
 
   // --------------------------------------------------------------- account
   function paintAccount(fragment) {
-    fragment.append(heading('👤', 'Account & security', 'Identity, passphrase and recovery.'));
+    fragment.append(heading('ACC', 'Account & security', 'Identity, passphrase and recovery.'));
     fragment.append(el('div', { class: 'card stack-6' }, [
       el('div', { class: 'row' }, [
         UI.avatar(State.user, { size: 'lg' }),
@@ -607,7 +618,7 @@ const Settings = (() => {
           el('div', { class: 'tiny faint mono', text: `fingerprint ${AE.fingerprint(State.user.identityPublic)}` }),
         ]),
         el('div', { class: 'spacer' }),
-        el('button', { class: 'btn sm', text: '✏️ Edit profile', onClick: () => Apps.open('profile') }),
+        el('button', { class: 'btn sm', text: 'Edit profile', onClick: () => Apps.open('profile') }),
       ]),
       el('div', { class: 'tiny faint', text: `Role ${State.user.role} · joined ${UI.dateTime(State.user.createdAt)} · ${State.user.backup?.count ?? 0} unused backup codes` }),
     ]));
@@ -615,7 +626,7 @@ const Settings = (() => {
     const current = el('input', { class: 'input', type: 'password', placeholder: 'Current passphrase' });
     const next = el('input', { class: 'input', type: 'password', placeholder: 'New passphrase (12+ characters)' });
     const confirm = el('input', { class: 'input', type: 'password', placeholder: 'Repeat new passphrase' });
-    fragment.append(heading('🔐', 'Change passphrase', 'Re-seals your vault. Every other device is signed out unless you keep them.'));
+    fragment.append(heading('PASS', 'Change passphrase', 'Re-seals your vault. Every other device is signed out unless you keep them.'));
     fragment.append(el('div', { class: 'card stack-8' }, [
       current, next, confirm,
       el('div', { class: 'row' }, [
@@ -651,27 +662,27 @@ const Settings = (() => {
             UI.toast({ level: 'danger', title: 'Could not change the passphrase', body: error.message });
           }
         } }),
-        el('button', { class: 'btn', text: '📘 How recovery works', onClick: () => Help.open('Backup codes') }),
+        el('button', { class: 'btn', text: 'How recovery works', onClick: () => Help.open('Backup codes') }),
       ]),
       el('div', { class: 'hint', text: 'The passphrase never leaves this device. Your authKey is derived with PBKDF2-SHA256 (210 000 iterations) and only its hash reaches the server.' }),
     ]));
 
-    fragment.append(heading('🚪', 'Sessions', 'Sign out of everything else if you are unsure about a device.'));
+    fragment.append(heading('SESS', 'Sessions', 'Sign out of everything else if you are unsure about a device.'));
     fragment.append(sessionsCard());
   }
 
   // -------------------------------------------------------------- tutorial
   function paintTutorial(fragment) {
-    fragment.append(heading('📘', 'Tutorial & help', 'A guided walkthrough plus a searchable manual for every feature.'));
+    fragment.append(heading('DOC', 'Tutorial & help', 'A guided walkthrough plus a searchable manual for every feature.'));
     fragment.append(el('div', { class: 'card stack-8' }, [
       el('div', { class: 'body-strong', text: 'App usage tutorial' }),
       el('div', { class: 'small muted', text: 'The tour highlights each part of the interface in order — messages, communities, drive, airdrops, requests and the operator tools.' }),
       el('div', { class: 'row' }, [
-        el('button', { class: 'btn primary', text: '▶ Start the guided tour', onClick: () => Help.tutorial() }),
-        el('button', { class: 'btn', text: '📖 Open the help centre', onClick: () => Help.open() }),
+        el('button', { class: 'btn primary', text: 'Start the guided tour', onClick: () => Help.tutorial() }),
+        el('button', { class: 'btn', text: 'Open the help centre', onClick: () => Help.open() }),
       ]),
     ]));
-    fragment.append(heading('🔎', 'How do I…?', 'Type the name of any setting or feature to read a longer explanation.'));
+    fragment.append(heading('FIND', 'How do I…?', 'Type the name of any setting or feature to read a longer explanation.'));
     const search = el('input', { class: 'input', placeholder: 'Search: airdrop, backup codes, drive quota, purple status…' });
     const results = el('div', { class: 'stack-6' });
     const paint = () => {
@@ -696,19 +707,19 @@ const Settings = (() => {
   }
 
   function paintAbout(fragment) {
-    fragment.append(heading('ℹ️', 'About', 'Version, security model and the operator notice.'));
+    fragment.append(heading('SYS', 'About', 'Version, security model and the operator notice.'));
     fragment.append(el('div', { class: 'card stack-8' }, [
       el('div', { class: 'body-strong', text: `AE Secure ${State.get('boot')?.version || '1.0.0'}` }),
       el('div', { class: 'small muted', text: `Server uptime ${UI.duration(State.get('boot')?.server?.uptime || 0)} · ${State.get('boot')?.server?.counts?.users || 0} members` }),
       el('div', { class: 'divider' }),
       el('div', { class: 'small muted', text: 'Messages, files, stories and drive data are encrypted in your browser with AES-GCM-256. Keys are derived from your passphrase with PBKDF2-SHA256 and never leave the device. Channel keys are wrapped per member with ECDH P-256. The server stores ciphertext, wrapped keys, account metadata and counters.' }),
       el('div', { class: 'row' }, [
-        el('button', { class: 'btn', text: '📄 Read the usage agreement', onClick: () => Terms.show() }),
-        el('button', { class: 'btn', text: '🛡️ Privacy, limits & liability', onClick: () => Help.open('Usage agreement and non-liability') }),
+        el('button', { class: 'btn', text: 'Read the usage agreement', onClick: () => Terms.show() }),
+        el('button', { class: 'btn', text: 'Privacy, limits & liability', onClick: () => Help.open('Usage agreement and non-liability') }),
       ]),
     ]));
-    fragment.append(heading('⚖️', 'Operator notice', ''));
-    fragment.append(el('div', { class: 'notice-strip', html: '<span>📄</span><span>The operator of this server is not liable for anything shared, posted, uploaded or viewed by members, takes no part in user activity, and cannot read encrypted content.</span>' }));
+    fragment.append(heading('LAW', 'Operator notice', ''));
+    fragment.append(el('div', { class: 'notice-strip', html: '<span>§</span><span>The operator of this server is not liable for anything shared, posted, uploaded or viewed by members, takes no part in user activity, and cannot read encrypted content.</span>' }));
   }
 
   function paintRefresh() {
@@ -727,11 +738,11 @@ const Settings = (() => {
 window.Settings = Settings;
 
 Apps.register({
-  id: 'settings', title: 'Settings', glyph: '⚙️', order: 80,
+  id: 'settings', title: 'Settings', glyph: '⚙', order: 80,
   description: 'Personalisation, accessibility, privacy, storage requests and help.',
   keywords: ['settings', 'theme', 'accessibility', 'privacy', 'requests', 'backup codes', 'tutorial', 'help'],
   run: (meta = {}) => Windows.open({
-    id: 'settings', title: 'Settings', glyph: '⚙️', geometry: { w: 1000, h: 700 },
+    id: 'settings', title: 'Settings', glyph: '⚙', geometry: { w: 1000, h: 700 },
     render: (body, api) => Settings.render(body, api, meta.section),
   }),
 });

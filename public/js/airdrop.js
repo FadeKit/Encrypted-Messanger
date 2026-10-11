@@ -35,7 +35,7 @@ const AirdropClient = (() => {
     const drop = payload.airdrop || {};
     UI.toast({
       level: 'info',
-      glyph: '🪂',
+      glyph: '⇣',
       title: 'Airdrop received while you were online',
       body: drop.kind === 'text' ? 'A text drop landed in your airdrop inbox.' : `A ${drop.kind || 'file'} drop (${UI.bytes(drop.size || 0)}) landed in your airdrop inbox.`,
       actions: [{ label: 'Open inbox', primary: true, onClick: () => Apps.open('airdrop') }],
@@ -57,15 +57,15 @@ const AirdropClient = (() => {
         el('div', { class: 'body-strong', text: 'Airdrop' }),
         el('div', { class: 'tiny faint', text: enabled ? 'You are receiving drops while you are online.' : 'Turn airdrop on in Settings to receive drops.' }),
       ]),
-      el('button', { class: 'btn sm', text: '📢 Send a drop', onClick: () => composer() }),
-      el('button', { class: 'btn sm', text: '✅ Mark all seen', onClick: async () => { await API.post('/api/airdrop/ack-all', {}); refresh(); } }),
-      el('button', { class: 'btn sm', text: '🔄 Refresh', onClick: () => refresh() }),
+      el('button', { class: 'btn sm', text: 'Send a drop', onClick: () => composer() }),
+      el('button', { class: 'btn sm', text: 'Mark all seen', onClick: async () => { await API.post('/api/airdrop/ack-all', {}); refresh(); } }),
+      el('button', { class: 'btn sm', text: 'Refresh', onClick: () => refresh() }),
     ]);
     pane.append(header, list);
     body.append(pane);
     api.setToolbar([]);
     if (!enabled) {
-      list.append(el('div', { class: 'notice-strip', html: '<span>🪂</span><span>Airdrop delivery is off for your account. Enable it in Settings → Privacy → Airdrop delivery to receive drops while online.</span>' }));
+      list.append(el('div', { class: 'notice-strip', html: '<span>⇣</span><span>Airdrop delivery is off for your account. Enable it in Settings → Privacy → Airdrop delivery to receive drops while online.</span>' }));
     }
     refresh();
   }
@@ -74,7 +74,7 @@ const AirdropClient = (() => {
     clear(host);
     const drops = State.get('airdrops');
     if (!drops.length) {
-      host.append(UI.empty('🪂', 'No drops yet', 'While airdrop is on and you are online, drops land here instantly.'));
+      host.append(UI.empty('⇣', 'No drops yet', 'While airdrop is on and you are online, drops land here instantly.'));
       return;
     }
     for (const drop of drops) {
@@ -96,11 +96,11 @@ const AirdropClient = (() => {
       card.append(content);
       (async () => {
         const wrapped = drop.keyWrap;
-        if (!wrapped) { content.textContent = '🔒 This drop was not sealed for your key.'; return; }
-        if (!drop.sender?.identityPublic) { content.textContent = '🔒 Sender key unavailable.'; return; }
+        if (!wrapped) { content.textContent = '▨ This drop was not sealed for your key.'; return; }
+        if (!drop.sender?.identityPublic) { content.textContent = '▨ Sender key unavailable.'; return; }
         const shared = await AE.deriveSharedKey(State.vault.identityPrivate, drop.sender.identityPublic, `airdrop:${drop.senderId}`);
         const rawDropKey = await AE.unwrapKey(shared, wrapped);
-        if (!rawDropKey) { content.textContent = '🔒 Unable to unwrap this drop.'; return; }
+        if (!rawDropKey) { content.textContent = '▨ Unable to unwrap this drop.'; return; }
         const key = await AE.importAes(rawDropKey);
         if (drop.payload) {
           const plain = await AE.decryptJson(key, drop.payload);
@@ -120,7 +120,7 @@ const AirdropClient = (() => {
           } else if (mediaUrls.has(info.file.id)) {
             media.append(el('img', { src: mediaUrls.get(info.file.id), alt: '' }));
           }
-          media.append(el('button', { class: 'btn sm', text: '⬇ Save & decrypt', onClick: async () => {
+          media.append(el('button', { class: 'btn sm', text: 'Save & decrypt', onClick: async () => {
             const blob = await API.downloadDecrypted(info.file.id, { chunks: info.file.chunks, fileKeyRaw: rawDropKey, mime });
             UI.download(blob, `airdrop-${info.file.id.slice(0, 8)}`);
           } }));
@@ -162,21 +162,21 @@ const AirdropClient = (() => {
       if (limit !== -1 && file.size > limit) { status.textContent = `Drop files are limited to ${UI.bytes(limit)} on your account.`; return; }
       pending.file = file;
       clear(chips);
-      chips.append(el('span', { class: 'chip-file' }, [el('span', { text: '📦' }), el('span', { class: 'truncate', text: file.name }), el('span', { class: 'tiny faint', text: UI.bytes(file.size) })]));
+      chips.append(el('span', { class: 'chip-file' }, [el('span', { text: '⌸' }), el('span', { class: 'truncate', text: file.name }), el('span', { class: 'tiny faint', text: UI.bytes(file.size) })]));
     });
     let ref;
     ref = UI.dialog({
       title: 'Send an airdrop',
-      glyph: '🪂',
+      glyph: '⇣',
       size: 'wide',
       subtitle: recipients.note,
       content: el('div', { class: 'stack-12' }, [
         el('div', { class: 'row wrap' }, [
-          el('span', { class: 'pill', text: `🟢 ${recipients.online.length} online` }),
-          el('span', { class: 'pill', text: `🛡️ ${recipients.admins.length} operator(s) offline-protected` }),
+          el('span', { class: 'pill', text: `● ${recipients.online.length} online` }),
+          el('span', { class: 'pill', text: `⬢ ${recipients.admins.length} operator(s) offline-protected` }),
         ]),
         text, chips,
-        el('button', { class: 'btn sm', text: '📦 Attach an encrypted file', onClick: () => fileInput.click() }),
+        el('button', { class: 'btn sm', text: 'Attach an encrypted file', onClick: () => fileInput.click() }),
         fileInput, status,
       ]),
       footer: [
@@ -219,12 +219,12 @@ const AirdropClient = (() => {
 window.AirdropClient = AirdropClient;
 
 Apps.register({
-  id: 'airdrop', title: 'Airdrop', glyph: '🪂', order: 40, featureFlag: 'airdrop',
+  id: 'airdrop', title: 'Airdrop', glyph: '⇣', order: 40, featureFlag: 'airdrop',
   hiddenWhenOff: 'airdrop',
   description: 'Send an encrypted drop to every online member, instantly.',
   keywords: ['airdrop', 'drop', 'share', 'broadcast', 'online'],
   run: () => Windows.open({
-    id: 'airdrop', title: 'Airdrop', glyph: '🪂', geometry: { w: 720, h: 620 },
+    id: 'airdrop', title: 'Airdrop', glyph: '⇣', geometry: { w: 720, h: 620 },
     render: (body, api) => AirdropClient.render(body, api),
   }),
 });

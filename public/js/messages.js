@@ -12,7 +12,7 @@ const ConversationClient = (() => {
   let typingTimer = null;
   const typingUsers = new Map();
 
-  const QUICK_EMOJI = ['👍', '❤️', '😂', '🔥', '🎉', '😮', '😢', '🙏', '👀', '💯'];
+  const QUICK_EMOJI = ['👍', '❤', '😂', '🔥', '🎉', '😮', '😢', '🙏', '👀', '💯'];
 
   function plaintextKey(message) {
     return `${message.id}:${message.payload ? String(message.payload.ct).slice(0, 24) : 'deleted'}:${message.editedAt || 0}`;
@@ -25,9 +25,9 @@ const ConversationClient = (() => {
     const key = conversation.key
       ? conversation.key
       : await State.channelKey(conversation, context);
-    if (!key) return { text: '🔒 Unable to derive the channel key for this message.', attachments: [], error: true };
+    if (!key) return { text: 'Unable to derive the channel key for this message.', attachments: [], error: true };
     const payload = await AE.decryptJson(key, message.payload);
-    const result = payload || { text: '🔒 Decryption failed — the key may belong to an older channel.', attachments: [], error: true };
+    const result = payload || { text: 'Decryption failed — the key may belong to an older channel.', attachments: [], error: true };
     plainCache.set(cacheKey, result);
     return result;
   }
@@ -71,10 +71,10 @@ const ConversationClient = (() => {
     renderList();
     renderMain();
     api.setToolbar([
-      el('button', { class: 'btn sm', text: '✏️ New direct message', onClick: () => newDirectDialog() }),
-      el('button', { class: 'btn sm', text: '👥 New group', onClick: () => newGroupDialog() }),
+      el('button', { class: 'btn sm', text: 'New direct message', onClick: () => newDirectDialog() }),
+      el('button', { class: 'btn sm', text: 'New group', onClick: () => newGroupDialog() }),
       el('div', { class: 'spacer' }),
-      el('label', { class: 'row tiny muted' }, [el('span', { text: '🔐 end-to-end encrypted' })]),
+      el('label', { class: 'row tiny muted' }, [el('span', { text: 'end-to-end encrypted' })]),
     ]);
   }
 
@@ -97,7 +97,7 @@ const ConversationClient = (() => {
       const query = filter.trim().toLowerCase();
       const visible = list.filter((conversation) => !query || (conversation.title || '').toLowerCase().includes(query) || conversation.members.some((member) => (member.displayName || member.username).toLowerCase().includes(query)));
       if (!visible.length) {
-        items.append(UI.empty('💬', filter ? 'No matches' : 'No conversations yet', filter ? 'Try a different name.' : 'Start a direct message or a group chat.',
+        items.append(UI.empty('▤', filter ? 'No matches' : 'No conversations yet', filter ? 'Try a different name.' : 'Start a direct message or a group chat.',
           el('button', { class: 'btn sm primary', text: 'Start a chat', onClick: () => newDirectDialog() })));
         return;
       }
@@ -133,11 +133,11 @@ const ConversationClient = (() => {
     row.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       UI.contextMenu([
-        { glyph: '📖', label: 'Open', onClick: () => openConversation(conversation.id) },
-        { glyph: '🔔', label: 'Mark as read', onClick: () => API.post(`/api/conversations/${conversation.id}/read`, {}).then(() => refresh()) },
-        conversation.type === 'group' && conversation.isOwner ? { glyph: '👥', label: 'Manage members', onClick: () => manageGroup(conversation) } : null,
+        { glyph: '▣', label: 'Open', onClick: () => openConversation(conversation.id) },
+        { glyph: '◔', label: 'Mark as read', onClick: () => API.post(`/api/conversations/${conversation.id}/read`, {}).then(() => refresh()) },
+        conversation.type === 'group' && conversation.isOwner ? { glyph: '⌗', label: 'Manage members', onClick: () => manageGroup(conversation) } : null,
         { separator: true },
-        { glyph: '🧾', label: 'Channel details', onClick: () => channelDetails(conversation) },
+        { glyph: '≡', label: 'Channel details', onClick: () => channelDetails(conversation) },
       ], { x: event.clientX, y: event.clientY });
     });
     return row;
@@ -170,7 +170,7 @@ const ConversationClient = (() => {
     clear(mainNode);
     const conversation = activeId ? conversationById(activeId) : null;
     if (!conversation) {
-      mainNode.append(UI.empty('🔐', 'Pick a conversation', 'Everything you send is sealed on this device before it travels.'));
+      mainNode.append(UI.empty('▨', 'Pick a conversation', 'Everything you send is sealed on this device before it travels.'));
       return;
     }
     const peer = conversation.members.find((member) => member.id !== State.user.id) || conversation.members[0] || {};
@@ -188,9 +188,9 @@ const ConversationClient = (() => {
         ]),
         el('div', { class: 'tiny faint truncate', text: conversation.type === 'group' ? `${conversation.members.length + 1} members · ${conversation.members.map((member) => member.displayName).slice(0, 4).join(', ')}` : (peer.status ? UI.statusLabel(peer.status.key) : 'Offline') }),
       ]),
-      conversation.type === 'group' && conversation.isOwner ? el('button', { class: 'btn sm', text: '👥 Members', onClick: () => manageGroup(conversation) }) : null,
+      conversation.type === 'group' && conversation.isOwner ? el('button', { class: 'btn sm', text: 'Members', onClick: () => manageGroup(conversation) }) : null,
       el('button', { class: 'btn icon subtle', text: 'ⓘ', title: 'Channel details', onClick: () => channelDetails(conversation) }),
-      el('button', { class: 'btn icon subtle', text: '🔄', title: 'Reload messages', onClick: () => openConversation(conversation.id) }),
+      el('button', { class: 'btn icon subtle', text: '', title: 'Reload messages', onClick: () => openConversation(conversation.id) }),
     ]);
 
     const list = el('div', { class: 'pane-scroll message-list', id: 'message-list' });
@@ -208,7 +208,7 @@ const ConversationClient = (() => {
     clear(list);
     const messages = (State.get('messages').get(conversation.id) || []);
     if (!messages.length) {
-      list.append(UI.empty('✨', 'No messages yet', 'Say hello — the first message creates the encrypted channel.'));
+      list.append(UI.empty('▸', 'No messages yet', 'Say hello — the first message creates the encrypted channel.'));
       return;
     }
     let lastAuthor = null;
@@ -293,7 +293,7 @@ const ConversationClient = (() => {
     content.append(reactionRow);
 
     const actions = el('div', { class: 'message-actions' }, [
-      el('button', { class: 'btn sm subtle', text: '😊', title: 'Add a reaction', onClick: (event) => reactionPicker(event, message) }),
+      el('button', { class: 'btn sm subtle', text: '', title: 'Add a reaction', onClick: (event) => reactionPicker(event, message) }),
       el('button', { class: 'btn sm subtle', text: '⋯', title: 'More actions', onClick: (event) => messageMenu(event, conversation, message, author) }),
     ]);
     wrapper.append(content, actions);
@@ -302,15 +302,15 @@ const ConversationClient = (() => {
 
   function attachmentNode(conversation, message, attachment) {
     const node = el('div', { class: 'attachment' });
-    const placeholder = el('div', { class: 'locked', html: '<span>🔐</span><span>Decrypting attachment…</span>' });
+    const placeholder = el('div', { class: 'locked', html: '<span>▨</span><span>Decrypting attachment…</span>' });
     node.append(placeholder);
     (async () => {
       const info = await API.get(`/api/files/${attachment.fileId}`).catch(() => null);
-      if (!info || !info.file) { clear(node).append(el('div', { class: 'locked', text: '⚠️ Attachment unavailable' })); return; }
+      if (!info || !info.file) { clear(node).append(el('div', { class: 'locked', text: 'Attachment unavailable' })); return; }
       const file = info.file;
       const wrapped = attachment.keyWrap || file.keyWrap;
       const rawKey = await State.unwrapFileKey(conversation, wrapped, conversation.type === 'dm' || conversation.type === 'group' ? 'conv' : 'forum');
-      if (!rawKey) { clear(node).append(el('div', { class: 'locked', text: '🔒 Missing key for this attachment' })); return; }
+      if (!rawKey) { clear(node).append(el('div', { class: 'locked', text: 'Missing key for this attachment' })); return; }
       const mime = attachment.mime || file.meta?.type || 'application/octet-stream';
       const name = attachment.name || `encrypted-${file.id.slice(0, 6)}`;
       const isImage = mime.startsWith('image/') && !attachment.type?.includes('file');
@@ -338,7 +338,7 @@ const ConversationClient = (() => {
             el('div', { class: 'truncate', text: name }),
             el('div', { class: 'tiny faint', text: `${UI.bytes(file.size)} · encrypted` }),
           ]),
-          el('button', { class: 'btn sm primary', text: '⬇ Save', onClick: async () => {
+          el('button', { class: 'btn sm primary', text: 'Save', onClick: async () => {
             const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: rawKey, mime });
             UI.download(blob, name);
           } }),
@@ -349,13 +349,13 @@ const ConversationClient = (() => {
   }
 
   function fileIcon(mime = '') {
-    if (mime.startsWith('image/')) return '🖼️';
-    if (mime.startsWith('video/')) return '🎬';
-    if (mime.startsWith('audio/')) return '🎵';
-    if (mime.includes('pdf')) return '📕';
-    if (mime.includes('zip') || mime.includes('compressed')) return '🗜️';
-    if (mime.includes('text') || mime.includes('json')) return '📄';
-    return '📦';
+    if (mime.startsWith('image/')) return '▣';
+    if (mime.startsWith('video/')) return '▤';
+    if (mime.startsWith('audio/')) return '♪';
+    if (mime.includes('pdf')) return '¶';
+    if (mime.includes('zip') || mime.includes('compressed')) return '⌸';
+    if (mime.includes('text') || mime.includes('json')) return '≡';
+    return '⌸';
   }
 
   function reactionPicker(event, message) {
@@ -371,7 +371,7 @@ const ConversationClient = (() => {
       ref.close();
     } });
     host.append(grid, el('div', { class: 'input-row' }, [custom, send]));
-    const ref = UI.dialog({ title: 'Add a reaction', glyph: '😊', size: 'narrow', content: host });
+    const ref = UI.dialog({ title: 'Add a reaction', glyph: '⌾', size: 'narrow', content: host });
   }
 
   function messageMenu(event, conversation, message, author) {
@@ -381,18 +381,18 @@ const ConversationClient = (() => {
     const items = [
       { label: 'Message actions' },
       { glyph: '↩', label: 'Reply', onClick: () => startReply(conversation, message) },
-      { glyph: '😊', label: 'Add reaction', onClick: () => reactionPicker(event, message) },
-      { glyph: '👍', label: 'Upvote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: 1 }) },
-      { glyph: '👎', label: 'Downvote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: -1 }) },
+      { glyph: '⌾', label: 'Add reaction', onClick: () => reactionPicker(event, message) },
+      { glyph: '▲', label: 'Upvote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: 1 }) },
+      { glyph: '▼', label: 'Downvote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: -1 }) },
       { glyph: '⭕', label: 'Clear my vote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: 0 }) },
       { separator: true },
-      { glyph: '📋', label: 'Copy message text', onClick: async () => {
+      { glyph: '⎘', label: 'Copy message text', onClick: async () => {
         const plain = await decryptMessage(conversation, message);
         UI.copy(plain.text || '', 'Message copied');
       } },
-      message.own ? { glyph: '✏️', label: 'Edit message', onClick: () => editMessage(conversation, message) } : null,
+      message.own ? { glyph: '✎', label: 'Edit message', onClick: () => editMessage(conversation, message) } : null,
       State.user.role === 'owner' || State.user.role === 'admin'
-        ? { glyph: '🗑️', label: 'Delete message (operator)', danger: true, onClick: () => deleteMessage(message) }
+        ? { glyph: '⌫', label: 'Delete message (operator)', danger: true, onClick: () => deleteMessage(message) }
         : null,
     ].filter(Boolean);
     UI.contextMenu(items, { x: event.clientX - 200, y: event.clientY });
@@ -449,8 +449,8 @@ const ConversationClient = (() => {
     const pending = [];
 
     const fileInput = el('input', { type: 'file', multiple: true, style: { display: 'none' } });
-    const attachButton = el('button', { class: 'btn icon', text: '📎', title: canUpload ? 'Attach an encrypted file' : 'Uploads are disabled in your settings', disabled: !canUpload, onClick: () => fileInput.click() });
-    const emojiButton = el('button', { class: 'btn icon', text: '😊', title: 'Insert emoji', onClick: () => {
+    const attachButton = el('button', { class: 'btn icon', text: '⊕', title: canUpload ? 'Attach an encrypted file' : 'Uploads are disabled in your settings', disabled: !canUpload, onClick: () => fileInput.click() });
+    const emojiButton = el('button', { class: 'btn icon', text: '', title: 'Insert emoji', onClick: () => {
       UI.contextMenu(QUICK_EMOJI.map((emoji) => ({ glyph: emoji, label: `Insert ${emoji}`, onClick: () => { input.value += emoji; input.focus(); } })), { x: window.innerWidth / 2 - 120, y: window.innerHeight - 320 });
     } });
     const sendButton = el('button', { class: 'btn primary', text: 'Send', onClick: () => send() });
@@ -572,7 +572,7 @@ const ConversationClient = (() => {
         sendButton,
       ]),
       el('div', { class: 'row tiny faint' }, [
-        el('span', { class: 'encryption-note', text: '🔐 AES-GCM-256 sealed on this device · the server sees ciphertext only' }),
+        el('span', { class: 'encryption-note', text: 'AES-GCM-256 sealed on this device · the server sees ciphertext only' }),
         el('div', { class: 'spacer' }),
         el('span', { text: State.settings().enterToSend !== false ? 'Enter sends · Shift+Enter adds a line' : 'Ctrl+Enter sends' }),
       ]),
@@ -610,7 +610,7 @@ const ConversationClient = (() => {
     let ref;
     ref = UI.dialog({
       title: 'New direct message',
-      glyph: '✏️',
+      glyph: '✎',
       subtitle: 'One-to-one channels are encrypted with a key only you two hold.',
       content: el('div', { class: 'stack-8' }, [search, results]),
       footer: [
@@ -662,7 +662,7 @@ const ConversationClient = (() => {
     let ref;
     ref = UI.dialog({
       title: 'New group chat',
-      glyph: '👥',
+      glyph: '⌗',
       subtitle: 'You own the group: add or remove members at any time.',
       content: el('div', { class: 'stack-8' }, [title, chips, search, results]),
       footer: [
@@ -728,17 +728,17 @@ const ConversationClient = (() => {
       content.append(el('div', { class: 'divider' }), el('div', { class: 'uppercase', text: 'Add members' }), search, results);
     };
     refreshMembers();
-    UI.dialog({ title: `Manage ${conversation.title}`, glyph: '👥', subtitle: 'Group membership is under your control as the owner.', content, size: 'wide' });
+    UI.dialog({ title: `Manage ${conversation.title}`, glyph: '⌗', subtitle: 'Group membership is under your control as the owner.', content, size: 'wide' });
   }
 
   async function channelDetails(conversation) {
     let isAdmin = State.user.role === 'owner' || State.user.role === 'admin';
     UI.dialog({
       title: conversation.title || 'Channel',
-      glyph: '🧾',
+      glyph: '≡',
       subtitle: conversation.type === 'group' ? 'Group chat' : 'Direct message',
       content: el('div', { class: 'stack-8' }, [
-        el('div', { class: 'notice-strip', html: '<span>🔐</span><span>This channel uses AES-GCM-256 with a key wrapped for each member through ECDH P-256. The server stores ciphertext and wrapped keys only.</span>' }),
+        el('div', { class: 'notice-strip', html: '<span>▨</span><span>This channel uses AES-GCM-256 with a key wrapped for each member through ECDH P-256. The server stores ciphertext and wrapped keys only.</span>' }),
         el('div', { class: 'small muted', text: `Created ${UI.dateTime(conversation.createdAt)}` }),
         el('div', { class: 'small muted', text: `Last activity ${UI.timeAgo(conversation.lastMessageAt)}` }),
         el('div', { class: 'uppercase', text: 'Members' }),
@@ -747,7 +747,7 @@ const ConversationClient = (() => {
           el('div', { class: 'meta' }, [el('div', { class: 'name', text: member.publicAlias || member.displayName }), el('div', { class: 'sub', text: `@${member.username}` })]),
           member.verified ? UI.verifiedBadge(member) : null,
         ])),
-        isAdmin ? el('div', { class: 'notice-strip', html: '<span>🛡️</span><span>As an administrator you can delete individual messages in this channel; deleting only removes ciphertext.</span>' }) : null,
+        isAdmin ? el('div', { class: 'notice-strip', html: '<span>⬢</span><span>As an administrator you can delete individual messages in this channel; deleting only removes ciphertext.</span>' }) : null,
       ]),
     });
   }
@@ -877,7 +877,7 @@ const Profile = (() => {
           el('button', { class: 'btn', text: 'Copy handle', onClick: () => UI.copy(profile.username, 'Handle copied') }),
         ]) : null,
       ]);
-      UI.dialog({ title: 'Profile', glyph: '👤', size: 'wide', content });
+      UI.dialog({ title: 'Profile', glyph: '◧', size: 'wide', content });
     } catch (error) {
       UI.toast({ level: 'info', title: 'Private profile', body: error.message });
     }
@@ -908,11 +908,11 @@ const Profile = (() => {
 window.Profile = Profile;
 
 Apps.register({
-  id: 'messages', title: 'Messages', glyph: '💬', order: 10,
+  id: 'messages', title: 'Messages', glyph: '▤', order: 10,
   description: 'Encrypted direct and group conversations with replies, reactions and attachments.',
   keywords: ['messages', 'chat', 'dm', 'direct', 'group', 'conversation', 'typing'],
   run: () => Windows.open({
-    id: 'messages', title: 'Messages', glyph: '💬', geometry: { w: 1120, h: 720 },
+    id: 'messages', title: 'Messages', glyph: '▤', geometry: { w: 1120, h: 720 },
     render: (body, api) => ConversationClient.render(body, api),
     toolbar: [],
   }),

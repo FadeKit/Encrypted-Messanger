@@ -5,20 +5,47 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "browser"],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "browser"
+  ],
   "orientation": "any",
-  "background_color": "#0b0f16",
-  "theme_color": "#111721",
-  "categories": ["social", "productivity", "utilities"],
+  "background_color": "#04070a",
+  "theme_color": "#04070a",
+  "categories": [
+    "social",
+    "productivity",
+    "utilities"
+  ],
   "lang": "en",
   "dir": "ltr",
   "icons": [
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "Messages", "url": "/?app=messages" },
-    { "name": "Cloud drive", "url": "/?app=drive" },
-    { "name": "Settings", "url": "/?app=settings" }
+    {
+      "name": "Messages",
+      "url": "/?app=messages"
+    },
+    {
+      "name": "Drive",
+      "url": "/?app=drive"
+    },
+    {
+      "name": "Settings",
+      "url": "/?app=settings"
+    }
   ]
 }

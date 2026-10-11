@@ -42,9 +42,9 @@ const DriveClient = (() => {
         el('div', { class: 'tiny faint', text: 'Encrypted with your master key — only your devices can read it.' }),
       ]),
       meterHost,
-      el('button', { class: 'btn sm', text: '📨 Request more space', onClick: () => Settings.open('requests') }),
-      el('button', { class: 'btn sm', text: '📁 New folder', onClick: () => newFolder() }),
-      el('button', { class: 'btn sm primary', text: '⬆ Upload', onClick: () => picker() }),
+      el('button', { class: 'btn sm', text: 'Request more space', onClick: () => Settings.open('requests') }),
+      el('button', { class: 'btn sm', text: 'New folder', onClick: () => newFolder() }),
+      el('button', { class: 'btn sm primary', text: 'Upload', onClick: () => picker() }),
     ]);
 
     const toolbar2 = el('div', { class: 'toolbar' }, []);
@@ -75,7 +75,7 @@ const DriveClient = (() => {
       const drive = status ? status.storage.drive : { used: 0, quota: -1 };
       paintMeter(meterHost, drive);
       if (drive.quota !== -1 && drive.used / drive.quota > 0.9) {
-        grid.append(el('div', { class: 'notice-strip warn', html: `<span>⚠️</span><span>You have used ${UI.bytes(drive.used)} of ${UI.bytes(drive.quota)}. Request more capacity in Settings → Storage.</span>` }));
+        grid.append(el('div', { class: 'notice-strip warn', html: `<span>!</span><span>You have used ${UI.bytes(drive.used)} of ${UI.bytes(drive.quota)}. Request more capacity in Settings → Storage.</span>` }));
       }
       const folders = await API.get('/api/drive/folders').catch(() => ({ folders: [] }));
       const files = (State.get('files') || []).filter((file) => file.kind === 'drive');
@@ -85,7 +85,7 @@ const DriveClient = (() => {
         const parent = folders.folders.find((folder) => folder.id === view.folderId);
         const root = folders.folders.find((folder) => folder.id === view.folderId && !folder.parentId);
         toolbar2.append(
-          el('span', { class: 'pill tiny', text: `📁 ${view.folderId.slice(0, 6)}` }),
+          el('span', { class: 'pill tiny', text: `▢ ${view.folderId.slice(0, 6)}` }),
           root ? null : el('button', { class: 'btn sm subtle', text: '‹ Up one level', onClick: () => { view.folderId = parent ? parent.parentId : null; paint(); } }),
         );
       }
@@ -94,18 +94,18 @@ const DriveClient = (() => {
       for (const folder of folderList) {
         const name = await AE.decryptJson(State.masterKey(), folder.payload).then((plain) => (plain && plain.name) || 'Folder').catch(() => 'Folder');
         const cell = el('div', { class: 'drive-cell', onClick: () => { view.folderId = folder.id; clear(toolbar2); paint(); } });
-        cell.append(el('div', { class: 'thumb', text: '📁' }), el('div', { class: 'truncate small', text: name }), el('div', { class: 'tiny faint', text: UI.dateTime(folder.createdAt) }));
+        cell.append(el('div', { class: 'thumb', text: '' }), el('div', { class: 'truncate small', text: name }), el('div', { class: 'tiny faint', text: UI.dateTime(folder.createdAt) }));
         cell.addEventListener('contextmenu', (event) => {
           event.preventDefault();
           UI.contextMenu([
-            { glyph: '📂', label: 'Open', onClick: () => { view.folderId = folder.id; clear(toolbar2); paint(); } },
-            { glyph: '✏️', label: 'Rename', onClick: async () => {
+            { glyph: '▸', label: 'Open', onClick: () => { view.folderId = folder.id; clear(toolbar2); paint(); } },
+            { glyph: '✎', label: 'Rename', onClick: async () => {
               const next = await UI.prompt({ title: 'Rename folder', value: name });
               if (!next) return;
               await API.patch(`/api/drive/folders/${folder.id}`, { payload: await AE.encryptJson(State.masterKey(), { name: next }) });
               paint();
             } },
-            { glyph: '🗑️', label: 'Delete folder', danger: true, onClick: async () => {
+            { glyph: '⌫', label: 'Delete folder', danger: true, onClick: async () => {
               if (!await UI.confirm({ title: 'Delete this folder?', message: 'Files inside move back to the drive root.', danger: true, confirmLabel: 'Delete' })) return;
               await API.del(`/api/drive/folders/${folder.id}`);
               paint();
@@ -118,7 +118,7 @@ const DriveClient = (() => {
       const visible = files.filter((file) => (view.folderId ? file.ref?.folderId === view.folderId : !file.ref?.folderId));
       const gridHost = el('div', { class: 'drive-grid' });
       if (!folderList.length && !visible.length) {
-        grid.append(UI.empty('☁️', 'Your drive is empty', drive.quota === -1 ? 'Unlimited space is available on this account.' : `${UI.bytes(Math.max(0, drive.quota - drive.used))} of space is ready to use.`));
+        grid.append(UI.empty('▦', 'Your drive is empty', drive.quota === -1 ? 'Unlimited space is available on this account.' : `${UI.bytes(Math.max(0, drive.quota - drive.used))} of space is ready to use.`));
       }
       for (const file of visible) gridHost.append(driveCell(file));
       if (folderList.length) grid.append(el('div', {}, [el('div', { class: 'uppercase', text: 'Folders' }), folderGrid]));
@@ -126,7 +126,7 @@ const DriveClient = (() => {
       grid.prepend(el('div', { class: 'row tiny faint pad-8' }, [
         el('span', { text: `${files.length} encrypted files · names and contents are unreadable to the server` }),
         el('div', { class: 'spacer' }),
-        el('button', { class: 'btn sm subtle', text: '🔄 Refresh', onClick: () => paint() }),
+        el('button', { class: 'btn sm subtle', text: 'Refresh', onClick: () => paint() }),
       ]));
     }
 
@@ -153,7 +153,7 @@ const DriveClient = (() => {
         return;
       }
       const row = el('div', { class: 'upload-row' }, [
-        el('div', { class: 'name' }, [el('span', { text: '☁️' }), el('span', { class: 'grow truncate', text: file.name }), el('span', { class: 'tiny faint', text: '0%' })]),
+        el('div', { class: 'name' }, [el('span', { text: '▦' }), el('span', { class: 'grow truncate', text: file.name }), el('span', { class: 'tiny faint', text: '0%' })]),
         el('div', { class: 'bar-track' }, [el('div', { class: 'bar-fill' })]),
       ]);
       host.append(row);
@@ -166,12 +166,12 @@ const DriveClient = (() => {
           wrapFileKey: (raw) => AE.wrapKey(State.masterKey(), raw),
           onProgress: ({ percent }) => { row.querySelector('.bar-fill').style.width = `${percent}%`; row.querySelector('.tiny').textContent = `${percent}%`; },
         });
-        row.querySelector('.tiny').textContent = '✅ stored';
+        row.querySelector('.tiny').textContent = '✓ stored';
         setTimeout(() => row.remove(), 2200);
         await refreshStatus();
         paint();
       } catch (error) {
-        row.querySelector('.tiny').textContent = '❌ failed';
+        row.querySelector('.tiny').textContent = '✕ failed';
         UI.toast({ level: 'danger', title: 'Upload failed', body: error.message });
         setTimeout(() => row.remove(), 2600);
       }
@@ -180,11 +180,11 @@ const DriveClient = (() => {
 
   function driveCell(file) {
     const cell = el('div', { class: 'drive-cell' });
-    const thumb = el('div', { class: 'thumb', text: '🔐' });
+    const thumb = el('div', { class: 'thumb', text: '' });
     cell.append(thumb, el('div', { class: 'truncate small', text: 'Encrypted file' }), el('div', { class: 'tiny faint', text: `${UI.bytes(file.size)} · ${UI.timeAgo(file.createdAt)}` }));
     (async () => {
       const raw = await AE.unwrapKey(State.masterKey(), file.keyWrap);
-      if (!raw) { thumb.textContent = '🔒'; return; }
+      if (!raw) { thumb.textContent = '▨'; return; }
       const mime = file.meta?.type || '';
       if (mime.startsWith('image/')) {
         if (thumbUrls.has(file.id)) {
@@ -196,11 +196,11 @@ const DriveClient = (() => {
         State.registerObjectUrl(url);
         thumbUrls.set(file.id, url);
         clear(thumb).append(el('img', { src: url, alt: '' }));
-      } else if (mime.startsWith('video/')) thumb.textContent = '🎬';
-      else if (mime.includes('pdf')) thumb.textContent = '📕';
-      else if (mime.includes('zip')) thumb.textContent = '🗜️';
-      else if (mime.startsWith('audio/')) thumb.textContent = '🎵';
-      else thumb.textContent = '📄';
+      } else if (mime.startsWith('video/')) thumb.textContent = '▤';
+      else if (mime.includes('pdf')) thumb.textContent = '¶';
+      else if (mime.includes('zip')) thumb.textContent = '⌸';
+      else if (mime.startsWith('audio/')) thumb.textContent = '♪';
+      else thumb.textContent = '≡';
     })();
     cell.addEventListener('click', async () => {
       const raw = await AE.unwrapKey(State.masterKey(), file.keyWrap);
@@ -214,23 +214,23 @@ const DriveClient = (() => {
     cell.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       UI.contextMenu([
-        { glyph: '⬇', label: 'Download & decrypt', onClick: async () => {
+        { glyph: '↓', label: 'Download & decrypt', onClick: async () => {
           const raw = await AE.unwrapKey(State.masterKey(), file.keyWrap);
           const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: raw, mime: file.meta?.type || 'application/octet-stream' });
           UI.download(blob, `ae-drive-${file.id.slice(0, 8)}`);
         } },
-        { glyph: '🧾', label: 'File details', onClick: () => UI.dialog({
+        { glyph: '≡', label: 'File details', onClick: () => UI.dialog({
           title: 'Encrypted file',
-          glyph: '🧾',
+          glyph: '≡',
           content: el('div', { class: 'stack-8 small' }, [
             el('div', { text: `Ciphertext size: ${UI.bytes(file.size)}` }),
             el('div', { text: `Chunks: ${file.chunks} × 512 KiB sealed blocks` }),
             el('div', { text: `Uploaded: ${UI.dateTime(file.createdAt)}` }),
             el('div', { text: `Key wrap: ${file.keyWrap ? 'wrapped with your master key' : 'missing'}` }),
-            el('div', { class: 'notice-strip', html: '<span>🔐</span><span>Names and contents never reach the server in readable form.</span>' }),
+            el('div', { class: 'notice-strip', html: '<span>▨</span><span>Names and contents never reach the server in readable form.</span>' }),
           ]),
         }) },
-        { glyph: '🗑️', label: 'Delete', danger: true, onClick: async () => {
+        { glyph: '⌫', label: 'Delete', danger: true, onClick: async () => {
           if (!await UI.confirm({ title: 'Delete this file?', message: 'Space is returned to your drive quota immediately.', danger: true, confirmLabel: 'Delete' })) return;
           await API.del(`/api/files/${file.id}`);
           await refreshStatus();
@@ -260,7 +260,7 @@ const DriveClient = (() => {
         el('div', { class: 'tiny faint', text: 'Every attachment you have sent: chats, communities, stories and airdrops.' }),
       ]),
       meterHost,
-      el('button', { class: 'btn sm', text: '🔄 Refresh', onClick: () => paint() }),
+      el('button', { class: 'btn sm', text: 'Refresh', onClick: () => paint() }),
     ]);
     pane.append(header, list);
     body.append(pane);
@@ -278,10 +278,10 @@ const DriveClient = (() => {
         groups[file.kind].push(file);
       }
       if (!status.files.length) {
-        list.append(UI.empty('🗂️', 'Nothing uploaded yet', 'Files you send in chats, communities or your drive appear here.'));
+        list.append(UI.empty('▥', 'Nothing uploaded yet', 'Files you send in chats, communities or your drive appear here.'));
         return;
       }
-      const labels = { dm: '💬 Chat attachments', forum: '🗣️ Community media', drive: '☁️ Drive files', story: '📸 Stories', airdrop: '🪂 Airdrops', avatar: '👤 Avatars', public: '🌍 Public posts' };
+      const labels = { dm: '▤ Chat attachments', forum: '▩ Community media', drive: '▦ Drive files', story: '◉ Stories', airdrop: '⇣ Airdrops', avatar: '◧ Avatars', public: '◍ Public posts' };
       for (const [kind, files] of Object.entries(groups)) {
         const section = el('div', { class: 'stack-6' }, [
           el('div', { class: 'row' }, [
@@ -292,7 +292,7 @@ const DriveClient = (() => {
         ]);
         for (const file of files.slice(0, 60)) {
           section.append(el('div', { class: 'list-item' }, [
-            el('span', { style: { fontSize: '18px' }, text: file.meta?.type?.startsWith('image/') ? '🖼️' : '📄' }),
+            el('span', { style: { fontSize: '18px' }, text: file.meta?.type?.startsWith('image/') ? '▣' : '≡' }),
             el('div', { class: 'meta' }, [
               el('div', { class: 'name', text: UI.bytes(file.size) }),
               el('div', { class: 'sub', text: `${UI.dateTime(file.createdAt)} · ${file.chunks} chunks` }),
@@ -317,21 +317,21 @@ const DriveClient = (() => {
 window.DriveClient = DriveClient;
 
 Apps.register({
-  id: 'drive', title: 'Cloud Drive', glyph: '☁️', order: 20, featureFlag: 'drive',
+  id: 'drive', title: 'Cloud Drive', glyph: '▦', order: 20, featureFlag: 'drive',
   description: 'Encrypted personal cloud storage with folders and space requests.',
   keywords: ['cloud', 'drive', 'storage', 'files', 'folders', 'quota', 'upload'],
   run: () => Windows.open({
-    id: 'drive', title: 'Cloud Drive', glyph: '☁️', geometry: { w: 1040, h: 680 },
+    id: 'drive', title: 'Cloud Drive', glyph: '▦', geometry: { w: 1040, h: 680 },
     render: (body, api) => DriveClient.renderDrive(body, api),
   }),
 });
 
 Apps.register({
-  id: 'files', title: 'My Files', glyph: '🗂️', order: 22, featureFlag: 'drive',
+  id: 'files', title: 'My Files', glyph: '▥', order: 22, featureFlag: 'drive',
   description: 'Every encrypted upload you own, grouped by destination.',
   keywords: ['uploads', 'attachments', 'files', 'storage'],
   run: () => Windows.open({
-    id: 'files', title: 'My Files', glyph: '🗂️', geometry: { w: 780, h: 620 },
+    id: 'files', title: 'My Files', glyph: '▥', geometry: { w: 780, h: 620 },
     render: (body, api) => DriveClient.renderFiles(body, api),
   }),
 });

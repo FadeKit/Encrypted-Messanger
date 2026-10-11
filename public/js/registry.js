@@ -11,7 +11,7 @@ const Apps = (() => {
     registry.set(definition.id, Object.assign({
       id: definition.id,
       title: definition.id,
-      glyph: '🪟',
+      glyph: '◈',
       order: 50,
       pinned: false,
       adminOnly: false,
