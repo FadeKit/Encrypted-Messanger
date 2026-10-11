@@ -623,9 +623,36 @@ if (shim.State && shim.Apps) {
     const cliTemplate = (script.match(/<<'CLI'([\s\S]*?)\nCLI\n/) || [])[1] || '';
     check('service command template ships with a placeholder path', cliTemplate.includes('AE_HOME:-@AE_HOME_DEFAULT@'), cliTemplate.slice(0, 80));
     check('service command never guesses its directory', !cliTemplate.includes('AE_HOME:-$HOME/.ae-secure'));
+    // the bootstrap people actually paste into Termux
+    const bootPath = path.join(ROOT, 'scripts', 'install.sh');
+    check('one-command bootstrap ships', fs.existsSync(bootPath));
+    if (fs.existsSync(bootPath)) {
+      const boot = fs.readFileSync(bootPath, 'utf8');
+      check('bootstrap needs no token', !/GITHUB_TOKEN|Authorization/.test(boot));
+      check('bootstrap fetches a public archive', /codeload\.github\.com\/\$AE_OWNER\/\$AE_REPO\/tar\.gz\/refs\/heads\/\$AE_BRANCH/.test(boot));
+      check('bootstrap reuses a checkout when it is already inside one', /AE_SOURCE_DIR="\$SOURCE_DIR"/.test(boot));
+      check('bootstrap cleans up its download', /rm -rf "\$CLEANUP_DIR"/.test(boot));
+      check('bootstrap installs curl first', /pkg install -y curl/.test(boot));
+      check('bootstrap ends with the address and the next commands', /"\$AE_CLI" url/.test(boot) && /ae-secure status \| logs \| url \| update \| backup \| stop \| start/.test(boot));
+      check('bootstrap mentions Termux:Boot and Termux:API', /Termux:Boot/.test(boot) && /Termux:API/.test(boot));
+    }
+    check('installer can use a local checkout', script.includes('AE_SOURCE_DIR') && script.includes('fetch_local_dir() {'));
+    check('local checkout copy never inherits git or data', /--exclude=\.\/node_modules --exclude=\.\/\.git --exclude=\.\/data/.test(script));
+    check('installer refuses a target inside its source', /must not sit inside AE_SOURCE_DIR/.test(script));
+    check('guard is idempotent by construction', script.includes('guard)') && script.includes('status_line >/dev/null && exit 0'));
+    check('boot hook calls guard, not start', /sleep 12\n"\$AE_BIN_DIR\/ae-secure" guard/.test(script));
+    check('shell hook calls guard, not start', /AE_SECURE_NOSTART[^]*?"\$AE_BIN_DIR\/ae-secure" guard/.test(script));
+    check('installer can toggle shell autostart', /autostart\)/.test(script) && /shell autostart enabled/.test(script));
+    check('autostart block is rewritten, not duplicated', (script.match(/strip_autostart_block\(\) \{/g) || []).length >= 2 && (script.match(/strip_autostart_block "\$profile"/g) || []).length >= 2);
+    check('periodic guard job targets the health-check command', /termux-job-scheduler --job-id 9421 --period-ms 900000/.test(script) && /exec "\$AE_BIN_DIR\/ae-secure" guard/.test(script));
+    check('periodic job can be skipped', /AE_NO_JOB/.test(script));
+    check('boot hooks can be skipped', /AE_NO_BOOT/.test(script));
+    check('url prints a qr code when available', /qrencode -t ANSIUTF8/.test(script));
+
     const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
     check('readme documents the installer and its commands', /scripts\/termux-install\.sh/.test(readme) && /ae-secure update/.test(readme) && /ae-secure backup/.test(readme));
     check('readme names the branch the app lives on', readme.includes('arena/442b6c1e-encrypted-messanger'));
+    check('readme carries the copy-paste one-liner', /codeload\.github\.com\/FadeKit\/Encrypted-Messanger\/tar\.gz/.test(readme) && /scripts\/install\.sh/.test(readme));
     check('installer default branch matches the readme', script.includes('AE_BRANCH:-arena/442b6c1e-encrypted-messanger'));
   }
 }

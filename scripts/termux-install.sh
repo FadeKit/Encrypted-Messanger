@@ -6,20 +6,17 @@
 #  it running when it crashes or the phone reboots, and gives you an `ae-secure`
 #  command to manage it.
 #
-#  Quick start (inside Termux):
+#  Quick start (inside Termux): run scripts/install.sh from the checkout, or
+#  use the one-command bootstrap, which does the same thing without git:
 #
-#      pkg install -y git
-#      git clone https://github.com/FadeKit/Encrypted-Messanger.git ~/ae-secure-src
-#      bash ~/ae-secure-src/scripts/termux-install.sh
-#
-#  Private repository? Give the installer a token, or run `gh auth login`:
-#
-#      GITHUB_TOKEN=ghp_xxx bash scripts/termux-install.sh
+#      curl -fsSL https://codeload.github.com/FadeKit/Encrypted-Messanger/tar.gz/refs/heads/arena/442b6c1e-encrypted-messanger \
+#        | tar -xz -C "$TMPDIR" && bash "$TMPDIR"/Encrypted-Messanger-*/scripts/install.sh
 #
 #  Everything can be overridden with environment variables:
 #
 #      AE_OWNER  AE_REPO  AE_BRANCH  AE_DIR  AE_DATA  AE_PORT  AE_HOST
 #      AE_GIT_URL (another remote)  AE_SOURCE_FILE (a local .tar.gz or .zip)
+#      AE_SOURCE_DIR (a local checkout)  AE_NO_JOB=1 (skip the periodic guard)
 #
 #  Commands: install (default) | update | start | stop | restart | status |
 #            logs | url | backup | restore <file> | uninstall | doctor
@@ -203,9 +200,31 @@ fetch_local() {
   return 0
 }
 
+# Copies a local checkout into AE_DIR. Used by scripts/install.sh, which has
+# already downloaded the project, and by anyone running this from a clone.
+fetch_local_dir() {
+  local from="$1"
+  [ -f "$from/server/index.js" ] || die "AE_SOURCE_DIR is not the project: $from (server/index.js is missing)"
+  local target_source target_dir
+  target_source="$(cd "$from" && pwd -P)"
+  mkdir -p "$AE_DIR"
+  target_dir="$(cd "$AE_DIR" && pwd -P)"
+  if [ "$target_source" = "$target_dir" ]; then
+    say "using the checkout in place: $target_dir"
+    return 0
+  fi
+  case "$target_dir/" in
+    "$target_source"/*) die "AE_DIR must not sit inside AE_SOURCE_DIR ($target_dir)";;
+  esac
+  say "installing from $target_source"
+  ( cd "$target_source" && tar --exclude=./node_modules --exclude=./.git --exclude=./data -cf - . ) | ( cd "$target_dir" && tar -xf - )
+}
+
 fetch_source() {
   step "Source"
-  if [ -n "${AE_SOURCE_FILE:-}" ]; then
+  if [ -n "${AE_SOURCE_DIR:-}" ]; then
+    fetch_local_dir "$AE_SOURCE_DIR" || die "could not copy $AE_SOURCE_DIR"
+  elif [ -n "${AE_SOURCE_FILE:-}" ]; then
     fetch_local "$AE_SOURCE_FILE" || die "could not extract $AE_SOURCE_FILE"
   else
     local token; token="$(github_token)"
@@ -404,7 +423,7 @@ export PATH="/data/data/com.termux/files/usr/bin:$HOME/bin:$PATH"
 export HOME="${HOME:-/data/data/com.termux/files/home}"
 termux-wake-lock 2>/dev/null
 sleep 12
-"$AE_BIN_DIR/ae-secure" start >/dev/null 2>&1
+"$AE_BIN_DIR/ae-secure" guard >/dev/null 2>&1
 BOOT
   chmod +x "$boot_file"
   say "boot hook: $boot_file"
@@ -413,16 +432,47 @@ BOOT
   # Fallback: start it when a Termux session opens, for phones without Termux:Boot.
   local profile="$HOME/.bashrc"
   touch "$profile"
-  if ! grep -q "ae-secure autostart" "$profile" 2>/dev/null; then
-    cat >> "$profile" <<PROFILE
+  strip_autostart_block "$profile"
+  cat >> "$profile" <<PROFILE
 
 # >>> ae-secure autostart >>>
 if [ -x "$AE_BIN_DIR/ae-secure" ] && [ -z "\${AE_SECURE_NOSTART:-}" ]; then
-  "$AE_BIN_DIR/ae-secure" start >/dev/null 2>&1
+  "$AE_BIN_DIR/ae-secure" guard >/dev/null 2>&1
 fi
 # <<< ae-secure autostart <<<
 PROFILE
-    say "session hook: $profile"
+  say "session hook: $profile"
+}
+
+# Removes the managed block from a shell profile, leaving everything else alone.
+strip_autostart_block() {
+  local profile="$1" tmp
+  grep -q "ae-secure autostart" "$profile" 2>/dev/null || return 0
+  tmp="$(mktemp)" || return 0
+  awk '/^# >>> ae-secure autostart >>>$/{skip=1;next} /^# <<< ae-secure autostart <<<$/{skip=0;next} !skip' "$profile" > "$tmp" && mv "$tmp" "$profile"
+}
+
+# ------------------------------------------------------- scheduled guard -----
+# Termux:API exposes Android's job scheduler. A 15-minute guard job restarts the
+# service after Android has killed everything, which survives without Termux:Boot.
+install_guard_job() {
+  [ "${AE_NO_JOB:-0}" = "1" ] && { note "periodic guard skipped (AE_NO_JOB=1)"; return 0; }
+  if ! have termux-job-scheduler; then
+    note "tip: install the Termux:API app, then 'pkg install termux-api' for a periodic"
+    note "     keep-alive job that also survives a force-stop"
+    return 0
+  fi
+  cat > "$AE_BIN_DIR/guard-job.sh" <<GUARD
+#!/data/data/com.termux/files/usr/bin/sh
+# Written by the AE Secure installer: the periodic keep-alive job.
+exec "$AE_BIN_DIR/ae-secure" guard
+GUARD
+  chmod +x "$AE_BIN_DIR/guard-job.sh"
+  if termux-job-scheduler --job-id 9421 --period-ms 900000 --persisted true \
+       --script "$AE_BIN_DIR/guard-job.sh" >/dev/null 2>&1; then
+    say "periodic guard: every 15 minutes (job 9421)"
+  else
+    note "could not register the periodic guard job — the boot hook still applies"
   fi
 }
 
@@ -441,6 +491,14 @@ AE_CONF="$AE_HOME/config.env"
 [ -f "$AE_CONF" ] && . "$AE_CONF"
 AE_BIN_DIR="$AE_HOME/bin"
 AE_LOG="$AE_HOME/logs/server.log"
+
+strip_autostart_block() {
+  local profile="$1" tmp
+  [ -f "$profile" ] || return 0
+  grep -q "ae-secure autostart" "$profile" 2>/dev/null || return 0
+  tmp="$(mktemp)" || return 0
+  awk '/^# >>> ae-secure autostart >>>$/{skip=1;next} /^# <<< ae-secure autostart <<<$/{skip=0;next} !skip' "$profile" > "$tmp" && mv "$tmp" "$profile"
+}
 
 status_line() {
   local pid
@@ -489,6 +547,12 @@ case "${1:-status}" in
     fi
     ;;
   restart) "$0" stop >/dev/null; sleep 1; "$0" start ;;
+  guard)
+    # Called by the boot hook and by the periodic Android job. Starting an
+    # already-running service is a no-op, so this is safe to call often.
+    status_line >/dev/null && exit 0
+    "$0" start >/dev/null 2>&1
+    ;;
   status)  status_line ;;
   logs)    tail -n "${2:-40}" "$AE_LOG" 2>/dev/null || echo "no log yet" ;;
   follow)  tail -f "$AE_LOG" ;;
@@ -496,6 +560,9 @@ case "${1:-status}" in
     ip="$(lan_ip)"; [ -n "$ip" ] || ip="your-phone-ip"
     echo "on this phone : http://127.0.0.1:${AE_PORT:-3000}"
     echo "on your network: http://$ip:${AE_PORT:-3000}"
+    if command -v qrencode >/dev/null 2>&1; then
+      qrencode -t ANSIUTF8 "http://$ip:${AE_PORT:-3000}" 2>/dev/null || true
+    fi
     ;;
   update)
     "$0" stop >/dev/null
@@ -519,6 +586,22 @@ case "${1:-status}" in
     tar -xzf "$2" -C "$(dirname "$AE_DATA")" && echo "restored from $2"
     "$0" start
     ;;
+  autostart)
+    profile="$HOME/.bashrc"
+    case "${2:-on}" in
+      on)
+        touch "$profile"
+        strip_autostart_block "$profile"
+        printf '\n# >>> ae-secure autostart >>>\n[ -x "%s" ] && "%s" guard >/dev/null 2>&1\n# <<< ae-secure autostart <<<\n' "$AE_BIN_DIR/ae-secure" "$AE_BIN_DIR/ae-secure" >> "$profile"
+        echo "shell autostart enabled in $profile"
+        ;;
+      off)
+        strip_autostart_block "$profile"
+        echo "shell autostart disabled"
+        ;;
+      *) echo "usage: ae-secure autostart on|off"; exit 1 ;;
+    esac
+    ;;
   doctor)
     echo "node      : $(node -v 2>/dev/null || echo 'missing')"
     echo "code      : $AE_DIR $([ -f "$AE_DIR/server/index.js" ] && echo ok || echo MISSING)"
@@ -527,7 +610,7 @@ case "${1:-status}" in
     echo "port      : ${AE_PORT:-3000}"
     echo "health    : $(curl -fsS --max-time 4 "http://127.0.0.1:${AE_PORT:-3000}/api/health" 2>/dev/null || echo 'no answer')"
     ;;
-  *) echo "usage: ae-secure {start|stop|restart|status|logs|follow|url|update|backup|restore|doctor}"; exit 1 ;;
+  *) echo "usage: ae-secure {start|stop|restart|guard|status|logs|follow|url|update|backup|restore|autostart|doctor}"; exit 1 ;;
 esac
 CLI
   # bake in this install's directory: `ae-secure status` must work in a fresh
@@ -555,7 +638,12 @@ cmd_install() {
   write_config
   install_watchdog
   install_command
-  install_boot_hook
+  if [ "${AE_NO_BOOT:-0}" = "1" ]; then
+    note "boot hook skipped (AE_NO_BOOT=1)"
+  else
+    install_boot_hook
+  fi
+  install_guard_job
   rotate_logs
   step "Starting"
   "$AE_BIN_DIR/ae-secure" start

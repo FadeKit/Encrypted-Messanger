@@ -60,53 +60,70 @@ Open the `network` address on any device connected to the same Wi-Fi. The **firs
 
 ### Install and supervise it automatically
 
-`scripts/termux-install.sh` does the whole job on a phone: fetch the project,
-start it, keep it alive when it crashes, and bring it back when the phone
-reboots.
+One command on the phone does everything — no token, no git needed:
 
 ```bash
-pkg install -y git curl
-git clone --branch arena/442b6c1e-encrypted-messanger \
-  https://<token>@github.com/FadeKit/Encrypted-Messanger.git ~/ae-secure-src
-bash ~/ae-secure-src/scripts/termux-install.sh
+curl -fsSL https://codeload.github.com/FadeKit/Encrypted-Messanger/tar.gz/refs/heads/arena/442b6c1e-encrypted-messanger \
+  | tar -xz -C "$TMPDIR" && bash "$TMPDIR"/Encrypted-Messanger-*/scripts/install.sh
 ```
 
-The repository is private, so the clone (or the installer) needs a token:
-`GITHUB_TOKEN=… bash scripts/termux-install.sh`, or a token in
-`~/.ae-secure/token`, or `gh auth login`. **This application lives on the
-`arena/442b6c1e-encrypted-messanger` branch** — `main` still holds the initial
-scaffold, which is why the installer defaults to the former.
+That is `scripts/install.sh`: it installs `curl`, downloads the project,
+installs Node and the rest, starts the server, wires up the keep-alive
+machinery, and prints the address to open. If the project is already on the
+phone, run the same file from inside it: `bash scripts/install.sh`.
 
-After it finishes, one command manages everything:
+It delegates the real work to `scripts/termux-install.sh`, which is also the
+lower-level entry point: run that one directly when you want the full set of
+switches (a private token, another git remote, a local archive, or an existing
+checkout).
+
+**This application lives on the `arena/442b6c1e-encrypted-messanger` branch.**
+`main` still holds the initial scaffold, which is why every command here names
+the branch explicitly.
+
+Afterwards, one command manages everything:
 
 | Command | What it does |
 | --- | --- |
 | `ae-secure status` | Supervisor and server PIDs, or `stopped` |
-| `ae-secure url` | Addresses to open, on the phone and on the network |
+| `ae-secure url` | Addresses to open, on the phone and on the network, with a QR code if `qrencode` is installed |
 | `ae-secure logs [n]` | Tail the server log |
 | `ae-secure update` | Fetch the branch, reset the checkout, restart |
+| `ae-secure guard` | Start it only if it is not already running (used by the automatic hooks) |
+| `ae-secure autostart on\|off` | Toggle the shell startup hook |
 | `ae-secure backup [file]` | Archive the encrypted data directory |
 | `ae-secure restore <file>` | Put a backup back and restart |
 | `ae-secure restart \| stop \| start` | Control the service |
 | `ae-secure doctor` | Node version, paths, port and a live health probe |
 
 Where things live: code in `~/ae-secure`, data in `~/ae-secure-data` (kept out
-of the checkout so updates cannot touch it), runtime files in `~/.ae-secure`.
+of the checkout, so updates cannot touch it), runtime files in `~/.ae-secure`.
 
-How it stays up:
+**How it stays up, in four layers:**
 
-* a supervisor restarts the server when the process exits, and treats three
-  missed `/api/health` checks as a crash — so a hung process is replaced too.
-  Backoff grows 2s → 30s and resets after a healthy run.
-* `~/.termux/boot/ae-secure.sh` starts it when Android boots, which needs the
-  **Termux:Boot** app (F-Droid) opened once.
-* `~/.bashrc` starts it whenever you open Termux by hand, for phones without
-  Termux:Boot.
-* a wake lock is held while it runs, so Doze does not freeze the server.
+1. a supervisor restarts the server when the process exits, and treats three
+   missed `/api/health` checks as a crash, so a *hung* server is replaced too.
+   Backoff grows 2s → 30s and resets after a healthy run.
+2. `~/.termux/boot/ae-secure.sh` starts it when Android boots. This needs the
+   **Termux:Boot** app from F-Droid, opened once.
+3. an Android **job scheduler** entry (every 15 minutes, `ae-secure guard`)
+   revives it after a force-stop. This needs the **Termux:API** app plus
+   `pkg install termux-api`.
+4. `~/.bashrc` starts it whenever you open Termux by hand.
 
-All settings are environment variables: `AE_OWNER`, `AE_REPO`, `AE_BRANCH`,
-`AE_DIR`, `AE_DATA`, `AE_HOME`, `AE_PORT`, `AE_HOST`, plus `AE_SOURCE_FILE` to
-install from a local `.tar.gz` or `.zip` instead of GitHub.
+Plus a wake lock while it runs, so Doze does not freeze the server, and log
+rotation at 2 MB.
+
+Every knob is an environment variable: `AE_OWNER`, `AE_REPO`, `AE_BRANCH`,
+`AE_DIR`, `AE_DATA`, `AE_HOME`, `AE_PORT`, `AE_HOST`, `AE_GIT_URL` (another
+remote), `AE_SOURCE_FILE` (a local `.tar.gz`/`.zip`), `AE_SOURCE_DIR` (a local
+checkout), `AE_NO_BOOT=1`, `AE_NO_JOB=1`.
+
+### Private fork?
+
+Point the installer at a token and it clones with it, from any of:
+`GITHUB_TOKEN`, `GH_TOKEN`, `~/.ae-secure/token`, or `gh auth login`. Tokens are
+never written into the config file.
 
 ### Keep it running by hand (without the installer)
 
