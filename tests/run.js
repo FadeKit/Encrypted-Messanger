@@ -264,8 +264,11 @@ async function main() {
     check('encrypted message sends with attachment', send.status === 200 && send.data.message.attachments.length === 1, JSON.stringify(send.data));
     const messageId = send.data.message.id;
 
+    const offlineInbox = await owner.get('/api/conversations');
+    const queuedConversation = (offlineInbox.data.conversations || []).find((conversation) => conversation.id === conversationId);
+    check('a DM sent while the recipient has no live connection is queued in their inbox', !!queuedConversation && queuedConversation.unread === 1 && queuedConversation.lastMessage?.payload?.ct);
     const ownerView = await owner.get(`/api/conversations/${conversationId}/messages`);
-    check('the other participant can read the conversation', ownerView.status === 200 && ownerView.data.messages.length === 1);
+    check('the offline recipient can fetch the saved DM history after reconnecting', ownerView.status === 200 && ownerView.data.messages.length === 1);
     check('message bodies arrive as ciphertext only', !!ownerView.data.messages[0].payload.ct && !ownerView.data.messages[0].payload.text);
 
     const reaction = await owner.post(`/api/messages/${messageId}/reactions`, { emoji: '🔥' });
@@ -408,6 +411,10 @@ async function main() {
     const adminFiles = await owner.get('/api/admin/files');
     check('root panel lists every upload server-wide', adminFiles.data.files.length >= 3);
     check('file browser separates story storage', typeof adminFiles.data.totals.byKind.drive === 'number');
+    const uploadPageA = await owner.get('/api/admin/files?limit=2&offset=0');
+    const uploadPageB = await owner.get('/api/admin/files?limit=2&offset=2');
+    check('admin upload list exposes a bounded first page and full match count', uploadPageA.data.files.length === 2 && uploadPageA.data.filteredCount >= 3 && uploadPageA.data.hasMore === true);
+    check('admin upload pages cover distinct file records', uploadPageB.data.files.length > 0 && !uploadPageA.data.files.some((file) => uploadPageB.data.files.some((next) => next.id === file.id)));
     const otherOwnerDelete = await owner.del(`/api/files/${smallFileId}`);
     check('admin can remove any file', otherOwnerDelete.status === 200);
 

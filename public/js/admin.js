@@ -8,6 +8,9 @@ const AdminClient = (() => {
   let section = 'overview';
   let hostNode = null;
   let refreshTimer = null;
+  let filesRequest = 0;
+  const FILES_PAGE_SIZE = 100;
+  let filesView = { kind: '', query: '', offset: 0 };
   const graph = {
     canvas: null, ctx: null, nodes: [], edges: [], scale: 1, offsetX: 0, offsetY: 0,
     dragging: false, lastX: 0, lastY: 0, pulses: [], running: true, selected: null,
@@ -590,8 +593,26 @@ const AdminClient = (() => {
       size: row.size,
       note: 'Encrypted with a key only this server’s operator identity can unseal.',
       resolve: async () => {
-        const raw = await State.openOperatorWrap(row.operatorWrap, extra.domain || 'file');
-        if (!raw) throw new Error('The operator envelope for this file could not be opened.');
+        if (!row.complete) throw new Error('This upload has not finished yet.');
+        let raw = await State.openOperatorWrap(row.operatorWrap, 'file');
+
+        // Backward-compatible paths for older uploads: chat/community files
+        // were wrapped by their channel key, and public-profile media by its
+        // published audience key. The server still only returns ciphertext.
+        if (!raw && row.fallbackOperatorWrap && row.fallbackDomain && file.keyWrap) {
+          const channelRaw = await State.openOperatorWrap(row.fallbackOperatorWrap, row.fallbackDomain);
+          if (channelRaw) raw = await AE.unwrapKey(await AE.importAes(channelRaw), file.keyWrap);
+        }
+        if (!raw && row.fallbackForumSeed && row.ref && row.ref.forumId && file.keyWrap) {
+          const key = await AE.audienceKey(row.fallbackForumSeed, `forum:${row.ref.forumId}`);
+          raw = await AE.unwrapKey(key, file.keyWrap);
+        }
+        if (!raw && row.ownerAudienceKey && row.ownerAudienceScope && file.keyWrap) {
+          const key = await AE.audienceKey(row.ownerAudienceKey, row.ownerAudienceScope);
+          raw = await AE.unwrapKey(key, file.keyWrap);
+        }
+        if (!raw) throw new Error('No key envelope for this upload can be opened on this operator device.');
+
         const sealedName = await Media.fileName(file, raw);
         const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: raw, mime });
         const url = URL.createObjectURL(blob);
@@ -668,24 +689,36 @@ const AdminClient = (() => {
   }
 
   // ---------------------------------------------------------------- files
-  async function paintFiles(kind = '', query = '') {
+  async function paintFiles(kind = filesView.kind, query = filesView.query, offset = filesView.offset) {
+    filesView = { kind: kind || '', query: query || '', offset: Math.max(0, Number(offset) || 0) };
+    kind = filesView.kind;
+    query = filesView.query;
+    offset = filesView.offset;
+    const requestId = ++filesRequest;
     hostNode.append(UI.skeletonList(5));
-    const data = await API.get(`/api/admin/files?kind=${encodeURIComponent(kind)}&q=${encodeURIComponent(query)}`);
+    const data = await API.get(`/api/admin/files?kind=${encodeURIComponent(kind)}&q=${encodeURIComponent(query)}&limit=${FILES_PAGE_SIZE}&offset=${offset}`);
+    if (requestId !== filesRequest || !hostNode) return;
     clear(hostNode);
     const search = el('input', { class: 'input', placeholder: 'Filter by handle or file id…', value: query });
-    const kindSelect = el('select', { class: 'select' }, ['', 'dm', 'forum', 'drive', 'story', 'airdrop', 'avatar', 'public'].map((value) => el('option', { value, text: value || 'All kinds', selected: value === kind })));
+    const kinds = ['', 'dm', 'forum', 'drive', 'story', 'airdrop', 'avatar', 'background', 'public'];
+    const kindSelect = el('select', { class: 'select' }, kinds.map((value) => el('option', { value, text: value || 'All kinds', selected: value === kind })));
+    const filteredCount = data.filteredCount ?? data.total ?? data.files.length;
+    const rangeStart = filteredCount ? offset + 1 : 0;
+    const rangeEnd = Math.min(offset + data.files.length, filteredCount);
+    const previous = el('button', { class: 'btn sm', text: 'Previous', disabled: offset <= 0, onClick: () => paintFiles(kindSelect.value, search.value, Math.max(0, offset - FILES_PAGE_SIZE)) });
+    const next = el('button', { class: 'btn sm', text: 'Next', disabled: !data.hasMore, onClick: () => paintFiles(kindSelect.value, search.value, offset + FILES_PAGE_SIZE) });
     hostNode.append(el('div', { class: 'toolbar' }, [
       el('div', { class: 'search-box grow' }, [search]),
       kindSelect,
       el('span', { class: 'pill', text: `${data.totals.count} blobs` }),
       el('span', { class: 'pill accent', text: UI.bytes(data.totals.bytes) }),
-      el('button', { class: 'btn sm', html: UI.icon('refresh'), title: 'Reload this section', onClick: () => paintSection() }),
+      el('button', { class: 'btn sm', html: UI.icon('refresh'), title: 'Reload this section', onClick: () => paintFiles(kind, query, offset) }),
     ]));
 
     hostNode.append(el('div', { class: 'row wrap pad-8' }, Object.entries(data.totals.byKind).map(([key, bytes]) => el('span', { class: 'pill tiny', text: `${key}: ${UI.bytes(bytes)}` }))));
 
     const table = el('table', { class: 'table' }, [
-      el('thead', {}, [el('tr', {}, ['Owner', 'Kind', 'Blob id', 'Size', 'Uploaded', 'Linked to', 'Contents', ''].map((label) => el('th', { text: label })))]),
+      el('thead', {}, [el('tr', {}, ['Owner', 'Kind', 'Blob id', 'Size', 'Uploaded', 'Linked to', 'Preview', ''].map((label) => el('th', { text: label })))]),
       el('tbody', {}, data.files.map((file) => el('tr', {}, [
         el('td', {}, [file.owner ? el('div', { class: 'user-row' }, [
           el('span', { class: 'member-plate', html: UI.icon('profile') }),
@@ -697,23 +730,28 @@ const AdminClient = (() => {
         el('td', {}, [el('span', { class: 'pill tiny', text: file.kind })]),
         el('td', { class: 'mono tiny', text: file.id }),
         el('td', { class: 'mono tiny', text: UI.bytes(file.size) }),
-        el('td', { class: 'tiny', text: UI.timeAgo(file.completedAt || file.createdAt) }),
-        el('td', { class: 'tiny faint', text: file.ref.conversationId || file.ref.threadId || file.ref.storyId || file.audience || '—' }),
-        el('td', {}, [file.operatorWrap
-          ? el('button', { class: 'btn sm', html: `${UI.icon(FileKind.iconFor(FileKind.kindFor(file.mime, '')))}<span>Open</span>`, title: 'Decrypt and open in the viewer', onClick: () => Viewer.open([viewerItemFor(file)]) })
-          : el('span', { class: 'tiny faint', text: 'sealed' })]),
+        el('td', { class: 'tiny', text: file.complete ? UI.timeAgo(file.completedAt || file.createdAt) : 'incomplete' }),
+        el('td', { class: 'tiny faint', text: file.ref?.conversationId || file.ref?.threadId || file.ref?.storyId || file.audience || '—' }),
+        el('td', {}, [file.complete
+          ? el('button', { class: 'btn sm', html: `${UI.icon(FileKind.iconFor(FileKind.kindFor(file.mime, '')))}<span>Preview</span>`, title: 'Decrypt and preview in the viewer', onClick: () => Viewer.open([viewerItemFor(file)]) })
+          : el('span', { class: 'tiny faint', text: 'upload incomplete' })]),
         el('td', {}, [el('button', { class: 'btn sm danger', text: 'Delete', onClick: async () => {
           if (!await UI.confirm({ title: 'Delete this blob?', message: 'The ciphertext is removed from the server; members keep their local copies of keys but not the data.', danger: true, confirmLabel: 'Delete' })) return;
           await API.del(`/api/files/${file.id}`);
-          paintFiles(kind, query);
+          const nextOffset = data.files.length === 1 && offset > 0 ? Math.max(0, offset - FILES_PAGE_SIZE) : offset;
+          paintFiles(kind, query, nextOffset);
         } })]),
       ]))),
     ]);
     hostNode.append(el('div', { class: 'pane-scroll' }, [table]));
+    hostNode.append(el('div', { class: 'toolbar pad-8' }, [
+      el('span', { class: 'tiny faint', text: `Showing ${rangeStart}–${rangeEnd} of ${filteredCount} matching uploads` }),
+      el('div', { class: 'spacer' }), previous, next,
+    ]));
     hostNode.append(el('div', { class: 'pad-12 row tiny faint' }, [el('span', { text: data.note })]));
-    const apply = UI.debounce(() => paintFiles(kindSelect.value, search.value), 320);
+    const apply = UI.debounce(() => paintFiles(kindSelect.value, search.value, 0), 320);
     search.addEventListener('input', apply);
-    kindSelect.addEventListener('change', () => paintFiles(kindSelect.value, search.value));
+    kindSelect.addEventListener('change', () => paintFiles(kindSelect.value, search.value, 0));
   }
 
   /**

@@ -11,6 +11,8 @@ const ConversationClient = (() => {
   let mainNode = null;
   let activeId = null;
   let typingTimer = null;
+  let inboxSyncPromise = null;
+  let lastInboxSyncAt = 0;
   const typingUsers = new Map();
 
   const QUICK_EMOJI = ['👍', '❤', '😂', '🔥', '🎉', '😮', '😢', '🙏', '👀', '💯'];
@@ -46,15 +48,33 @@ const ConversationClient = (() => {
       hydrated.push(Object.assign(conversation, { key }));
     }
     State.set('conversations', hydrated);
-    let unread = 0;
-    const byConversation = {};
-    for (const conversation of hydrated) {
-      unread += conversation.unread || 0;
-      byConversation[conversation.id] = conversation.unread || 0;
-    }
-    State.set('unread', { total: unread, byConversation });
+    updateUnreadSummary(hydrated);
     if (listNode) renderList();
     return hydrated;
+  }
+
+  function updateUnreadSummary(conversations = State.get('conversations')) {
+    let total = 0;
+    const byConversation = {};
+    for (const conversation of conversations) {
+      const count = conversation.unread || 0;
+      total += count;
+      byConversation[conversation.id] = count;
+    }
+    State.set('unread', { total, byConversation });
+  }
+
+  function setConversationRead(id) {
+    const conversations = State.get('conversations').map((conversation) => (
+      conversation.id === id ? Object.assign({}, conversation, { unread: 0 }) : conversation
+    ));
+    State.set('conversations', conversations);
+    updateUnreadSummary(conversations);
+  }
+
+  function messagesPaneVisible() {
+    const record = window.Windows && Windows.get('messages');
+    return !!record && !record.minimized && record.node.classList.contains('focused') && !document.hidden;
   }
 
   function conversationById(id) {
@@ -160,8 +180,7 @@ const ConversationClient = (() => {
     await loadMessages(id);
     renderMain();
     API.post(`/api/conversations/${id}/read`, {}).catch(() => {});
-    const conversations = State.get('conversations').map((conversation) => conversation.id === id ? Object.assign({}, conversation, { unread: 0 }) : conversation);
-    State.set('conversations', conversations);
+    setConversationRead(id);
     repairOperatorEnvelope(conversationById(id));
   }
 
@@ -193,6 +212,45 @@ const ConversationClient = (() => {
     map.set(id, messages);
     State.emit('messages', { conversationId: id, messages });
     return messages;
+  }
+
+  /**
+   * Reconcile the inbox with the persisted server history. SSE is only a live
+   * hint; a message sent while this device was offline must still arrive after
+   * a reconnect or when the app becomes visible again.
+   */
+  async function syncDurableInbox() {
+    if (!State.user || !State.vault) return [];
+    if (inboxSyncPromise) return inboxSyncPromise;
+    inboxSyncPromise = (async () => {
+      const conversations = await refresh();
+      const id = activeId;
+      if (!id || !conversations.some((conversation) => conversation.id === id)) return conversations;
+      const host = UI.$('#message-list');
+      const wasAtBottom = !!host && host.scrollHeight - host.scrollTop - host.clientHeight < 80;
+      await loadMessages(id);
+      const conversation = conversationById(id);
+      if (activeId === id && conversation && messagesPaneVisible()) {
+        paintMessages(conversation);
+        const refreshedHost = UI.$('#message-list');
+        if (refreshedHost && wasAtBottom) refreshedHost.scrollTop = refreshedHost.scrollHeight;
+        API.post(`/api/conversations/${id}/read`, {}).catch(() => {});
+        setConversationRead(id);
+      }
+      return conversations;
+    })();
+    try {
+      return await inboxSyncPromise;
+    } finally {
+      inboxSyncPromise = null;
+    }
+  }
+
+  function requestDurableSync(force = false) {
+    if (!State.user || !State.vault) return;
+    if (!force && Date.now() - lastInboxSyncAt < 5000) return;
+    lastInboxSyncAt = Date.now();
+    syncDurableInbox().catch(() => {});
   }
 
   function renderMain() {
@@ -646,55 +704,94 @@ const ConversationClient = (() => {
   }
 
   // ---------------------------------------------------------- interactions
-  async function newDirectDialog() {
-    const users = await fetchPeople();
+  function newDirectDialog() {
+    let users = [];
+    let directoryState = 'loading';
+    let starting = false;
+    let startButton = null;
+    let ref = null;
     const selected = new Set();
     const search = el('input', { class: 'input', placeholder: 'Search handles or display names…' });
     const results = el('div', { class: 'stack-4', style: { maxHeight: '300px', overflowY: 'auto' } });
+
     const paint = () => {
       clear(results);
-      const query = search.value.trim().toLowerCase();
-      const list = users.filter((user) => user.id !== State.user.id)
-        .filter((user) => !query || (user.displayName || '').toLowerCase().includes(query) || user.username.toLowerCase().includes(query));
-      if (!list.length) { results.append(el('div', { class: 'caption pad-8', text: 'No accounts matched.' })); return; }
-      for (const user of list.slice(0, 60)) {
-        UI.append(results, el('div', { class: `list-item ${selected.has(user.id) ? 'on' : ''}`, onClick: () => {
-          selected.clear();
-          selected.add(user.id);
-          paint();
-        } }, [
-          UI.avatar(user, { size: 'sm', status: State.get('presence')[user.id]?.key }),
-          el('div', { class: 'meta' }, [
-            el('div', { class: 'name' }, [el('span', { text: user.publicAlias || user.displayName }), user.verified ? UI.verifiedBadge(user) : null]),
-            el('div', { class: 'sub', text: `@${user.username} · ${UI.statusLabel(State.get('presence')[user.id]?.key || 'offline')}` }),
-          ]),
+      if (directoryState === 'loading') {
+        results.append(el('div', { class: 'caption pad-8', text: 'Loading accounts…' }));
+      } else if (directoryState === 'error') {
+        results.append(el('div', { class: 'stack-6 pad-8' }, [
+          el('div', { class: 'caption', text: 'The directory could not be reached.' }),
+          el('button', { class: 'btn sm', text: 'Try again', onClick: loadDirectory }),
         ]));
+      } else {
+        const query = search.value.trim().toLowerCase();
+        const list = users.filter((user) => user.id !== State.user.id)
+          .filter((user) => !query || (user.displayName || '').toLowerCase().includes(query) || user.username.toLowerCase().includes(query));
+        if (!list.length) results.append(el('div', { class: 'caption pad-8', text: 'No accounts matched.' }));
+        for (const user of list.slice(0, 60)) {
+          UI.append(results, el('div', { class: `list-item ${selected.has(user.id) ? 'on' : ''}`, onClick: () => {
+            selected.clear();
+            selected.add(user.id);
+            paint();
+          } }, [
+            UI.avatar(user, { size: 'sm', status: State.get('presence')[user.id]?.key }),
+            el('div', { class: 'meta' }, [
+              el('div', { class: 'name' }, [el('span', { text: user.publicAlias || user.displayName }), user.verified ? UI.verifiedBadge(user) : null]),
+              el('div', { class: 'sub', text: `@${user.username} · ${UI.statusLabel(State.get('presence')[user.id]?.key || 'offline')}` }),
+            ]),
+          ]));
+        }
       }
+      if (startButton) startButton.disabled = directoryState !== 'ready' || !selected.size || starting;
     };
-    paint();
+
+    async function loadDirectory() {
+      directoryState = 'loading';
+      paint();
+      try {
+        const data = await API.get('/api/directory');
+        users = data.users || [];
+        directoryState = 'ready';
+      } catch {
+        users = [];
+        directoryState = 'error';
+      }
+      paint();
+    }
+
     search.addEventListener('input', paint);
-    let ref;
+    const cancelButton = el('button', { class: 'btn', text: 'Cancel', onClick: () => ref.close() });
+    startButton = el('button', { class: 'btn primary', text: 'Start chatting', disabled: true, onClick: async () => {
+      const peerId = [...selected][0];
+      const peer = users.find((candidate) => candidate.id === peerId);
+      if (!peerId || !peer || starting) return;
+      starting = true;
+      startButton.textContent = 'Opening channel…';
+      paint();
+      try {
+        const conversation = await openDirectChannel(peerId, peer);
+        ref.close();
+        await refresh();
+        await openConversation(conversation.id);
+      } catch (error) {
+        UI.toast({ level: 'danger', title: 'Could not start that channel', body: error.message });
+      } finally {
+        starting = false;
+        startButton.textContent = 'Start chatting';
+        paint();
+      }
+    } });
+
     ref = UI.dialog({
       title: 'New direct message',
       icon: 'editor',
-      subtitle: 'One-to-one channels are encrypted with a key only you two hold.',
+      subtitle: 'One-to-one encryption stays on your devices; messages queue until the other account reconnects.',
       content: el('div', { class: 'stack-8' }, [search, results]),
-      footer: [
-        el('button', { class: 'btn', text: 'Cancel', onClick: () => ref.close() }),
-        el('button', { class: 'btn primary', text: 'Start chatting', onClick: async () => {
-          const peerId = [...selected][0];
-          if (!peerId) return;
-          try {
-            const conversation = await openDirectChannel(peerId);
-            ref.close();
-            await refresh();
-            await openConversation(conversation.id);
-          } catch (error) {
-            UI.toast({ level: 'danger', title: 'Could not start that channel', body: error.message });
-          }
-        } }),
-      ],
+      footer: [cancelButton, startButton],
     });
+    paint();
+    loadDirectory();
+    return ref;
   }
 
   async function newGroupDialog() {
@@ -854,10 +951,14 @@ const ConversationClient = (() => {
    * keeps the id we wrapped for, and a channel that already existed keeps its
    * own key, which is already wrapped for both sides.
    */
-  async function openDirectChannel(peerId) {
-    const data = await API.get('/api/directory').catch(() => null);
-    const peer = data && data.users ? data.users.find((user) => user.id === peerId) : null;
+  async function openDirectChannel(peerId, knownPeer = null) {
+    let peer = knownPeer && knownPeer.id === peerId ? knownPeer : null;
+    if (!peer || !peer.identityPublic) {
+      const data = await API.get('/api/directory');
+      peer = (data.users || []).find((user) => user.id === peerId) || null;
+    }
     if (!peer || !peer.identityPublic) throw new Error('Public identity key unavailable.');
+
     const wanted = freshConversationId();
     const rawKey = await AE.generateAesRaw();
     const created = await API.post('/api/conversations', {
@@ -865,15 +966,28 @@ const ConversationClient = (() => {
       keyWraps: await wrapForConversation(wanted, peer, rawKey),
       operatorWrap: await operatorEnvelopeFor('conv', wanted, rawKey),
     });
-    const conversation = created.conversation;
-    // An id the server could not take, or somebody else's channel: wrap the key
-    // again under the id that was stored, or the channel would never open.
-    if (conversation.id !== wanted && !conversation.keyWrap) {
-      await API.post(`/api/conversations/${conversation.id}/keys`, {
-        keyWraps: await wrapForConversation(conversation.id, peer, rawKey),
-      });
+    let conversation = created.conversation;
+
+    // For an existing channel with no key envelopes at all, initialize using
+    // the id the server actually kept. Never replace one side's existing wrap
+    // with a fresh key: that would make older messages undecryptable.
+    if (created.keySetupRequired) {
+      const keyWraps = await wrapForConversation(conversation.id, peer, rawKey);
+      await API.post(`/api/conversations/${conversation.id}/keys`, { keyWraps });
+      if (!conversation.operatorWrap) {
+        const operatorWrap = await operatorEnvelopeFor('conv', conversation.id, rawKey);
+        if (operatorWrap) await API.post(`/api/conversations/${conversation.id}/operator-wrap`, { operatorWrap });
+      }
+      const refreshed = await API.get(`/api/conversations/${conversation.id}`);
+      conversation = refreshed.conversation;
     }
-    return conversation;
+
+    if (!conversation.keyWrap) {
+      throw new Error('This conversation is missing your key envelope. Ask the other member to reopen it before sending.');
+    }
+    const key = await State.channelKey(conversation, 'conv');
+    if (!key) throw new Error('This device cannot open the conversation key. Your message was not sent.');
+    return Object.assign(conversation, { key });
   }
 
   // Realtime hooks
@@ -887,13 +1001,16 @@ const ConversationClient = (() => {
     const list = map.get(payload.conversationId) || [];
     if (!list.some((message) => message.id === payload.message.id)) list.push(payload.message);
     map.set(payload.conversationId, list);
-    if (activeId === payload.conversationId) {
+    if (activeId === payload.conversationId && messagesPaneVisible()) {
       paintMessages(conversation);
       const host = UI.$('#message-list');
       if (host) host.scrollTop = host.scrollHeight;
-      API.post(`/api/conversations/${conversation.id}/read`, {}).catch(() => {});
+      setConversationRead(conversation.id);
+      API.post(`/api/conversations/${conversation.id}/read`, {})
+        .then(() => refresh()).catch(() => {});
+    } else {
+      refresh().catch(() => {});
     }
-    refresh().catch(() => {});
   }
 
   function bumpUnread(id) {
@@ -901,6 +1018,7 @@ const ConversationClient = (() => {
       ? Object.assign({}, conversation, { unread: (conversation.unread || 0) + 1 })
       : conversation);
     State.set('conversations', conversations);
+    updateUnreadSummary(conversations);
   }
 
   API.on('message.updated', (payload) => {
@@ -931,6 +1049,11 @@ const ConversationClient = (() => {
   API.on('conversation.created', () => refresh().catch(() => {}));
   API.on('conversation.updated', () => refresh().catch(() => {}));
   API.on('conversation.keys', () => refresh().catch(() => {}));
+  API.on('ready', () => requestDurableSync(true));
+  window.addEventListener('online', requestDurableSync);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) requestDurableSync();
+  });
 
   /** Opens a direct channel with another account from anywhere in the shell. */
   function startWith(peerId) {
@@ -973,7 +1096,7 @@ const Profile = (() => {
           stat('Joined', UI.dateTime(profile.createdAt).split(',')[0]),
         ]),
         !isSelf ? el('div', { class: 'row' }, [
-          State.featureEnabled('dms') !== false ? el('button', { class: 'btn primary', text: 'Message', onClick: () => startDirect(profile.id) }) : null,
+          State.featureEnabled('dms') !== false ? el('button', { class: 'btn primary', text: 'Message', onClick: () => startDirect(profile.id, profile) }) : null,
           el('button', { class: 'btn', text: 'Copy handle', onClick: () => UI.copy(profile.username, 'Handle copied') }),
         ]) : null,
       ]);
@@ -1022,14 +1145,14 @@ const Profile = (() => {
       ConversationClient.open(existing.id);
       return existing.id;
     }
-    await startDirect(match.id);
+    await startDirect(match.id, match);
     return match.id;
   }
 
-  async function startDirect(peerId) {
+  async function startDirect(peerId, peer = null) {
     let conversation;
     try {
-      conversation = await ConversationClient.openDirectChannel(peerId);
+      conversation = await ConversationClient.openDirectChannel(peerId, peer);
     } catch (error) {
       UI.toast({ level: 'warning', title: 'Cannot open a channel', body: error.message });
       return null;

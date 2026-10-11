@@ -528,6 +528,8 @@ route['GET /api/admin/files'] = async (ctx) => {
   const kind = ctx.query.kind ? String(ctx.query.kind) : '';
   const q = String(ctx.query.q || '').toLowerCase().trim();
   const sort = ctx.query.sort === 'owner' ? 'owner' : 'recent';
+  const limit = clampNumber(ctx.query.limit, 1, 200, 100);
+  const offset = clampNumber(ctx.query.offset, 0, 10000000, 0);
   let files = Object.values(store.db.files);
   if (kind) files = files.filter((f) => f.kind === kind);
   if (q) {
@@ -535,24 +537,40 @@ route['GET /api/admin/files'] = async (ctx) => {
       const owner = store.userById(f.ownerId);
       // Search by real handle is allowed here: the operator is looking someone
       // up on purpose, and only the ROW LABEL stays anonymous.
-      return (owner && (owner.username.toLowerCase().includes(q) || (owner.displayName || '').toLowerCase().includes(q))) || f.id.includes(q);
+      return (owner && (owner.username.toLowerCase().includes(q) || (owner.displayName || '').toLowerCase().includes(q))) || String(f.id).toLowerCase().includes(q);
     });
   }
-  files = sort === 'recent' ? files.sort((a, b) => b.createdAt - a.createdAt) : files.sort((a, b) => a.ownerId.localeCompare(b.ownerId));
+  files = sort === 'recent'
+    ? files.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    : files.sort((a, b) => String(a.ownerId || '').localeCompare(String(b.ownerId || '')));
+  const filteredCount = files.length;
+  const page = files.slice(offset, offset + limit);
   const byKind = {};
-  let total = 0;
-  for (const file of Object.values(store.db.files)) {
-    byKind[file.kind] = (byKind[file.kind] || 0) + file.size;
-    total += file.size;
+  let totalBytes = 0;
+  const allFiles = Object.values(store.db.files);
+  for (const file of allFiles) {
+    byKind[file.kind] = (byKind[file.kind] || 0) + (file.size || 0);
+    totalBytes += file.size || 0;
   }
+
   return {
-    files: files.slice(0, 600).map((f) => {
+    files: page.map((f) => {
       const owner = store.userById(f.ownerId);
+      const ref = f.ref || {};
+      const conversation = ref.conversationId ? store.db.conversations[ref.conversationId] : null;
+      const thread = ref.threadId ? store.db.threads[ref.threadId] : null;
+      const forumId = ref.forumId || (thread && thread.forumId) || null;
+      const forum = forumId ? store.db.forums[forumId] : null;
+      const fileOperatorWrap = (f.meta && f.meta.operatorWrap) || null;
+      const linkedOperatorWrap = !fileOperatorWrap
+        ? ((conversation && conversation.operatorWrap) || (forum && forum.operatorWrap) || null)
+        : null;
+      const audienceKind = ['public', 'story', 'avatar'].includes(f.kind);
       return {
         id: f.id,
         kind: f.kind,
         size: f.size,
-        complete: f.complete,
+        complete: !!f.complete,
         createdAt: f.createdAt,
         completedAt: f.completedAt,
         meta: f.meta,
@@ -562,7 +580,18 @@ route['GET /api/admin/files'] = async (ctx) => {
         // The envelope the uploading device sealed for the operator identity.
         // It opens for exactly one private key, so shipping it here discloses
         // nothing to anyone else; without it the row stays opaque.
-        operatorWrap: (f.meta && f.meta.operatorWrap) || null,
+        operatorWrap: fileOperatorWrap,
+        // Older chat/community attachments may lack their own file envelope,
+        // but their file key is wrapped by a channel that has one. Public
+        // audience keys are included only for public-profile media kinds.
+        keyWrap: f.keyWrap || null,
+        fallbackOperatorWrap: linkedOperatorWrap,
+        fallbackDomain: conversation ? 'conv' : (forum ? 'forum' : null),
+        fallbackForumSeed: !fileOperatorWrap && !linkedOperatorWrap && forum && forum.isPublic ? forum.publicSeed : null,
+        ownerAudienceKey: !fileOperatorWrap && !linkedOperatorWrap && audienceKind && owner
+          ? ((owner.publicProfile || {}).audienceKey || null)
+          : null,
+        ownerAudienceScope: !fileOperatorWrap && !linkedOperatorWrap && audienceKind && owner ? `public:${owner.id}` : null,
         sealedName: (f.meta && f.meta.nameWrapped) || null,
         // Anonymised on purpose: the operator can see every blob and act on it
         // without the panel becoming a list of who-uploaded-what.
@@ -572,14 +601,19 @@ route['GET /api/admin/files'] = async (ctx) => {
           role: owner.role,
         } : null,
         ref: {
-          conversationId: f.ref?.conversationId || null,
-          threadId: f.ref?.threadId || null,
-          forumId: f.ref?.forumId || null,
-          storyId: f.ref?.storyId || null,
+          conversationId: ref.conversationId || null,
+          threadId: ref.threadId || null,
+          forumId,
+          storyId: ref.storyId || null,
         },
       };
     }),
-    totals: { count: Object.keys(store.db.files).length, bytes: total, byKind },
+    total: filteredCount,
+    filteredCount,
+    offset,
+    limit,
+    hasMore: offset + page.length < filteredCount,
+    totals: { count: allFiles.length, bytes: totalBytes, byKind },
     note: 'Every blob is stored as ciphertext. Rows carrying an operator envelope can be opened here, because the uploading device sealed a second copy of that file key for this server’s operator identity.',
   };
 };

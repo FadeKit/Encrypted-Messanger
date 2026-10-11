@@ -387,9 +387,29 @@ check('the console registers a flyout a link can open',
   const social = fs.readFileSync(path.join(ROOT, 'server', 'routes-social.js'), 'utf8');
   const dmBranch = social.slice(social.indexOf("conversation.type === 'dm'"), social.indexOf("conversation.type === 'dm'") + 400);
   check('the server adopts the client id for a direct channel', /ensureDirectConversation\([^)]*id:\s*ctx\.body\.id/.test(social.replace(/\s+/g, ' ')), dmBranch.slice(0, 80));
+  check('the server notifies an online recipient when a DM channel is created', /realtime\.send\(peer\.id, \{ event: 'conversation\.created'/.test(social));
+  check('an existing DM cannot be rekeyed by a fresh client envelope', /Only adopt[\s\S]{0,80}actually used for a new record/.test(social) && /if \(!existing\)/.test(social));
   const messageSource = fs.readFileSync(path.join(PUBLIC, 'js', 'messages.js'), 'utf8');
   check('the client wraps for the stored channel id', /async function wrapForConversation\(conversationId, peer, rawKey\)/.test(messageSource));
-  check('the client opens a direct channel through it', /async function openDirectChannel\(peerId\)/.test(messageSource) && /openDirectChannel\s*[,}]/.test(messageSource));
+  check('the client opens a direct channel through a cached peer card when possible', /async function openDirectChannel\(peerId, knownPeer = null\)/.test(messageSource) && /openDirectChannel\s*[,}]/.test(messageSource));
+  check('starting a DM opens its dialog before the directory request resolves', /function newDirectDialog\(\)[\s\S]*?ref = UI\.dialog\([\s\S]*?loadDirectory\(\)/.test(messageSource));
+  check('offline DMs force a stored-history sync when the stream reconnects', /API\.on\('ready', \(\) => requestDurableSync\(true\)\)/.test(messageSource) && /async function syncDurableInbox\(\)[\s\S]*?await refresh\(\)[\s\S]*?await loadMessages\(id\)/.test(messageSource));
+  check('offline DMs also resync after network return or foregrounding', /window\.addEventListener\('online', requestDurableSync\)/.test(messageSource) && /document\.addEventListener\('visibilitychange'/.test(messageSource));
+}
+
+// The operator upload feed must page across the entire store and use the
+// strongest authorized envelope available, without turning ciphertext into a
+// server-side key or exposing account names.
+{
+  const adminRoutes = fs.readFileSync(path.join(ROOT, 'server', 'routes-admin.js'), 'utf8');
+  const adminClient = fs.readFileSync(path.join(PUBLIC, 'js', 'admin.js'), 'utf8');
+  const viewer = fs.readFileSync(path.join(PUBLIC, 'js', 'viewer.js'), 'utf8');
+  check('admin upload API supports offset pagination over all matching files', /const limit = clampNumber\(ctx\.query\.limit/.test(adminRoutes) && /const offset = clampNumber\(ctx\.query\.offset/.test(adminRoutes) && /files\.slice\(offset, offset \+ limit\)/.test(adminRoutes));
+  check('admin upload API exposes linked encrypted key paths only to admins', /fallbackOperatorWrap: linkedOperatorWrap/.test(adminRoutes) && /keyWrap: f\.keyWrap \|\| null/.test(adminRoutes));
+  check('admin file browser pages, searches, and previews every completed record', /limit=\$\{FILES_PAGE_SIZE\}&offset=\$\{offset\}/.test(adminClient) && /file\.complete\s*\?\s*el\('button'[\s\S]{0,220}Preview/.test(adminClient));
+  check('admin file preview can unwrap linked and audience-key envelopes', /State\.openOperatorWrap\(row\.fallbackOperatorWrap, row\.fallbackDomain\)/.test(adminClient) && /row\.ownerAudienceKey/.test(adminClient));
+  check('plain-text uploads preview as inert text with a fixed size limit', /ready\.blob\.slice\(0, 65536\)/.test(viewer) && /el\('pre', \{ class: 'viewer-text-preview', text: item\.textPreview \}\)/.test(viewer));
+  check('PDF previews are sandboxed and failed file resolution does not loop', /sandbox: ''/.test(viewer) && /item\.hydrated = true/.test(viewer) && /!item\.hydrated/.test(viewer));
 }
 
 // "Not secure" comes back whenever the address in the bar is not on the

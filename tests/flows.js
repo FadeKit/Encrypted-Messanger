@@ -144,14 +144,57 @@ function sameBytes(a, b) {
 
   const owner = makeClient('owner');
   const member = makeClient('member');
+  const offlineRecipient = makeClient('offline-recipient');
 
   // ---------------------------------------------------------------- accounts
   const ownerReg = await register(owner, 'operator', 'correct-horse-battery-staple');
   check('owner registers', ownerReg.response.status === 200 && ownerReg.response.data.user.role === 'owner', JSON.stringify(ownerReg.response.data).slice(0, 160));
   const memberReg = await register(member, 'member-one', 'another-long-passphrase-here');
   check('member registers', memberReg.response.status === 200 && memberReg.response.data.user.role === 'member');
+  const offlineReg = await register(offlineRecipient, 'offline-friend', 'a-different-long-passphrase-here');
+  check('offline recipient registers', offlineReg.response.status === 200 && offlineReg.response.data.user.role === 'member');
   const ownerId = ownerReg.response.data.user.id;
   const memberId = memberReg.response.data.user.id;
+  const offlineRecipientId = offlineReg.response.data.user.id;
+
+  // ----------------------------------------------------- offline standard DM
+  // These HTTP clients have no EventSource connection: delivery therefore has
+  // to come from the saved inbox, not a live socket.
+  const directId = `c_${AE.b64encode(AE.randomBytes(12)).replace(/[^A-Za-z0-9]/g, '').slice(0, 16)}`;
+  const directRaw = await AE.generateAesRaw();
+  const directWrap = async (peerPublic) => {
+    const shared = await AE.deriveSharedKey(memberReg.vault.identityPrivate, peerPublic, `conv:${directId}`);
+    return JSON.stringify({ by: memberId, pub: memberReg.vault.identityPublic, w: await AE.wrapKey(shared, directRaw) });
+  };
+  const directScope = `conv:${directId}:offline-flow`;
+  const directOperatorShared = await AE.deriveSharedKey(memberReg.vault.identityPrivate, ownerReg.vault.identityPublic, directScope);
+  const directOperatorWrap = JSON.stringify({
+    v: 1, domain: 'conv', scope: directScope, by: memberId, pub: memberReg.vault.identityPublic,
+    w: await AE.wrapKey(directOperatorShared, directRaw),
+  });
+  const directCreate = await member.post('/api/conversations', {
+    id: directId, type: 'dm', memberIds: [offlineRecipientId],
+    keyWraps: { [memberId]: await directWrap(memberReg.vault.identityPublic), [offlineRecipientId]: await directWrap(offlineReg.vault.identityPublic) },
+    operatorWrap: directOperatorWrap,
+  });
+  check('standard DM creates both device envelopes for an offline recipient', directCreate.status === 200 && !directCreate.data.keySetupRequired && !!directCreate.data.conversation.id);
+  const directKey = await AE.importAes(directRaw);
+  const directPayload = await AE.encryptJson(directKey, { text: 'Saved until you reconnect.', attachments: [] });
+  const directSend = await member.post(`/api/conversations/${directId}/messages`, { payload: directPayload, attachments: [] });
+  const offlineInbox = (await offlineRecipient.get('/api/conversations')).data.conversations;
+  const offlineChannel = offlineInbox.find((conversation) => conversation.id === directId);
+  check('offline recipient discovers the queued DM with its unread count', directSend.status === 200 && offlineChannel?.unread === 1 && !!offlineChannel.lastMessage?.payload?.ct);
+  let offlineText = null;
+  if (offlineChannel?.keyWrap) {
+    const wrapped = JSON.parse(offlineChannel.keyWrap);
+    const shared = await AE.deriveSharedKey(offlineReg.vault.identityPrivate, wrapped.pub, `conv:${directId}`);
+    const recipientRaw = await AE.unwrapKey(shared, wrapped.w);
+    if (recipientRaw) {
+      const received = (await offlineRecipient.get(`/api/conversations/${directId}/messages`)).data.messages[0];
+      offlineText = await AE.decryptJson(await AE.importAes(recipientRaw), received.payload);
+    }
+  }
+  check('recipient decrypts the DM after reconnecting, with ciphertext stored at rest', offlineText?.text === 'Saved until you reconnect.');
 
   // ------------------------------------------------------------- directory
   const memberDirectory = (await member.get('/api/directory')).data;
@@ -207,6 +250,37 @@ function sameBytes(a, b) {
   const firstMessage = ownerMessages.find((m) => m.authorId === memberId);
   const decrypted = firstMessage ? await AE.decryptJson(messageKey, firstMessage.payload) : null;
   check('operator decrypts the message with the same key', decrypted && decrypted.text === 'Hello from the operator console.', JSON.stringify(decrypted));
+
+  // A legacy chat upload without its own operator envelope remains previewable
+  // through the encrypted channel envelope, without exposing the file key.
+  const envelopeScope = `conv:${convId}:legacy-upload`;
+  const envelopeShared = await AE.deriveSharedKey(memberReg.vault.identityPrivate, ownerReg.vault.identityPublic, envelopeScope);
+  const channelOperatorWrap = JSON.stringify({
+    v: 1, domain: 'conv', scope: envelopeScope, by: memberId,
+    pub: memberReg.vault.identityPublic, w: await AE.wrapKey(envelopeShared, channelRaw),
+  });
+  const savedEnvelope = await member.post(`/api/conversations/${convId}/operator-wrap`, { operatorWrap: channelOperatorWrap });
+  check('member can seal the existing DM channel for operator preview', savedEnvelope.status === 200 && savedEnvelope.data.stored === true);
+  const legacyBytes = new TextEncoder().encode('encrypted attachment for offline preview');
+  const legacyUpload = await uploadEncrypted(member, 'dm', legacyBytes, (raw) => AE.wrapKey(messageKey, raw), { conversationId: convId }, { type: 'text/plain' });
+  const attachmentPayload = await AE.encryptJson(messageKey, { text: 'A file is attached.', attachments: [{ fileId: legacyUpload.fileId, name: 'notes.txt' }] });
+  const attachmentPost = await member.post(`/api/conversations/${convId}/messages`, {
+    payload: attachmentPayload, attachments: [{ fileId: legacyUpload.fileId, type: 'file', mime: 'text/plain', name: 'notes.txt' }],
+  });
+  check('legacy DM upload links to its stored message', attachmentPost.status === 200 && attachmentPost.data.message.attachments.length === 1);
+  const legacyRow = ((await owner.get(`/api/admin/files?q=${legacyUpload.fileId}`)).data.files || [])[0];
+  check('admin upload listing supplies the linked envelope for legacy attachments', legacyRow && !legacyRow.operatorWrap && legacyRow.fallbackOperatorWrap === channelOperatorWrap && !!legacyRow.keyWrap);
+  let adminFileBytes = null;
+  if (legacyRow && legacyRow.fallbackOperatorWrap && legacyRow.keyWrap) {
+    const envelope = JSON.parse(legacyRow.fallbackOperatorWrap);
+    const ownerShared = await AE.deriveSharedKey(ownerReg.vault.identityPrivate, envelope.pub, envelope.scope);
+    const operatorChannelRaw = await AE.unwrapKey(ownerShared, envelope.w);
+    if (operatorChannelRaw) {
+      const fileKeyRaw = await AE.unwrapKey(await AE.importAes(operatorChannelRaw), legacyRow.keyWrap);
+      if (fileKeyRaw) adminFileBytes = await download(owner, legacyUpload.fileId, legacyUpload.chunks, fileKeyRaw);
+    }
+  }
+  check('operator decrypts the legacy file preview without a raw key on the server', adminFileBytes && sameBytes(adminFileBytes, legacyBytes));
 
   // ------------------------------- masked operator channel (B): admin→user code
   const adminCode = (await owner.post('/api/dm-codes', { userId: memberId })).data;

@@ -214,19 +214,36 @@ route['POST /api/conversations'] = async (ctx) => {
   if (members.some((m) => m.banned)) throw h.fail(403, 'One of those accounts is suspended.', 'forbidden');
   if (type === 'dm') {
     const peer = members[0];
-    // The creator wrapped the channel key for the id it sent, so a brand-new
-    // channel has to use it.  An existing channel between the same two people
-    // wins instead (it already has working wraps for both sides).
-    let conversation = ensureDirectConversation(user, peer, { id: ctx.body.id });
-    if (ctx.body.keyWraps && !Object.keys(conversation.keyWraps || {}).length) {
-      conversation.keyWraps = Object.assign({}, conversation.keyWraps, sanitizeWraps(ctx.body.keyWraps, conversation.memberIds));
+    const existing = Object.values(store.db.conversations).find((candidate) => (
+      candidate.type === 'dm' && candidate.memberIds.length === 2
+      && candidate.memberIds.includes(user.id) && candidate.memberIds.includes(peer.id)
+    ));
+    const conversation = existing || ensureDirectConversation(user, peer, { id: ctx.body.id });
+
+    // These envelopes were sealed against the client-supplied id. Only adopt
+    // them when that id was actually used for a new record. Reusing them on an
+    // older conversation can silently replace the peer's working key and make
+    // the entire history unreadable.
+    if (!existing) {
+      const requestedId = String(ctx.body.id || '');
+      if (requestedId === conversation.id) {
+        conversation.keyWraps = sanitizeWraps(ctx.body.keyWraps, conversation.memberIds);
+        conversation.operatorWrap = sanitizeWrap(ctx.body.operatorWrap);
+      }
+      // If the id was rejected (for example, a collision), the supplied
+      // envelopes are bound to the wrong id. The client will wrap them again
+      // after this record is created and its real id is known.
       store.touch();
+      realtime.send(peer.id, { event: 'conversation.created', conversationId: conversation.id }, 'conversation.created');
     }
-    if (ctx.body.operatorWrap && !conversation.operatorWrap) {
-      conversation.operatorWrap = sanitizeWrap(ctx.body.operatorWrap);
-      store.touch();
-    }
-    return { conversation: conversationView(conversation, user) };
+
+    return {
+      conversation: conversationView(conversation, user),
+      // An old, completely unkeyed record can be initialized safely by the
+      // client using the actual stored id. A partially keyed one must not be
+      // replaced with a newly generated key.
+      keySetupRequired: !Object.keys(conversation.keyWraps || {}).length,
+    };
   }
   const title = sanitizeText(ctx.body.title, 60) || 'Group chat';
   const id = normalizeConversationId(ctx.body.id);

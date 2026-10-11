@@ -84,6 +84,7 @@ const Viewer = (() => {
       // how to get the bytes, when the surface that opened the viewer is the
       // one holding the key (a chat attachment is sealed under the channel key)
       resolve: typeof entry.resolve === 'function' ? entry.resolve : null,
+      hydrated: false,
       note: entry.note || '',
     };
   }
@@ -247,7 +248,7 @@ const Viewer = (() => {
    * the plaintext blob url on the item.  Everything stays in this tab.
    */
   async function hydrate(item) {
-    if (!item || item.url || item.hydrating) return item;
+    if (!item || item.url || item.hydrating || item.hydrated) return item;
     // An item may arrive with its own way of producing bytes: a message
     // attachment is sealed under the channel key, not the master key, so the
     // surface that knows the channel hands over a resolver rather than a file.
@@ -262,16 +263,22 @@ const Viewer = (() => {
           item.mime = ready.mime || item.mime;
           item.size = ready.size || item.size;
           item.kind = FileKind.kindFor(item.mime, item.name);
+          if (item.kind === 'text' && ready.blob && typeof ready.blob.slice === 'function') {
+            const preview = ready.blob.slice(0, 65536);
+            item.textPreview = await preview.text();
+            item.previewTruncated = ready.blob.size > preview.size;
+          }
           item.note = '';
         }
       } catch (error) {
         item.note = `This attachment could not be opened: ${error.message}`;
       }
       item.hydrating = false;
+      item.hydrated = true;
       repaint();
       return item;
     }
-    if (!item.file) return item;
+    if (!item.file) { item.hydrated = true; return item; }
     item.hydrating = true;
     try {
       const file = item.file;
@@ -279,6 +286,7 @@ const Viewer = (() => {
       if (!raw) {
         item.note = 'This device does not hold the key for this file.';
         item.hydrating = false;
+        item.hydrated = true;
         repaint();
         return item;
       }
@@ -298,12 +306,13 @@ const Viewer = (() => {
       item.error = error.message;
     }
     item.hydrating = false;
+    item.hydrated = true;
     repaint();
     return item;
   }
 
   function mediaNode(item) {
-    if (!item.url && (item.file || item.resolve)) {
+    if (!item.url && !item.hydrated && (item.file || item.resolve)) {
       // Ciphertext in hand, plaintext on the way: a plate rather than a blank.
       const stage = el('div', { class: 'viewer-frame loading' });
       stage.append(
@@ -400,6 +409,28 @@ const Viewer = (() => {
         ]),
         audio,
       );
+      return stage;
+    }
+
+    if (item.kind === 'text') {
+      const stage = el('div', { class: 'viewer-frame file text' });
+      if (item.textPreview !== undefined) {
+        stage.append(el('pre', { class: 'viewer-text-preview', text: item.textPreview }));
+        if (item.previewTruncated) {
+          stage.append(el('div', { class: 'tiny faint', text: 'Preview limited to the first 64 KiB. Use Download & decrypt for the full file.' }));
+        }
+      } else {
+        stage.append(wrapNote(item, item.note || 'Text preview is not available.', false));
+      }
+      return stage;
+    }
+
+    if (item.mime.toLowerCase() === 'application/pdf' || /\.pdf$/i.test(item.name)) {
+      const stage = el('div', { class: 'viewer-frame pdf' });
+      stage.append(el('iframe', {
+        class: 'viewer-pdf-preview', src: item.url, title: item.name,
+        sandbox: '', referrerpolicy: 'no-referrer',
+      }));
       return stage;
     }
 
