@@ -97,6 +97,8 @@ routes['GET /api/bootstrap'] = async (ctx) => {
   const global = store.db.global;
   return {
     version: '1.0.0',
+    // What this install is running: the client compares its own stamp with it.
+    build: require('./build').build,
     server: {
       registrationOpen: global.registrationOpen,
       maintenance: global.maintenance,

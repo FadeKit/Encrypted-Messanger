@@ -696,11 +696,26 @@ const Settings = (() => {
     fragment.append(search, results);
   }
 
+  /**
+   * The single question after a patch: is this page the build the server has?
+   * Both lines state a value rather than an opinion, so they can be compared
+   * with `ae-secure doctor` on the phone.
+   */
+  function buildLine() {
+    const running = State.get('boot')?.build || {};
+    const served = document.documentElement.dataset.build || '';
+    const when = running.at ? new Date(running.at).toLocaleString() : 'unknown time';
+    const stamp = `Build ${running.id || 'unknown'} · installed ${when}`;
+    if (!served || !running.id) return stamp;
+    return served === running.id ? `${stamp} · this page is up to date` : `${stamp} · this page is an older copy (${served}) — reload`;
+  }
+
   function paintAbout(fragment) {
     fragment.append(heading('SYS', 'About'));
     fragment.append(el('div', { class: 'card stack-8' }, [
       el('div', { class: 'body-strong', text: `AE Secure ${State.get('boot')?.version || '1.0.0'}` }),
       el('div', { class: 'small muted', text: `Server uptime ${UI.duration(State.get('boot')?.server?.uptime || 0)} · ${State.get('boot')?.server?.counts?.users || 0} members` }),
+      el('div', { class: 'small muted', text: buildLine() }),
       el('div', { class: 'divider' }),
       el('div', { class: 'small muted', text: 'Messages, files, stories and drive data are encrypted in your browser with AES-GCM-256. Keys are derived from your passphrase with PBKDF2-SHA256 and never leave the device. Channel keys are wrapped per member with ECDH P-256. The server stores ciphertext, wrapped keys, account metadata and counters.' }),
       el('div', { class: 'row' }, [

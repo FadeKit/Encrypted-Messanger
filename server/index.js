@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { store } = require('./store');
+const { build } = require('./build');
 const { realtime } = require('./realtime');
 const h = require('./helpers');
 const { now, RateLimiter } = require('./util');
@@ -89,6 +90,8 @@ ROUTES.set('GET /api/health', async () => ({
   time: now(),
   uptime: process.uptime(),
   users: Object.keys(store.db.users).length,
+  // What this install is running.  The page compares its own stamp with this.
+  build,
 }));
 
 function matchRoute(method, pathname) {
@@ -194,6 +197,23 @@ function sendStatic(req, res, pathname) {
     return true;
   }
   const ext = path.extname(filePath).toLowerCase();
+  // The index page carries the build it came from, so a browser that kept an
+  // older copy of the interface can notice and say so.
+  if (ext === '.html') {
+    const html = fs.readFileSync(filePath, 'utf8').replace(
+      '<html lang="en"',
+      `<html lang="en" data-build="${build.id}" data-build-at="${build.at || ''}"`,
+    );
+    const body = Buffer.from(html, 'utf8');
+    res.writeHead(200, Object.assign({}, SECURITY_HEADERS, {
+      'Content-Type': MIME['.html'] || 'text/html; charset=utf-8',
+      'Content-Length': body.length,
+      ETag: `W/"${build.id}-${body.length}"`,
+      'Cache-Control': 'no-cache',
+    }));
+    res.end(body);
+    return true;
+  }
   const headers = Object.assign({}, SECURITY_HEADERS, {
     'Content-Type': MIME[ext] || 'application/octet-stream',
     'Content-Length': stat.size,

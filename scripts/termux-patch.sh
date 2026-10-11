@@ -290,6 +290,11 @@ else
   note "the service command was not found in $AE_HOME"
 fi
 
+# Say which build landed, so it can be compared with Settings -> About.
+if have node; then
+  BUILD="$(cd "$AE_DIR" 2>/dev/null && node -e 'try{const b=require("./server/build");process.stdout.write(b.build.id)}catch{}' 2>/dev/null || true)"
+  [ -n "$BUILD" ] && say "build $BUILD is installed — Settings -> About on the site shows this same value"
+fi
 say ""
 say "Open the https address above — accept the certificate once, then"
 say "account creation, sign-in and encryption all work."

@@ -406,6 +406,68 @@ check('the console registers a flyout a link can open',
   check('the patch flow restarts the phone by default', /AE_REBOOT="\$\{AE_REBOOT:-1\}"/.test(fs.readFileSync(path.join(ROOT, 'scripts', 'termux-patch.sh'), 'utf8')));
 }
 
+// An icon with nothing to draw is a blank square: the start menu's Settings
+// and Sign out buttons, the admin reloads and the reaction buttons all shipped
+// empty at some point.  Every button built by the client carries text or a
+// glyph, and every glyph name exists in the icon set.
+{
+  const files = fs.readdirSync(path.join(PUBLIC, 'js')).filter((file) => file.endsWith('.js'));
+  const empty = [];
+  for (const file of files) {
+    const src = fs.readFileSync(path.join(PUBLIC, 'js', file), 'utf8');
+    const pattern = /el\('button',\s*\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g;
+    for (let match = pattern.exec(src); match; match = pattern.exec(src)) {
+      const props = match[1];
+      if (props.includes('html:')) continue;
+      const text = /text:\s*'([^']*)'/.exec(props);
+      if (!text || text[1].trim()) continue;
+      empty.push(`${file}:${src.slice(0, match.index).split('\n').length}`);
+    }
+  }
+  check('no button is built without a label or a glyph', empty.length === 0, empty.slice(0, 4).join(' '));
+  const iconsSource = fs.readFileSync(path.join(PUBLIC, 'js', 'icons.js'), 'utf8');
+  const used = new Set();
+  for (const file of files) {
+    const src = fs.readFileSync(path.join(PUBLIC, 'js', file), 'utf8');
+    for (const glyph of src.matchAll(/UI\.icon\('([a-z0-9-]+)'/g)) used.add(glyph[1]);
+  }
+  const missing = [...used].filter((name) => !new RegExp(`^\\s{4}'?${name}'?:`, 'm').test(iconsSource));
+  check('every icon the client asks for is drawn', missing.length === 0, missing.join(' '));
+}
+
+// A notice raised during boot must survive the screen that follows it: the
+// sign-in screen used to replace the whole body, taking the notice with it.
+{
+  const appSource = fs.readFileSync(path.join(PUBLIC, 'js', 'app.js'), 'utf8');
+  const uiSource = fs.readFileSync(path.join(PUBLIC, 'js', 'ui.js'), 'utf8');
+  check('the sign-in screen keeps boot notices', /function resetLayers\(\)/.test(appSource)
+    && /if \(node\.id === 'toast-stack'\) continue;/.test(appSource));
+  check('nothing clears the body outright any more', !/document\.body\.innerHTML = ''/.test(appSource));
+  check('a toast can be raised before the shell exists', /let stack = \$\('#toast-stack'\);\n    if \(!stack\) \{/.test(uiSource));
+}
+
+// Two installs on the same build must say the same thing, and a page left open
+// across a patch must be able to tell that it is behind.
+{
+  const { build } = require(path.join(ROOT, 'server', 'build.js'));
+  check('the build identifier is content derived', /sha1/.test(fs.readFileSync(path.join(ROOT, 'server', 'build.js'), 'utf8'))
+    && /^[0-9a-f]{7}$/.test(build.id), `${build.id} over ${build.files} file(s)`);
+  const serverIndex = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
+  check('the served page carries the build', /data-build="\$\{build\.id\}"/.test(serverIndex));
+  check('health reports the build', /ROUTES\.set\('GET \/api\/health'[\s\S]{0,300}build,/.test(serverIndex));
+  check('bootstrap reports the build', /build: require\('\.\/build'\)\.build/.test(fs.readFileSync(path.join(ROOT, 'server', 'routes-auth.js'), 'utf8')));
+  const appSource = fs.readFileSync(path.join(PUBLIC, 'js', 'app.js'), 'utf8');
+  check('the client compares its stamp with the server', /function checkBuild\(bootData\)/.test(appSource) && /checkBuild\(bootData\)/.test(appSource));
+  check('a page that is behind says so', /A newer version is on this server/.test(appSource));
+  check('only themes this build ships are applied', /const pick = \(value, list, fallback\)/.test(appSource)
+    && /body\.dataset\.theme = pick\(settings\.theme, THEMES, 'nox'\)/.test(appSource));
+  const settingNames = fs.readFileSync(path.join(PUBLIC, 'js', 'settings.js'), 'utf8');
+  check('About names the build and whether the page is it', /this page is up to date/.test(settingNames) && /this page is an older copy/.test(settingNames));
+  const installer = fs.readFileSync(path.join(ROOT, 'scripts', 'termux-install.sh'), 'utf8');
+  check('doctor prints the build', /echo "build     : \$\{build_id:-unknown\}/.test(installer));
+  check('the patch reports the build it installed', /build \$BUILD is installed/.test(fs.readFileSync(path.join(ROOT, 'scripts', 'termux-patch.sh'), 'utf8')));
+}
+
 // The console dropdown is the one place that says what the client is doing.
 // Entries recorded before the flyout was first opened still have to be drawn
 // when it opens, or the header counts lines the panel does not show.
@@ -439,6 +501,7 @@ check('the console registers a flyout a link can open',
   check('a tab restores, focuses or minimises its window', /if \(record\.minimized\) Windows\.restore\(id\);[\s\S]{0,120}Windows\.minimize\(id\)/.test(appSource));
   check('tabs sit beside Start, before the closed launchers', /id: 'taskbar-tabs'/.test(appSource) && /#taskbar-tabs \{ gap: 2px; flex: none; \}/.test(css));
   check('a closed plate returns to the rail in order', /insertBefore\(plate, after \|\| null\)/.test(windowsSource));
+  check('the rail only reorders its own direct children', /\[\.\.\.stack\.children\][\s\S]{0,120}\.matches\('\.tb-btn\[data-app\]'\)/.test(windowsSource));
   check('the running plate shows its title on a desktop only', /\.tb-btn \.tb-name \{ display: none; \}/.test(css)
     && /@media \(min-width: 761px\)[\s\S]{0,300}\.tb-name \{ display: inline; \}/.test(css));
   check('there is one airdrop plate, not two', (appSource.match(/tb-airdrop/g) || []).length === 1);

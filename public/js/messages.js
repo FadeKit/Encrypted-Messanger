@@ -200,7 +200,7 @@ const ConversationClient = (() => {
       ]),
       conversation.type === 'group' && conversation.isOwner ? el('button', { class: 'btn sm', text: 'Members', onClick: () => manageGroup(conversation) }) : null,
       el('button', { class: 'btn icon subtle', text: 'ⓘ', title: 'Channel details', onClick: () => channelDetails(conversation) }),
-      el('button', { class: 'btn icon subtle', text: '', title: 'Reload messages', onClick: () => openConversation(conversation.id) }),
+      el('button', { class: 'btn icon subtle', html: UI.icon('refresh'), title: 'Reload messages', onClick: () => openConversation(conversation.id) }),
     ]);
 
     const list = el('div', { class: 'pane-scroll message-list', id: 'message-list' });
@@ -303,7 +303,7 @@ const ConversationClient = (() => {
     content.append(reactionRow);
 
     const actions = el('div', { class: 'message-actions' }, [
-      el('button', { class: 'btn sm subtle', text: '', title: 'Add a reaction', onClick: (event) => reactionPicker(event, message) }),
+      el('button', { class: 'btn sm subtle', html: UI.icon('react'), title: 'Add a reaction', onClick: (event) => reactionPicker(event, message) }),
       el('button', { class: 'btn sm subtle', text: '⋯', title: 'More actions', onClick: (event) => messageMenu(event, conversation, message, author) }),
     ]);
     wrapper.append(content, actions);
@@ -460,7 +460,7 @@ const ConversationClient = (() => {
 
     const fileInput = el('input', { type: 'file', multiple: true, style: { display: 'none' } });
     const attachButton = el('button', { class: 'btn icon', text: '⊕', title: canUpload ? 'Attach an encrypted file' : 'Uploads are disabled in your settings', disabled: !canUpload, onClick: () => fileInput.click() });
-    const emojiButton = el('button', { class: 'btn icon', text: '', title: 'Insert emoji', onClick: () => {
+    const emojiButton = el('button', { class: 'btn icon', html: UI.icon('smile'), title: 'Insert emoji', onClick: () => {
       UI.contextMenu(QUICK_EMOJI.map((emoji) => ({ glyph: emoji, label: `Insert ${emoji}`, onClick: () => { input.value += emoji; input.focus(); } })), { x: window.innerWidth / 2 - 120, y: window.innerHeight - 320 });
     } });
     const sendButton = el('button', { class: 'btn primary', text: 'Send', onClick: () => send() });

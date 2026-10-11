@@ -497,7 +497,7 @@ const AdminClient = (() => {
       el('span', { class: 'pill accent', text: `${data.counts.open || 0} open` }),
       el('span', { class: 'pill', text: `${data.counts.approved || 0} approved` }),
       el('span', { class: 'pill', text: `${data.counts.denied || 0} denied` }),
-      el('button', { class: 'btn sm', text: '', onClick: () => paintSection() }),
+      el('button', { class: 'btn sm', html: UI.icon('refresh'), title: 'Reload this section', onClick: () => paintSection() }),
     ]), scroll);
 
     if (!data.requests.length) scroll.append(UI.empty('05', 'No requests', 'Members can ask for bigger uploads, drive space or the purple status.'));
@@ -588,7 +588,7 @@ const AdminClient = (() => {
       kindSelect,
       el('span', { class: 'pill', text: `${data.totals.count} blobs` }),
       el('span', { class: 'pill accent', text: UI.bytes(data.totals.bytes) }),
-      el('button', { class: 'btn sm', text: '', onClick: () => paintSection() }),
+      el('button', { class: 'btn sm', html: UI.icon('refresh'), title: 'Reload this section', onClick: () => paintSection() }),
     ]));
 
     hostNode.append(el('div', { class: 'row wrap pad-8' }, Object.entries(data.totals.byKind).map(([key, bytes]) => el('span', { class: 'pill tiny', text: `${key}: ${UI.bytes(bytes)}` }))));
@@ -720,7 +720,7 @@ const AdminClient = (() => {
         el('div', { class: 'body-strong', text: 'Karma leaderboard' }),
         el('div', { class: 'tiny faint', text: 'Upvote and downvote totals are visible to administrators only.' }),
       ]),
-      el('button', { class: 'btn sm', text: '', onClick: () => paintKarma() }),
+      el('button', { class: 'btn sm', html: UI.icon('refresh'), title: 'Reload this section', onClick: () => paintKarma() }),
     ]), el('div', { class: 'pane-scroll' }, [table]));
   }
 
@@ -732,7 +732,7 @@ const AdminClient = (() => {
         el('div', { class: 'body-strong', text: 'Administrative audit log' }),
         el('div', { class: 'tiny faint', text: 'Every operator action is recorded with actor, target and timestamp.' }),
       ]),
-      el('button', { class: 'btn sm', text: '', onClick: () => paintAudit() }),
+      el('button', { class: 'btn sm', html: UI.icon('refresh'), title: 'Reload this section', onClick: () => paintAudit() }),
     ]));
     const table = el('table', { class: 'table' }, [
       el('thead', {}, [el('tr', {}, ['When', 'Actor', 'Action', 'Detail'].map((label) => el('th', { text: label })))]),
@@ -817,8 +817,8 @@ const AdminClient = (() => {
         if (graph.running) tick();
       } }),
       el('button', { class: 'btn sm', text: 'Fit', onClick: () => fit() }),
-      el('button', { class: 'btn sm', text: '', title: 'Zoom in', onClick: () => zoomBy(1.25) }),
-      el('button', { class: 'btn sm', text: '–', title: 'Zoom out', onClick: () => zoomBy(0.8) }),
+      el('button', { class: 'btn sm', html: UI.icon('zoom-in'), title: 'Zoom in', onClick: () => zoomBy(1.25) }),
+      el('button', { class: 'btn sm', html: UI.icon('zoom-out'), title: 'Zoom out', onClick: () => zoomBy(0.8) }),
       el('span', { class: 'pill tiny', id: 'neural-status', text: 'connecting…' }),
     ]);
     const legend = el('div', { class: 'neural-legend' }, Object.entries(KIND_STYLE).map(([kind, style]) => el('div', {}, [

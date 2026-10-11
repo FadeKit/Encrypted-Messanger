@@ -150,7 +150,7 @@ const StoriesClient = (() => {
           el('span', { class: 'emoji', text: emoji }), el('span', { text: String(data.count) }),
         ]));
       }
-      reactions.append(el('button', { class: 'btn icon sm subtle', text: '', onClick: () => {
+      reactions.append(el('button', { class: 'btn icon sm subtle', html: UI.icon('react'), title: 'React to this post', onClick: () => {
         const quick = ['👍', '❤', '🔥', '😂', '👏'];
         UI.contextMenu(quick.map((emoji) => ({ glyph: emoji, label: `React ${emoji}`, onClick: () => API.post(`/api/public/posts/${post.id}/reactions`, { emoji }).then(() => refresh().then(paint)) })), { x: window.innerWidth / 2, y: window.innerHeight / 2 });
       } }));

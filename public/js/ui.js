@@ -205,8 +205,14 @@ const UI = (() => {
   // ---------------------------------------------------------------- toasts
   function toast(options) {
     const config = typeof options === 'string' ? { title: options } : options;
-    const stack = $('#toast-stack');
-    if (!stack) return null;
+    // A notice raised before the shell is on screen — the build check runs
+    // during boot, and the sign-in screen has no shell at all — still needs
+    // somewhere to land, so the stack is made on demand rather than dropped.
+    let stack = $('#toast-stack');
+    if (!stack) {
+      stack = el('div', { id: 'toast-stack' });
+      (document.body || document.documentElement).append(stack);
+    }
     const node = el('div', { class: `toast ${config.level || ''}` });
     const toastIcon = { success: 'check', warning: 'generic', danger: 'close', info: 'generic' }[config.level] || 'generic';
     if (config.glyph) node.append(el('div', { class: 'toast-icon', text: config.glyph }));

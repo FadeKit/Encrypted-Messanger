@@ -450,7 +450,10 @@ const Windows = (() => {
       if (registry.has(plate.dataset.app)) continue;
       plate.classList.remove('running', 'focused', 'active', 'minimized');
       plate.title = plate.dataset.appTitle || plate.querySelector('.tb-name')?.textContent || plate.dataset.app;
-      const after = [...stack.querySelectorAll('.tb-btn[data-app]')]
+      // Only direct children of the rail count: a plate that is currently a tab
+      // lives inside #taskbar-tabs, and asking to insert before that would throw.
+      const after = [...stack.children]
+        .filter((node) => node.matches('.tb-btn[data-app]'))
         .find((other) => Number(other.dataset.order) > Number(plate.dataset.order));
       stack.insertBefore(plate, after || null);
     }

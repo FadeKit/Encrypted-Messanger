@@ -888,6 +888,11 @@ case "${1:-status}" in
     scheme="http"
     [ "${AE_TLS:-1}" = "1" ] && [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && scheme="https"
     echo "transport : $scheme (WebCrypto needs https or localhost)"
+    health="$(curl -fsSk --max-time 4 "$scheme://127.0.0.1:${AE_PORT:-3000}/api/health" 2>/dev/null || true)"
+    build_id="$(printf '%s' "$health" | sed -n 's/.*"build":{"id":"\([^"]*\)".*/\1/p')"
+    build_at="$(printf '%s' "$health" | sed -n 's/.*"at":"\([^"]*\)".*/\1/p')"
+    echo "build     : ${build_id:-unknown}${build_at:+ ($build_at)}"
+    echo "            Settings -> About on the site shows the same identifier"
     echo "cert      : ${AE_TLS_DIR:-$AE_HOME/tls}/server.crt $([ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && echo present || echo missing)"
     if [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ]; then
       ip="$(lan_ip)"
@@ -905,7 +910,7 @@ case "${1:-status}" in
     else
       echo "authority : none (self-signed leaf: every device must accept the warning)"
     fi
-    echo "health    : $(curl -fsSk --max-time 4 "$scheme://127.0.0.1:${AE_PORT:-3000}/api/health" 2>/dev/null || echo 'no answer')"
+    echo "health    : ${health:-no answer}"
     ;;
   *) echo "usage: ae-secure {start|stop|restart|guard|status|logs|follow|url|update|backup|restore|autostart|trust|doctor}"; exit 1 ;;
 esac

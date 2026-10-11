@@ -63,13 +63,56 @@ const Shell = (() => {
     srHintObserver.observe(document.body, { childList: true, subtree: true });
   }
 
+  /**
+   * Which build is running, and is the page itself that build?
+   *
+   * The server stamps the index page it serves and reports the same identifier
+   * from /api/bootstrap.  If they differ, this browser is showing an older copy
+   * of the interface than the one the server has — which is exactly how a phone
+   * that was patched but not refreshed ends up looking broken.  Say it plainly
+   * rather than leaving someone to guess.
+   */
+  function checkBuild(bootData) {
+    const served = String(document.documentElement.dataset.build || '');
+    const running = String((bootData && bootData.build && bootData.build.id) || '');
+    const when = (bootData && bootData.build && bootData.build.at) || '';
+    ConsoleLog.log('UI', `build ${running || 'unknown'}${when ? ` · ${new Date(when).toLocaleString()}` : ''}`);
+    if (!served || !running || served === running) return;
+    ConsoleLog.log('UI', `this page is build ${served}, the server has ${running} — reload to update`);
+    UI.toast({
+      level: 'warning',
+      icon: 'refresh',
+      title: 'A newer version is on this server',
+      body: 'Reload the page to pick it up. Until then this tab keeps running the older copy.',
+      duration: 12000,
+      actions: [{ label: 'Reload now', primary: true, onClick: () => window.location.reload() }],
+    });
+  }
+
+  // The names this build ships.  The settings UI, the console command and the
+  // boot-time check all read these, so a value can never exist in one place and
+  // not the others.
+  const THEMES = ['nox', 'acid', 'sector', 'ice', 'chrome'];
+  const ACCENTS = ['ink', 'phosphor', 'lime', 'sodium', 'plasma', 'crimson', 'magenta', 'cyan', 'teal', 'violet'];
+  const WALLPAPERS = ['theme', 'grid', 'signal', 'rain', 'dots', 'void'];
+
   // ------------------------------------------------------------------ theme
   function applyTheme() {
     const settings = S.settings();
     const body = document.body;
-    body.dataset.theme = settings.theme || 'nox';
-    body.dataset.accent = settings.accent || 'phosphor';
-    body.dataset.wall = settings.wallpaper && settings.wallpaper !== 'theme' ? settings.wallpaper : '';
+    // Only names this build actually defines.  An account that has been around
+    // through a few releases can carry a name no longer in the stylesheet, and
+    // an unknown theme leaves the surfaces unstyled; fall back and say so.
+    const pick = (value, list, fallback) => {
+      if (!value) return fallback;
+      if (list.includes(value)) return value;
+      ConsoleLog.log('UI', `theme value "${value}" is not in this build — using ${fallback}`);
+      return fallback;
+    };
+    body.dataset.theme = pick(settings.theme, THEMES, 'nox');
+    body.dataset.accent = pick(settings.accent, ACCENTS, 'ink');
+    const wall = pick(settings.wallpaper, WALLPAPERS, 'theme');
+    body.dataset.wall = wall === 'theme' ? '' : wall;
     body.dataset.contrast = settings.highContrast ? 'high' : 'normal';
     body.dataset.glass = settings.glass >= 95 ? 'solid' : 'acrylic';
     body.dataset.dyslexia = settings.dyslexiaFont ? 'on' : 'off';
@@ -199,11 +242,22 @@ const Shell = (() => {
   }
 
   // ------------------------------------------------------- auth screens
+  /**
+   * Replaces the screen with the bare layers a screen needs.  `innerHTML = ''`
+   * was throwing away notices raised during boot — the build check runs before
+   * this and the sign-in screen wiped it — so the toast layer is kept.
+   */
+  function resetLayers() {
+    for (const node of [...document.body.children]) {
+      if (node.id === 'toast-stack') continue;
+      node.remove();
+    }
+    document.body.append(el('div', { id: 'desktop' }), el('div', { id: 'modal-layer' }));
+    if (!document.getElementById('toast-stack')) document.body.append(el('div', { id: 'toast-stack' }));
+  }
+
   function authScreen() {
-    document.body.innerHTML = '';
-    document.body.append(el('div', { id: 'desktop' }));
-    document.body.append(el('div', { id: 'modal-layer' }));
-    document.body.append(el('div', { id: 'toast-stack' }));
+    resetLayers();
     renderAuth('signin');
   }
 
@@ -598,14 +652,11 @@ const Shell = (() => {
 
   // ------------------------------------------------------------- the shell
   async function startShell() {
-    document.body.innerHTML = '';
-    document.body.append(
-      el('a', { class: 'skip-link', href: '#taskbar', text: 'Skip to navigation' }),
-      el('div', { id: 'desktop' }),
-      el('div', { id: 'snap-preview' }),
-      el('div', { id: 'toast-stack' }),
-      el('div', { id: 'modal-layer' }),
-    );
+    // A notice raised during boot may have made the toast stack already; it
+    // stays where it is rather than being replaced by a second one.
+    resetLayers();
+    document.body.prepend(el('a', { class: 'skip-link', href: '#taskbar', text: 'Skip to navigation' }));
+    document.body.append(el('div', { id: 'snap-preview' }));
     applyTheme();
     activityLoop();
     manualStatus = (() => { try { return localStorage.getItem('ae.status'); } catch { return null; } })();
@@ -861,8 +912,8 @@ const Shell = (() => {
         el('div', { class: 'small body-strong truncate', text: user.displayName || user.username }),
         el('div', { class: 'tiny faint truncate', text: `@${user.username}${user.role !== 'member' ? ` · ${user.role}` : ''}` }),
       ]),
-      el('button', { class: 'btn icon subtle', title: 'Settings', text: '', onClick: () => { closeStart(); Apps.open('settings'); } }),
-      el('button', { class: 'btn icon subtle', title: 'Sign out', text: '', onClick: async () => {
+      el('button', { class: 'btn icon subtle', title: 'Settings', html: UI.icon('settings'), onClick: () => { closeStart(); Apps.open('settings'); } }),
+      el('button', { class: 'btn icon subtle', title: 'Sign out', html: UI.icon('logout'), onClick: async () => {
         try { await API.post('/api/auth/logout', {}); } catch { /* ignore */ }
         API.disconnect();
         S.clearSession();
@@ -1041,7 +1092,9 @@ const Shell = (() => {
   }
 
   function insecureScreen(problem) {
-    document.body.innerHTML = '';
+    // The one screen that legitimately replaces everything: the browser cannot
+    // do the work at all, so there is nothing to keep on the page.
+    for (const node of [...document.body.children]) node.remove();
     const address = window.location.host;
     const host = window.location.hostname;
     const securePort = (location.port && location.port !== '8080') ? location.port : '3000';
@@ -1078,6 +1131,7 @@ const Shell = (() => {
     try {
       const bootData = await API.get('/api/bootstrap');
       S.set('boot', bootData);
+      checkBuild(bootData);
       S.set('presence', bootData.presence || {});
       S.set('clicker', bootData.clicks);
       if (bootData.server.maintenance && (!bootData.user || (bootData.user.role !== 'owner' && bootData.user.role !== 'admin'))) {
@@ -1102,16 +1156,14 @@ const Shell = (() => {
       unlockedPrompt();
     } catch (error) {
       console.error(error);
-      document.body.innerHTML = '';
-      document.body.append(el('div', { id: 'desktop' }), el('div', { id: 'modal-layer' }), el('div', { id: 'toast-stack' }));
+      resetLayers();
       renderAuth('signin');
       UI.toast({ level: 'danger', title: 'Server unreachable', body: error.message });
     }
   }
 
   function unlockedPrompt() {
-    document.body.innerHTML = '';
-    document.body.append(el('div', { id: 'desktop' }), el('div', { id: 'modal-layer' }), el('div', { id: 'toast-stack' }));
+    resetLayers();
     const password = el('input', { class: 'input', type: 'password', placeholder: 'Passphrase' });
     const status = el('div', { class: 'small', style: { color: 'var(--danger)', minHeight: '16px' } });
     const card = el('div', { class: 'lock-card' }, [

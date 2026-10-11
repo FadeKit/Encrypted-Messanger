@@ -139,7 +139,14 @@ curl -fsSL https://codeload.github.com/FadeKit/Encrypted-Messanger/tar.gz/refs/h
 
 It finds the install through `~/.ae-secure/config.env`, or through the
 supervisor that is running, or through its pid file, and it prints the address
-to open when it is done. If the patch fails it puts the version that was
+to open when it is done, along with the **build** it just installed.
+
+Every install reports the build it is running: `ae-secure doctor` prints it,
+`GET /api/health` returns it, and **Settings → About** shows the same identifier
+with a note saying whether the page you are looking at is that build. If a tab
+was left open across a patch it says *this page is an older copy — reload*, and
+offers a reload button, so an interface that looks wrong after an update can be
+told apart from an interface that is actually broken. If the patch fails it puts the version that was
 already on the phone back up, so a failed patch never leaves the phone dark.
 The last step restarts the phone, so it comes back up clean and the boot hook
 starts the host again; press any key during the ten-second countdown to skip

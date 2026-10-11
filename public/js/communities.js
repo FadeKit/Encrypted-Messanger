@@ -243,7 +243,7 @@ const CommunityClient = (() => {
         el('div', { class: 'body-strong', text: titleText }),
         el('div', { class: 'tiny faint', text: `${forum.name} · ${data.posts.length} replies` }),
       ]),
-      el('button', { class: 'btn sm', text: '', title: 'Reload', onClick: () => renderThread(forum) }),
+      el('button', { class: 'btn sm', html: UI.icon('refresh'), title: 'Reload this thread', onClick: () => renderThread(forum) }),
     ]);
 
     const scroll = el('div', { class: 'pane-scroll stack-12' });
@@ -326,7 +326,7 @@ const CommunityClient = (() => {
         onClick: () => API.post(`/api/messages/${post.id}/reactions`, { emoji }).then(() => refreshThread(forum, thread)),
       }, [el('span', { class: 'emoji', text: emoji }), el('span', { text: String(data.count) })]));
     }
-    reactions.append(el('button', { class: 'btn icon sm subtle', text: '', title: 'React', onClick: (event) => reactionPicker(event, post) }));
+    reactions.append(el('button', { class: 'btn icon sm subtle', html: UI.icon('react'), title: 'Add a reaction', onClick: (event) => reactionPicker(event, post) }));
     wrapper.append(reactions);
     return wrapper;
   }
@@ -383,7 +383,7 @@ const CommunityClient = (() => {
     const pendingHost = el('div', { class: 'composer-attachments' });
     const fileInput = el('input', { type: 'file', multiple: true, style: { display: 'none' } });
     const attach = el('button', {
-      class: 'btn icon', text: '', disabled: !canUpload,
+      class: 'btn icon', html: UI.icon('upload'), title: canUpload ? 'Attach a file' : 'Attaching is switched off in privacy settings', disabled: !canUpload,
       title: canUpload ? 'Attach media (encrypted)' : 'Enable “Media in communities” in Settings first',
       onClick: () => fileInput.click(),
     });
