@@ -238,12 +238,30 @@ const Shell = (() => {
     }
   }
 
-  /** Credit line: the handle opens a private channel once the vault is open. */
+  /**
+   * Credit line under the card. The handle opens the developer's Discord when
+   * the operator set AE_DISCORD_URL, and an encrypted DM to the handle when
+   * they did not.
+   */
+  function developerLink(extra = {}) {
+    const url = String((S.get('boot') || {}).developer?.discordUrl || '').trim();
+    if (url) {
+      return el('a', Object.assign({
+        class: 'who', href: url, target: '_blank', rel: 'noopener noreferrer',
+        text: DEVELOPER.handle, title: `${DEVELOPER.handle} on Discord`,
+      }, extra));
+    }
+    return el('button', Object.assign({
+      class: 'who', type: 'button', text: DEVELOPER.handle,
+      title: `Send ${DEVELOPER.handle} a message`,
+      onClick: () => ConversationClient.messageDeveloper(),
+    }, extra));
+  }
+
   function creditRow() {
-    const who = el('button', { class: 'who', type: 'button', text: DEVELOPER.handle, onClick: () => ConversationClient.messageDeveloper() });
     return el('div', { class: 'credit-line' }, [
-      el('span', { text: `Web developer —` }),
-      who,
+      el('span', { text: 'Web developer —' }),
+      developerLink(),
     ]);
   }
 
@@ -255,7 +273,7 @@ const Shell = (() => {
           el('div', { class: 'title-2', text: 'AE Secure' }),
         ]),
       ]),
-      el('div', { class: 'title-1', text: 'Private by design.' }),
+      el('div', { class: 'title-1', text: 'Private by Design' }),
       el('div', { class: 'stack-8' }, [
         tick('Messages and files are sealed with AES-GCM-256 on this device.'),
         tick('Keys are wrapped by your passphrase; the server never sees them.'),
@@ -382,7 +400,15 @@ const Shell = (() => {
             title: 'Account created',
             body: 'Your vault is unlocked on this device.',
             duration: 12000,
-            actions: [{ label: `Say hello to ${DEVELOPER.handle}`, primary: true, onClick: () => ConversationClient.messageDeveloper() }],
+            actions: [{
+              label: `Say hello to ${DEVELOPER.handle}`,
+              primary: true,
+              onClick: () => {
+                const url = String((S.get('boot') || {}).developer?.discordUrl || '').trim();
+                if (url) window.open(url, '_blank', 'noopener');
+                else ConversationClient.messageDeveloper();
+              },
+            }],
           });
         });
       } catch (error) {
@@ -581,7 +607,10 @@ const Shell = (() => {
       AirdropClient.refresh().catch(() => {}),
     ]);
     if (!S.user.terms || !S.user.terms.accepted) Terms.gate();
-    if (S.boot?.server?.notice) UI.toast({ level: 'info', title: 'Operator notice', body: S.boot.server.notice, duration: 9000 });
+    // The boot payload lives in the state store (State.get('boot')); reading it
+    // off the Shell root silently dropped the operator's notice.
+    const notice = (S.get('boot') || {}).server?.notice;
+    if (notice) UI.toast({ level: 'info', title: 'Operator notice', body: notice, duration: 9000 });
     // Deep links from the installed app shortcuts: /?app=drive, /?app=settings…
     const requested = new URLSearchParams(location.search).get('app');
     if (requested && Apps.visible(S.user).some((app) => app.id === requested)) {

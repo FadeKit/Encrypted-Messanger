@@ -328,6 +328,22 @@ check('picker leads with the monochrome signal', listedAccents[0] === 'ink', lis
 const appSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'app.js'), 'utf8');
 check('sign-in guards the session it stores', /result\.session \? \{ id: result\.session\.id, device: result\.session\.device \} : null/.test(appSrc));
 check('no bare result.session dereference on the sign-in path', !/S\.set\('session', \{ id: result\.session\.id/.test(appSrc));
+// boot data lives in the state store (State.get('boot')); S.boot is undefined,
+// so reading it there silently drops whatever was being looked for
+check('boot data is read through the state store', !/S\.boot\b/.test(appSrc), (appSrc.match(/S\.boot\b[^\n]*/g) || []).join(' | ').slice(0, 120));
+
+// An installer drill once ran with the repository as its home and a watchdog,
+// pid file and self-signed key landed in the checkout.  The layout the
+// installer writes belongs next to the install, never in git.
+{
+  const ignoreText = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8');
+  for (const rel of ['bin/', 'run/', 'tls/', 'logs/', 'config.env']) {
+    check(`.gitignore excludes the installer's ${rel}`, ignoreText.includes(`/${rel}`), ignoreText.split('\n').slice(-8).join(' | '));
+  }
+  const leaked = ['bin/watchdog', 'bin/ae-secure', 'run/supervisor.pid', 'tls/server.key', 'tls/server.crt', 'config.env']
+    .filter((rel) => fs.existsSync(path.join(ROOT, rel)));
+  check('no installer output is present in the checkout', leaked.length === 0, leaked.join(', '));
+}
 const sessionPayloads = (serverSrc.match(/session: \{ id: session\.id, device: session\.device \}/g) || []).length;
 check('every sign-in payload carries its session', sessionPayloads >= 3, `${sessionPayloads} of 3 (register, login, recovery)`);
 
@@ -627,6 +643,8 @@ if (shim.State && shim.Apps) {
     check('installer prints the lan address', /on your network/.test(script));
     check('installer can back up the data directory', /backup written/.test(script));
     check('installer can point at another git remote', /AE_GIT_URL/.test(script));
+    check('installer can generate its own https certificate', /install_tls/.test(script) && /AE_TLS_DIR/.test(script));
+    check('installer can carry a discord invite for the credit line', /AE_DISCORD_URL/.test(script));
     check('the service command carries its own install path', /@AE_HOME_DEFAULT@/.test(script) && /sed -i "s\|@AE_HOME_DEFAULT@\|\$AE_HOME\|"/.test(script));
     check('installer fails loudly if the path is not baked in', /could not bake the install path/.test(script));
     const cliTemplate = (script.match(/<<'CLI'([\s\S]*?)\nCLI\n/) || [])[1] || '';

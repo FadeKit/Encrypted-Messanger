@@ -125,11 +125,13 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
    lines overlap and clips descenders. Weight and tracking do the work here. */
 .title-1 {
   font-family: var(--font-display);
-  font-size: clamp(28px, 4.6vw, var(--text-48));
+  font-size: clamp(26px, 4.3vw, var(--text-48));
   font-weight: var(--weight-black);
   text-transform: uppercase;
   letter-spacing: -0.03em;
-  line-height: 1.08;
+  /* Display type sets its own leading: 1.4 keeps the tallest glyph boxes of two
+     wrapped lines from touching, which is what read as "overlapping text". */
+  line-height: 1.4;
   text-wrap: balance;
   overflow-wrap: break-word;
 }
@@ -139,7 +141,7 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   font-weight: var(--weight-black);
   text-transform: uppercase;
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  line-height: 1.4;
 }
 .title-3 {
   font-family: var(--font-display);

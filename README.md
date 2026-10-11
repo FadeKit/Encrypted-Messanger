@@ -115,9 +115,34 @@ Plus a wake lock while it runs, so Doze does not freeze the server, and log
 rotation at 2 MB.
 
 Every knob is an environment variable: `AE_OWNER`, `AE_REPO`, `AE_BRANCH`,
-`AE_DIR`, `AE_DATA`, `AE_HOME`, `AE_PORT`, `AE_HOST`, `AE_GIT_URL` (another
-remote), `AE_SOURCE_FILE` (a local `.tar.gz`/`.zip`), `AE_SOURCE_DIR` (a local
-checkout), `AE_NO_BOOT=1`, `AE_NO_JOB=1`.
+`AE_DIR`, `AE_DATA`, `AE_HOME`, `AE_PORT`, `AE_HOST`, `AE_TLS`, `AE_HTTP_PORT`,
+`AE_DISCORD_URL`, `AE_GIT_URL` (another remote), `AE_SOURCE_FILE` (a local
+`.tar.gz`/`.zip`), `AE_SOURCE_DIR` (a local checkout), `AE_NO_BOOT=1`,
+`AE_NO_JOB=1`.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `AE_TLS` | `1` | Serve **https** with a self-signed certificate generated for this phone's address. Browsers only expose WebCrypto (`crypto.subtle`) on a secure origin, so account creation and decryption need this. `AE_TLS=0` serves plain http. |
+| `AE_HTTP_PORT` | `8080` | When https is on, this second listener only redirects `http://…` to the `https://` address. |
+| `AE_DISCORD_URL` | empty | Your Discord invite. The credit line under the sign-in card then opens it in a new tab; without it the same link starts an encrypted DM with the credited developer instead. |
+
+### Patch a phone that is already running AE Secure
+
+`scripts/termux-patch.sh` stops the host that is running now, installs the
+current source over it, keeps the encrypted data directory exactly where it is,
+and starts it again — one line, no arguments:
+
+```bash
+curl -fsSL https://codeload.github.com/FadeKit/Encrypted-Messanger/tar.gz/refs/heads/arena/442b6c1e-encrypted-messanger \
+  | tar -xz -C "$TMPDIR" && bash "$TMPDIR"/Encrypted-Messanger-*/scripts/termux-patch.sh
+```
+
+It finds the install through `~/.ae-secure/config.env`, or through the
+supervisor that is running, or through its pid file, and it prints the address
+to open when it is done. If the patch fails it puts the version that was
+already on the phone back up, so a failed patch never leaves the phone dark.
+Options: `AE_BRANCH`, `AE_PORT`, `AE_DATA`, `AE_HOME`, `AE_TLS=0`,
+`AE_DISCORD_URL`, `AE_SOURCE_DIR`, `AE_SOURCE_FILE`.
 
 ### Private fork?
 

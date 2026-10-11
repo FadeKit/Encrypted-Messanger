@@ -368,7 +368,7 @@ body[data-taskbar="left"] #taskbar-tray { margin-left: 0; }
   font-weight: var(--weight-black);
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
-  line-height: 1.15;
+  line-height: 1.4;
   color: var(--ink);
 }
 
@@ -750,6 +750,7 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
 .credit-line .who {
   padding: 0;
   border: 0;
+  text-decoration: none;
   border-bottom: 1px solid var(--line-strong);
   background: transparent;
   color: var(--ink);

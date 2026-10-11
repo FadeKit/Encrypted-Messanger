@@ -5,3 +5,12 @@ data/
 .DS_Store
 tmp/
 coverage/
+
+# The Termux installer writes this layout next to its own install (~/.ae-secure,
+# ~/ae-secure, ~/ae-secure-data).  Never leak a generated watchdog, pid file or
+# self-signed certificate into the repository.
+/bin/
+/run/
+/tls/
+/logs/
+/config.env

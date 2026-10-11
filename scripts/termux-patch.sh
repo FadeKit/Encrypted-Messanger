@@ -245,7 +245,20 @@ fi
 
 # Keep every setting this phone already had, replace only the code.
 say "installing over $AE_DIR (data stays in $AE_DATA)"
+# Feed the installer the source this run already has: the archive just
+# downloaded, or the local copy the caller pointed at.  Never make the phone
+# fetch the same bytes twice, and never quietly install something else than the
+# caller asked for.
+PATCH_SOURCE_FILE=""
+PATCH_SOURCE_DIR=""
+if [ "$SOURCE_MODE" = "local" ]; then
+  [ -n "${AE_SOURCE_DIR:-}" ] && PATCH_SOURCE_DIR="$AE_SOURCE_DIR"
+  [ -n "${AE_SOURCE_FILE:-}" ] && PATCH_SOURCE_FILE="$AE_SOURCE_FILE"
+elif [ -f "${TMP_ROOT:-}/ae-secure.tar.gz" ]; then
+  PATCH_SOURCE_FILE="$TMP_ROOT/ae-secure.tar.gz"
+fi
 AE_DIR="$AE_DIR" AE_DATA="$AE_DATA" AE_HOME="$AE_HOME" AE_PORT="$AE_PORT" \
+  AE_SOURCE_FILE="$PATCH_SOURCE_FILE" AE_SOURCE_DIR="$PATCH_SOURCE_DIR" \
   bash "$INSTALLER" install
 RESULT=$?
 

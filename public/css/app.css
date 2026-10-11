@@ -297,7 +297,7 @@
   font-family: var(--font-display);
   font-size: var(--text-28);
   font-weight: var(--weight-black);
-  line-height: 1.15;
+  line-height: 1.4;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
@@ -1180,4 +1180,21 @@ body[data-density="compact"] .admin-main { padding: 12px 14px 30px; }
   .setting-row .control { justify-content: flex-start; }
   .drive-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); padding: 12px; }
   .clicker-total { font-size: clamp(40px, 16vw, 64px); }
+}
+
+/* -------------------------------------------------------------- phones ---- */
+/* Loaded last on purpose: these have to win over the rules above, which own
+   the same class names.  Everything here keeps content inside the screen. */
+@media (max-width: 560px) {
+  /* Three mono-capital tabs have to fit a 360px card: trim the padding rather
+     than let the strip run off the card edge. */
+  .auth-tabs button { padding: 9px 9px; }
+  /* "COMMUNITIES" is the longest surface name and used to bleed 2px out of its
+     tile on a 360px screen. */
+  .desk-icon .label { font-size: 10px; letter-spacing: 0; }
+  .tray-clock .time { letter-spacing: 0; }
+  /* Pill clusters and long mono labels move to the next line instead of
+     running past the card they live in. */
+  .row, .list-item { flex-wrap: wrap; }
+  .name { flex-wrap: wrap; }
 }

@@ -108,6 +108,13 @@ routes['GET /api/bootstrap'] = async (ctx) => {
       },
     },
     defaults: DEFAULT_LIMITS,
+    // The developer credit under the sign-in card.  AE_DISCORD_URL is set by the
+    // installer; without it the client offers an encrypted DM instead.
+    developer: {
+      handle: 'Fade_Kit',
+      role: 'Web developer',
+      discordUrl: String(process.env.AE_DISCORD_URL || '').trim(),
+    },
     clicks: clickerSnapshot(ctx.user),
     user: ctx.user ? selfView(ctx.user) : null,
     session: ctx.session ? { id: ctx.session.id, device: ctx.session.device, platform: ctx.session.platform, createdAt: ctx.session.createdAt } : null,
