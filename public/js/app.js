@@ -2,6 +2,8 @@
    AE Secure — shell: authentication, unlock, desktop, taskbar, presence
    ========================================================================== */
 
+const DEVELOPER = { handle: 'Fade_Kit', role: 'Web developer' };
+
 const Shell = (() => {
   const { el, $, clear } = UI;
   const S = State;
@@ -226,6 +228,7 @@ const Shell = (() => {
     else if (mode === 'register') panel.append(registerForm(swap));
     else panel.append(recoverForm(swap));
     panel.append(el('div', { class: 'legal-foot', html: 'By continuing you agree to the <a href="#" data-terms>usage terms and non-liability notice</a>. The operator of this server cannot read your messages or files.' }));
+    panel.append(creditRow());
     screen.querySelector('[data-terms]').addEventListener('click', (event) => { event.preventDefault(); Terms.show(); });
 
     function swap(next) {
@@ -233,6 +236,15 @@ const Shell = (() => {
       if (current) current.remove();
       renderAuth(next);
     }
+  }
+
+  /** Credit line: the handle opens a private channel once the vault is open. */
+  function creditRow() {
+    const who = el('button', { class: 'who', type: 'button', text: DEVELOPER.handle, onClick: () => ConversationClient.messageDeveloper() });
+    return el('div', { class: 'credit-line' }, [
+      el('span', { text: `Web developer —` }),
+      who,
+    ]);
   }
 
   function authHero() {
@@ -243,7 +255,7 @@ const Shell = (() => {
           el('div', { class: 'title-2', text: 'AE Secure' }),
         ]),
       ]),
-      el('div', { class: 'title-1', html: 'Private by<br>construction.' }),
+      el('div', { class: 'title-1', text: 'Private by design.' }),
       el('div', { class: 'stack-8' }, [
         tick('Messages and files are sealed with AES-GCM-256 on this device.'),
         tick('Keys are wrapped by your passphrase; the server never sees them.'),
@@ -363,7 +375,16 @@ const Shell = (() => {
         S.set('user', result.user);
         await S.unlock(vaultPlain, { password: password.value, kdf: result.user.kdf });
         $('.auth-screen')?.remove();
-        showRecoveryCodes(recoveryCodes, () => startShell());
+        showRecoveryCodes(recoveryCodes, () => {
+          startShell();
+          UI.toast({
+            level: 'success',
+            title: 'Account created',
+            body: 'Your vault is unlocked on this device.',
+            duration: 12000,
+            actions: [{ label: `Say hello to ${DEVELOPER.handle}`, primary: true, onClick: () => ConversationClient.messageDeveloper() }],
+          });
+        });
       } catch (error) {
         status.textContent = error.message || 'Registration failed.';
         submit.disabled = false;
@@ -892,9 +913,58 @@ const Shell = (() => {
   }
 
   // ------------------------------------------------------------------ boot
+  // ------------------------------------------------------------ capability
+  /**
+   * Every message, file and account key is sealed with WebCrypto. Browsers only
+   * expose it in a secure context, which means https:// or localhost — never a
+   * bare http:// on a LAN address. Catching that here turns a cryptic
+   * "subtle is undefined" into instructions the person can act on.
+   */
+  function cryptoProblem() {
+    if (typeof crypto === 'undefined') return 'This browser has no Web Crypto API.';
+    if (!crypto.subtle) {
+      return window.isSecureContext === false
+        ? 'This page is not a secure context, so the browser is hiding the crypto API.'
+        : 'This browser did not expose window.crypto.subtle.';
+    }
+    if (typeof crypto.subtle.importKey !== 'function') return 'This browser provides an incomplete Web Crypto implementation.';
+    return null;
+  }
+
+  function insecureScreen(problem) {
+    document.body.innerHTML = '';
+    const address = window.location.host;
+    const host = window.location.hostname;
+    const securePort = (location.port && location.port !== '8080') ? location.port : '3000';
+    const row = (label, value) => el('div', { class: 'row', style: { gap: '10px', alignItems: 'baseline' } }, [
+      el('span', { class: 'hud', style: { minWidth: '86px' }, text: label }),
+      el('span', { class: 'small mono', text: value }),
+    ]);
+    const card = el('div', { class: 'stack-12 pad-16', style: { maxWidth: '560px', border: '1px solid var(--line-strong)', background: 'var(--surface-solid)' } }, [
+      el('div', { class: 'row' }, [el('span', { class: 'mark', text: 'AE' }), el('span', { class: 'title-2', text: 'Encryption unavailable' })]),
+      el('div', { class: 'small muted', text: `${problem} Without it nothing can be encrypted on this device, so account creation, sign-in, messages and uploads are all blocked.` }),
+      el('div', { class: 'divider' }),
+      el('div', { class: 'hud', text: 'Open the secure address' }),
+      row('this page', `${location.protocol}//${address}`),
+      row('use instead', `https://${host}:${securePort}`),
+      el('button', { class: 'btn primary', text: `Go to https://${host}:${securePort}`, onClick: () => { window.location.href = `https://${host}:${securePort}`; } }),
+      el('div', { class: 'small muted', text: 'If the certificate warns you, accept it once — it is self-signed and issued by the phone this app runs on. Afterwards this address is a secure context and everything works.' }),
+      el('div', { class: 'divider' }),
+      el('div', { class: 'hud', text: 'Or use the phone itself' }),
+      row('localhost', 'https://localhost:' + securePort + ' — or http://localhost:' + securePort + ' on the phone that hosts it'),
+      el('div', { class: 'small muted', text: 'Still plain http? The host was started without a certificate. Run scripts/termux-install.sh on it (or scripts/termux-patch.sh) to create one, or start it with AE_TLS_CERT and AE_TLS_KEY set.' }),
+      el('div', { class: 'small faint', text: 'Strictly speaking the browser blocks WebCrypto on insecure origins; this is a browser rule, not a setting in the app.' }),
+    ]);
+    const wrap = el('div', { class: 'auth-screen' }, [card]);
+    document.body.append(wrap);
+    document.title = 'AE Secure — encryption unavailable';
+  }
+
   async function boot() {
     API.loadToken();
     Terms.inject();
+    const problem = cryptoProblem();
+    if (problem) { insecureScreen(problem); return; }
     try {
       const bootData = await API.get('/api/bootstrap');
       S.set('boot', bootData);
@@ -960,6 +1030,7 @@ const Shell = (() => {
 
   return {
     boot, applyTheme, renderAuth, startShell, notify, blip, randomHandle, scorePassword, openMaskedChannel,
+    creditRow,
     showRecoveryCodes, setManualStatus, markActivity, resetLockTimer, updateStatusPill, buildStartMenu,
     get manualStatus() { return manualStatus; },
   };

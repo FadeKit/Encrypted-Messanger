@@ -17,6 +17,8 @@
 #      AE_OWNER  AE_REPO  AE_BRANCH  AE_DIR  AE_DATA  AE_PORT  AE_HOST
 #      AE_GIT_URL (another remote)  AE_SOURCE_FILE (a local .tar.gz or .zip)
 #      AE_SOURCE_DIR (a local checkout)  AE_NO_JOB=1 (skip the periodic guard)
+#      AE_TLS=0 (serve plain http)  AE_HTTP_PORT (plain-port redirect, default 8080)
+#      AE_DISCORD_URL (the developer link shown on the sign-in screen)
 #
 #  Commands: install (default) | update | start | stop | restart | status |
 #            logs | url | backup | restore <file> | uninstall | doctor
@@ -42,6 +44,10 @@ AE_PID="$AE_HOME/run/server.pid"
 AE_SUP_PID="$AE_HOME/run/supervisor.pid"
 AE_CONF="$AE_HOME/config.env"
 AE_HEALTH_PATH="/api/health"
+AE_TLS="${AE_TLS:-1}"
+AE_HTTP_PORT="${AE_HTTP_PORT:-8080}"
+AE_TLS_DIR="${AE_TLS_DIR:-$AE_HOME/tls}"
+AE_DISCORD_URL="${AE_DISCORD_URL:-}"
 AE_HEALTH_TIMEOUT="${AE_HEALTH_TIMEOUT:-4}"
 AE_HEALTH_FAILS="${AE_HEALTH_FAILS:-3}"          # missed checks before a hang is treated as a crash
 AE_BACKOFF="${AE_BACKOFF:-2}"                    # seconds, doubled up to 30 on repeat failures
@@ -72,6 +78,12 @@ AE_DATA="$AE_DATA"
 AE_PORT="$AE_PORT"
 AE_HOST="$AE_HOST"
 AE_HOME="$AE_HOME"
+AE_HTTP_PORT="$AE_HTTP_PORT"
+AE_TLS_CERT="${AE_TLS_CERT:-}"
+AE_TLS_KEY="${AE_TLS_KEY:-}"
+AE_TLS="$AE_TLS"
+AE_TLS_DIR="$AE_TLS_DIR"
+AE_DISCORD_URL="$AE_DISCORD_URL"
 AE_HEALTH_PATH="$AE_HEALTH_PATH"
 AE_HEALTH_TIMEOUT="$AE_HEALTH_TIMEOUT"
 AE_HEALTH_FAILS="$AE_HEALTH_FAILS"
@@ -117,6 +129,81 @@ check_node() {
   major="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
   [ "$major" -ge 18 ] 2>/dev/null || die "node 18 or newer is required (found $(node -v 2>/dev/null || echo none))"
   say "node $(node -v) — ok"
+}
+
+# ------------------------------------------------------------------- tls -----
+# WebCrypto only exists in a secure context, so a phone on the LAN must be
+# served over https. A self-signed certificate is enough: the browser warns
+# once, then the origin counts as secure and every crypto call works.
+install_tls() {
+  step "Transport"
+  if [ "$AE_TLS" != "1" ]; then
+    note "plain http requested (AE_TLS=0) — phones will not be able to create accounts"
+    return 0
+  fi
+  if ! have openssl; then
+    if on_termux; then
+      say "installing openssl"
+      pkg install -y openssl-tool >/dev/null 2>&1 || pkg install -y openssl >/dev/null 2>&1 || true
+    fi
+  fi
+  if ! have openssl; then
+    note "openssl is missing, so no certificate could be generated."
+    note "Run: pkg install openssl-tool   and then re-run this installer."
+    return 0
+  fi
+
+  local ip; ip="$(lan_ip)"
+  local cert="$AE_TLS_DIR/server.crt" key="$AE_TLS_DIR/server.key"
+  mkdir -p "$AE_TLS_DIR"
+
+  local needs=0
+  [ -f "$cert" ] && [ -f "$key" ] || needs=1
+  if [ -f "$cert" ] && [ -n "$(openssl x509 -in "$cert" -noout -checkend 86400 2>/dev/null || true)" ]; then
+    :
+  elif [ -f "$cert" ]; then
+    needs=1
+  fi
+  if [ -f "$cert" ] && [ "$needs" = "0" ] && have openssl; then
+    # keep the certificate if it already covers this address
+    if ! openssl x509 -in "$cert" -noout -text 2>/dev/null | grep -q "IP Address:$ip"; then needs=1; fi
+  fi
+
+  if [ "$needs" = "0" ]; then
+    say "certificate already covers this address"
+  else
+    local cnf="$AE_TLS_DIR/openssl.cnf"
+    cat > "$cnf" <<CNF
+[req]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+x509_extensions = v3_req
+[dn]
+CN = AE Secure
+O = AE Secure
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+subjectAltName = @alt
+[alt]
+DNS.1 = localhost
+DNS.2 = ae-secure.local
+IP.1 = 127.0.0.1
+IP.2 = $ip
+CNF
+    openssl req -x509 -nodes -newkey rsa:2048 -days 825 \
+      -keyout "$key" -out "$cert" -config "$cnf" >/dev/null 2>&1 \
+      || { note "could not generate a certificate — serving plain http"; return 0; }
+    chmod 600 "$key"
+    say "certificate generated for $ip (valid 825 days, self-signed)"
+  fi
+
+  AE_TLS_CERT="$cert"
+  AE_TLS_KEY="$key"
+  say "https enabled — the browser will ask you to accept the certificate once"
 }
 
 # --------------------------------------------------------------- source ------
@@ -290,10 +377,15 @@ lan_ip() {
   printf 'your-phone-ip'
 }
 
+health_scheme() {
+  if [ "$AE_TLS" = "1" ] && [ -f "$AE_TLS_DIR/server.crt" ]; then printf 'https'; else printf 'http'; fi
+}
+
 health_check() {
-  local url="http://127.0.0.1:$AE_PORT$AE_HEALTH_PATH"
+  local url="$(health_scheme)://127.0.0.1:$AE_PORT$AE_HEALTH_PATH"
   if have curl; then
-    curl -fsS --max-time "$AE_HEALTH_TIMEOUT" "$url" >/dev/null 2>&1 && return 0 || return 1
+    # -k: the certificate is self-signed and expected to be unknown to curl
+    curl -fsSk --max-time "$AE_HEALTH_TIMEOUT" "$url" >/dev/null 2>&1 && return 0 || return 1
   fi
   have node || return 1
   node -e '
@@ -334,6 +426,11 @@ AE_LOG="$AE_LOG"
 AE_PID="$AE_PID"
 AE_SUP_PID="$AE_SUP_PID"
 AE_HEALTH_PATH="$AE_HEALTH_PATH"
+AE_TLS_CERT="${AE_TLS_CERT:-}"
+AE_TLS_KEY="${AE_TLS_KEY:-}"
+AE_HTTP_PORT="$AE_HTTP_PORT"
+AE_DISCORD_URL="$AE_DISCORD_URL"
+AE_SCHEME="http"
 AE_HEALTH_TIMEOUT="$AE_HEALTH_TIMEOUT"
 AE_HEALTH_FAILS="$AE_HEALTH_FAILS"
 AE_BACKOFF="$AE_BACKOFF"
@@ -346,7 +443,7 @@ command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
 log() { printf '[%s] %s\n' "\$(date '+%Y-%m-%d %H:%M:%S')" "\$*" >> "\$AE_LOG"; }
 health() {
   if command -v curl >/dev/null 2>&1; then
-    curl -fsS --max-time "\$AE_HEALTH_TIMEOUT" "http://127.0.0.1:\$AE_PORT\$AE_HEALTH_PATH" >/dev/null 2>&1
+    curl -fsSk --max-time "\$AE_HEALTH_TIMEOUT" "\$AE_SCHEME://127.0.0.1:\$AE_PORT\$AE_HEALTH_PATH" >/dev/null 2>&1
   else
     node -e '
       const http = require("http");
@@ -373,7 +470,9 @@ backoff="\$AE_BACKOFF"
 while :; do
   cd "\$AE_DIR" || { log "cannot enter \$AE_DIR"; exit 1; }
   log "starting: node server/index.js on \$AE_HOST:\$AE_PORT"
-  AE_DATA_DIR="\$AE_DATA" PORT="\$AE_PORT" HOST="\$AE_HOST" node server/index.js >> "\$AE_LOG" 2>&1 &
+  AE_DATA_DIR="\$AE_DATA" PORT="\$AE_PORT" HOST="\$AE_HOST" \
+    AE_TLS_CERT="\$AE_TLS_CERT" AE_TLS_KEY="\$AE_TLS_KEY" AE_HTTP_PORT="\$AE_HTTP_PORT" \
+    AE_DISCORD_URL="\$AE_DISCORD_URL" node server/index.js >> "\$AE_LOG" 2>&1 &
   CHILD=\$!
   echo "\$CHILD" > "\$AE_PID"
   log "child pid \$CHILD"
@@ -406,7 +505,9 @@ while :; do
   health && backoff="\$AE_BACKOFF"
 done
 WATCHDOG
-  chmod +x "$AE_BIN_DIR/watchdog"
+    # the watchdog probes the same scheme the server is serving
+  sed -i "s|^AE_TLS_CERT=\"\"|AE_TLS_CERT=\"${AE_TLS_CERT:-}\"|; s|^AE_SCHEME=.*|AE_SCHEME=$( [ "$AE_TLS" = "1" ] && [ -n "${AE_TLS_CERT:-}" ] && printf https || printf http )|" "$AE_BIN_DIR/watchdog"
+chmod +x "$AE_BIN_DIR/watchdog"
 }
 
 # ---------------------------------------------------------- boot hooks -------
@@ -558,10 +659,17 @@ case "${1:-status}" in
   follow)  tail -f "$AE_LOG" ;;
   url)
     ip="$(lan_ip)"; [ -n "$ip" ] || ip="your-phone-ip"
-    echo "on this phone : http://127.0.0.1:${AE_PORT:-3000}"
-    echo "on your network: http://$ip:${AE_PORT:-3000}"
+    scheme="http"
+    [ "${AE_TLS:-1}" = "1" ] && [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && scheme="https"
+    echo "on this phone : $scheme://127.0.0.1:${AE_PORT:-3000}"
+    echo "on your network: $scheme://$ip:${AE_PORT:-3000}"
+    if [ "$scheme" = "https" ]; then
+      echo "accept the self-signed certificate once, then crypto works"
+    else
+      echo "warning: plain http — phones cannot create accounts or decrypt here"
+    fi
     if command -v qrencode >/dev/null 2>&1; then
-      qrencode -t ANSIUTF8 "http://$ip:${AE_PORT:-3000}" 2>/dev/null || true
+      qrencode -t ANSIUTF8 "$scheme://$ip:${AE_PORT:-3000}" 2>/dev/null || true
     fi
     ;;
   update)
@@ -608,7 +716,11 @@ case "${1:-status}" in
     echo "data      : $AE_DATA $([ -d "$AE_DATA" ] && echo ok || echo missing)"
     echo "config    : $AE_CONF"
     echo "port      : ${AE_PORT:-3000}"
-    echo "health    : $(curl -fsS --max-time 4 "http://127.0.0.1:${AE_PORT:-3000}/api/health" 2>/dev/null || echo 'no answer')"
+    scheme="http"
+    [ "${AE_TLS:-1}" = "1" ] && [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && scheme="https"
+    echo "transport : $scheme (WebCrypto needs https or localhost)"
+    echo "cert      : ${AE_TLS_DIR:-$AE_HOME/tls}/server.crt $([ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && echo present || echo missing)"
+    echo "health    : $(curl -fsSk --max-time 4 "$scheme://127.0.0.1:${AE_PORT:-3000}/api/health" 2>/dev/null || echo 'no answer')"
     ;;
   *) echo "usage: ae-secure {start|stop|restart|guard|status|logs|follow|url|update|backup|restore|autostart|doctor}"; exit 1 ;;
 esac
@@ -635,6 +747,7 @@ cmd_install() {
   ensure_packages
   check_node
   fetch_source
+  install_tls
   write_config
   install_watchdog
   install_command
@@ -650,7 +763,8 @@ cmd_install() {
   sleep 3
   step "Result"
   "$AE_BIN_DIR/ae-secure" status
-  local answer; answer="$(curl -fsS --max-time 4 "http://127.0.0.1:$AE_PORT$AE_HEALTH_PATH" 2>/dev/null || true)"
+  local scheme; scheme="$( [ "$AE_TLS" = "1" ] && [ -n "${AE_TLS_CERT:-}" ] && printf https || printf http )"
+  local answer; answer="$(curl -fsSk --max-time 4 "$scheme://127.0.0.1:$AE_PORT$AE_HEALTH_PATH" 2>/dev/null || true)"
   [ -n "$answer" ] && say "health: $answer" || say "health: no answer yet — check: ae-secure logs"
   notify_status "Running on port $AE_PORT"
   say ""

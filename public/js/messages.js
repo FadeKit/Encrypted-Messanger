@@ -886,6 +886,49 @@ const Profile = (() => {
     }
   }
 
+  // -------------------------------------------------------------- credits
+  /**
+   * Opens a private channel with the person credited on the sign-in screen.
+   * The handle is looked up in the directory, an existing channel is reused if
+   * there is one, and otherwise startDirect() seals a fresh channel key for
+   * that account. Nothing about the account travels in clear.
+   */
+  async function messageDeveloper() {
+    const handle = (typeof DEVELOPER !== 'undefined' && DEVELOPER.handle) || 'Fade_Kit';
+    if (!State.user || !State.vault) {
+      UI.toast({ level: 'info', title: 'Sign in first', body: `Unlock your vault, then this link opens a private channel with ${handle}.` });
+      return null;
+    }
+    const wanted = handle.toLowerCase().replace(/[^a-z0-9]/g, '');
+    let match = null;
+    try {
+      const data = await API.get(`/api/directory?q=${encodeURIComponent(handle)}`);
+      const users = data.users || [];
+      const clean = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      match = users.find((user) => clean(user.username) === wanted) || users.find((user) => clean(user.username).startsWith(wanted)) || null;
+    } catch {
+      UI.toast({ level: 'danger', title: 'Directory unavailable', body: 'Could not look that account up just now.' });
+      return null;
+    }
+    if (!match) {
+      UI.toast({ level: 'warning', title: `${handle} is not registered here`, body: 'No account with that handle exists on this server yet.' });
+      return null;
+    }
+    if (match.id === State.user.id) {
+      UI.toast({ level: 'info', title: 'That is your own account' });
+      return null;
+    }
+    await ConversationClient.refresh().catch(() => {});
+    const existing = State.get('conversations').find((conversation) => conversation.type === 'dm' && conversation.members.some((member) => member.id === match.id));
+    if (existing) {
+      Apps.open('messages');
+      ConversationClient.open(existing.id);
+      return existing.id;
+    }
+    await startDirect(match.id);
+    return match.id;
+  }
+
   async function startDirect(peerId) {
     const data = await API.get('/api/directory').catch(() => null);
     const target = data?.users?.find((user) => user.id === peerId);
@@ -905,7 +948,7 @@ const Profile = (() => {
     return el('div', { class: 'stat-card' }, [el('div', { class: 'value', text: value }), el('div', { class: 'label', text: label })]);
   }
 
-  return { open, startDirect };
+  return { open, startDirect, messageDeveloper };
 })();
 
 window.Profile = Profile;

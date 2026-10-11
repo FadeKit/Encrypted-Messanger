@@ -297,7 +297,7 @@
   font-family: var(--font-display);
   font-size: var(--text-28);
   font-weight: var(--weight-black);
-  line-height: 1;
+  line-height: 1.15;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
@@ -843,21 +843,26 @@
   inset: 0;
   z-index: 900;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
-  padding: 24px;
+  padding: clamp(12px, 3vw, 24px);
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--wall-1);
 }
 .auth-card {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(280px, 400px) minmax(320px, 480px);
-  width: min(920px, 100%);
+  grid-template-columns: minmax(0, 400px) minmax(0, 480px);
+  width: 100%;
+  max-width: 920px;
+  min-width: 0;
   background: var(--surface-solid);
   border: 1px solid var(--line-strong);
   box-shadow: var(--shadow-window);
   clip-path: var(--cut);
 }
+.auth-hero, .auth-panel { min-width: 0; }
 .auth-hero {
   padding: 30px 26px;
   display: flex;
@@ -1161,7 +1166,7 @@ body[data-density="compact"] .admin-main { padding: 12px 14px 30px; }
 
 /* --------------------------------------------------------------- mobile -- */
 @media (max-width: 760px) {
-  .auth-card { grid-template-columns: 1fr; }
+  .auth-card { grid-template-columns: minmax(0, 1fr); }
   /* The hero collapses to a masthead instead of disappearing: on a phone the
      opening statement is the first thing anyone sees, so it stays. */
   .auth-hero { padding: 22px 20px; gap: 14px; border-right: 0; border-bottom: 1px solid var(--line-strong); }

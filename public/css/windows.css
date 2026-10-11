@@ -368,7 +368,7 @@ body[data-taskbar="left"] #taskbar-tray { margin-left: 0; }
   font-weight: var(--weight-black);
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
-  line-height: 1;
+  line-height: 1.15;
   color: var(--ink);
 }
 
@@ -735,6 +735,31 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
   letter-spacing: 0.05em;
 }
 
+/* --------------------------------------------------------------- credits -- */
+.credit-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.credit-line .who {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.credit-line .who:hover { border-bottom-color: var(--accent); color: var(--accent); }
+
 /* ---------------------------------------------------------------- print -- */
 @media print {
   #taskbar, .window-controls, .window-resize, .toast, #toast-stack, .flyout, .context-menu { display: none !important; }
@@ -752,8 +777,8 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
 @media (max-width: 900px) {
   :root { --rail-width: 100%; }
   #desktop-icons { grid-template-columns: repeat(auto-fill, minmax(78px, 78px)); gap: 0; }
-  .desk-icon { padding: 8px 2px; }
-  .desk-icon .label { font-size: 10px; }
+  .desk-icon { padding: 8px 0; }
+  .desk-icon .label { font-size: 10px; letter-spacing: 0.02em; max-width: 100%; }
   #start-menu { left: 6px; right: 6px; width: auto; }
   .window { left: 0 !important; top: 0 !important; width: 100vw !important; height: calc(100vh - var(--taskbar-height)) !important; border: 0; box-shadow: none; }
   .window::before, .window::after { display: none; }

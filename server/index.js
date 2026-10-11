@@ -9,6 +9,7 @@
  */
 
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -20,6 +21,18 @@ const { now, RateLimiter } = require('./util');
 const PORT = Number(process.env.PORT || process.env.AE_PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+
+// ---------------------------------------------------------------- transport
+// WebCrypto — which every message, file and account key depends on — only
+// exists in a secure context. Browsers grant that to https:// and to
+// localhost, never to a bare http://192.168.x.x, so a phone on the network
+// must be given TLS. Point AE_TLS_CERT and AE_TLS_KEY at a certificate pair
+// (the Termux installer generates one) and this serves HTTPS.
+const TLS_CERT = process.env.AE_TLS_CERT || '';
+const TLS_KEY = process.env.AE_TLS_KEY || '';
+const TLS_AVAILABLE = !!(TLS_CERT && TLS_KEY && fs.existsSync(TLS_CERT) && fs.existsSync(TLS_KEY));
+const FORCE_HTTPS = String(process.env.AE_FORCE_HTTPS || '') === '1';
+const HTTP_PORT = Number(process.env.AE_HTTP_PORT || 0);
 
 const globalLimiter = new RateLimiter({ points: 600, windowMs: 60000 });
 const authLimiter = new RateLimiter({ points: 240, windowMs: 60000 });
@@ -237,7 +250,7 @@ function handleStream(req, res, url, session) {
 }
 
 // ------------------------------------------------------------------- server
-const server = http.createServer(async (req, res) => {
+async function handleRequest(req, res) {
   const started = process.hrtime.bigint();
   let url;
   try {
@@ -347,10 +360,7 @@ const server = http.createServer(async (req, res) => {
       store.bumpMetrics({ req: 1 });
     }
   }
-});
-
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 70000;
+}
 
 // ------------------------------------------------------------------- boot
 store.init();
@@ -365,6 +375,21 @@ setInterval(() => {
 
 setInterval(() => store.save(), 15000).unref?.();
 
+// A plain-http listener exists only to push browsers onto https, where the
+// crypto API lives. It never serves the application.
+const redirectServer = TLS_AVAILABLE && HTTP_PORT ? http.createServer((req, res) => {
+  const host = String(req.headers.host || '').replace(/:\d+$/, '');
+  res.writeHead(301, { Location: `https://${host}:${PORT}${req.url}` });
+  res.end();
+}) : null;
+
+const server = TLS_AVAILABLE
+  ? https.createServer({ cert: fs.readFileSync(TLS_CERT), key: fs.readFileSync(TLS_KEY) }, handleRequest)
+  : http.createServer(handleRequest);
+
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 70000;
+
 server.listen(PORT, HOST, () => {
   const interfaces = os.networkInterfaces();
   const addresses = [];
@@ -374,9 +399,19 @@ server.listen(PORT, HOST, () => {
     }
   }
   console.log('');
+  const scheme = TLS_AVAILABLE ? 'https' : 'http';
   console.log('  AE Secure — encrypted messaging, communities and cloud drive');
-  console.log(`  listening on http://${HOST}:${PORT}`);
-  for (const address of addresses) console.log(`  network       http://${address}:${PORT}`);
+  console.log(`  listening on ${scheme}://${HOST}:${PORT}`);
+  for (const address of addresses) console.log(`  network       ${scheme}://${address}:${PORT}`);
+  if (!TLS_AVAILABLE) {
+    const insecure = addresses.some(Boolean);
+    console.log('  transport     plain http — browsers only expose WebCrypto on');
+    console.log('                https:// or localhost, so phones cannot create');
+    console.log('                accounts or decrypt anything on this address.');
+    console.log('                Run scripts/termux-install.sh (or pass');
+    console.log('                AE_TLS_CERT/AE_TLS_KEY) to serve https instead.');
+    if (insecure) console.log('');
+  }
   console.log(`  data directory ${path.dirname(require('./store').DB_FILE)}`);
   console.log('');
 });
@@ -384,6 +419,7 @@ server.listen(PORT, HOST, () => {
 function shutdown(signal) {
   console.log(`[ae] ${signal} received — flushing database`);
   store.save(true);
+  if (redirectServer) redirectServer.close();
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 2500).unref();
 }
@@ -393,4 +429,8 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('uncaughtException', (error) => console.error('[ae] uncaught exception:', error));
 process.on('unhandledRejection', (error) => console.error('[ae] unhandled rejection:', error));
 
-module.exports = { server, PORT };
+if (redirectServer) redirectServer.listen(HTTP_PORT, HOST, () => {
+  console.log(`  redirect      http://${HOST}:${HTTP_PORT} -> https://…:${PORT}`);
+});
+
+module.exports = { server, PORT, TLS_AVAILABLE, FORCE_HTTPS };

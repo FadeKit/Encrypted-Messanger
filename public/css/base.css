@@ -120,14 +120,18 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
 *::-webkit-scrollbar-corner { background: transparent; }
 
 /* ---------------------------------------------------- typographic scale */
+/* Display type never goes below 1.05 line-height: Arial Black and Impact have
+   a glyph box taller than their em, so anything tighter makes consecutive
+   lines overlap and clips descenders. Weight and tracking do the work here. */
 .title-1 {
   font-family: var(--font-display);
-  font-size: clamp(30px, 5.2vw, var(--text-48));
+  font-size: clamp(28px, 4.6vw, var(--text-48));
   font-weight: var(--weight-black);
   text-transform: uppercase;
-  letter-spacing: -0.035em;
-  line-height: 0.94;
-  -webkit-text-stroke: 0.015em currentColor;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  text-wrap: balance;
+  overflow-wrap: break-word;
 }
 .title-2 {
   font-family: var(--font-display);
@@ -135,7 +139,7 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   font-weight: var(--weight-black);
   text-transform: uppercase;
   letter-spacing: -0.02em;
-  -webkit-text-stroke: var(--stroke-bold) currentColor;
+  line-height: 1.1;
 }
 .title-3 {
   font-family: var(--font-display);
