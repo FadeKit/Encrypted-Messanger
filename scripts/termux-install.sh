@@ -238,12 +238,28 @@ fetch_git() {
     git -C "$AE_DIR" clean -fd -e node_modules >/dev/null || true
     return 0
   fi
-  [ -e "$AE_DIR" ] && [ ! -d "$AE_DIR/.git" ] && die "$AE_DIR exists and is not a git checkout — move it aside or set AE_DIR"
+  if [ -e "$AE_DIR" ]; then
+    # A tarball install from before has no .git.  It is still this project, so
+    # hand it to the archive path instead of refusing to patch the phone.
+    assert_replaceable
+    return 1
+  fi
   say "cloning into $AE_DIR"
   git clone --depth 1 --branch "$AE_BRANCH" "$url" "$AE_DIR" >/dev/null 2>&1 || \
     git clone --depth 1 "$url" "$AE_DIR" >/dev/null 2>&1 || return 1
   git -C "$AE_DIR" checkout "$AE_BRANCH" >/dev/null 2>&1 || true
   return 0
+}
+
+# Replacing the code directory is only safe when it holds this project (a git
+# checkout, a previous archive install, anything with server/index.js) or is
+# empty.  A directory someone else owns is never deleted.
+assert_replaceable() {
+  [ -e "$AE_DIR" ] || return 0
+  [ -d "$AE_DIR/.git" ] && return 0
+  [ -f "$AE_DIR/server/index.js" ] && return 0
+  [ -z "$(ls -A "$AE_DIR" 2>/dev/null)" ] && return 0
+  die "$AE_DIR exists and does not look like AE Secure — move it aside or set AE_DIR"
 }
 
 fetch_tarball() {
@@ -259,6 +275,7 @@ fetch_tarball() {
   tar -xzf "$tmp/src.tar.gz" -C "$tmp" || { rm -rf "$tmp"; return 1; }
   local inner; inner="$(find "$tmp" -maxdepth 1 -mindepth 1 -type d | head -1)"
   [ -n "$inner" ] || { rm -rf "$tmp"; return 1; }
+  assert_replaceable
   rm -rf "$AE_DIR"
   mkdir -p "$(dirname "$AE_DIR")"
   mv "$inner" "$AE_DIR"
@@ -278,6 +295,7 @@ fetch_local() {
     *) die "unsupported archive: $file" ;;
   esac
   local inner; inner="$(find "$tmp" -maxdepth 2 -name server -type d | head -1)"
+  assert_replaceable
   if [ -n "$inner" ]; then
     rm -rf "$AE_DIR"; mkdir -p "$(dirname "$AE_DIR")"; mv "$(dirname "$inner")" "$AE_DIR"
   else

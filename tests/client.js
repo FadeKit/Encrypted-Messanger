@@ -322,6 +322,15 @@ for (const [label, src] of [['client', stateSrc], ['server', serverSrc]]) {
 }
 check('picker leads with the monochrome signal', listedAccents[0] === 'ink', listedAccents.join(','));
 
+// Signing in must hand the client the session it stores.  The login payload once
+// shipped without it ("Cannot read properties of undefined (reading 'id')") and
+// the desktop never appeared after a correct passphrase.
+const appSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'app.js'), 'utf8');
+check('sign-in guards the session it stores', /result\.session \? \{ id: result\.session\.id, device: result\.session\.device \} : null/.test(appSrc));
+check('no bare result.session dereference on the sign-in path', !/S\.set\('session', \{ id: result\.session\.id/.test(appSrc));
+const sessionPayloads = (serverSrc.match(/session: \{ id: session\.id, device: session\.device \}/g) || []).length;
+check('every sign-in payload carries its session', sessionPayloads >= 3, `${sessionPayloads} of 3 (register, login, recovery)`);
+
 // every css custom property that is used must also be defined (typo guard:
 // var(--text-10) once shipped without a definition and silently fell back)
 const definedTokens = new Set();

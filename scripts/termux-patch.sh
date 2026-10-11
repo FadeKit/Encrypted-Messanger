@@ -43,6 +43,21 @@ step() { printf '\n== %s\n' "$*"; }
 die()  { printf 'error: %s\n' "$*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# Starts whatever install lives in $AE_HOME (used when a patch fails, so the
+# phone is never left without a running host).
+restart_existing() {
+  if [ ! -x "$AE_HOME/bin/ae-secure" ]; then
+    say "no service command in $AE_HOME — start it by hand once you are ready"
+    return 0
+  fi
+  if AE_HOME="$AE_HOME" "$AE_HOME/bin/ae-secure" start >/dev/null 2>&1; then
+    say "it is running again"
+  else
+    say "could not restart it — run: ae-secure start"
+  fi
+  return 0
+}
+
 if [ -n "${TERMUX_VERSION:-}" ] || [ -d /data/data/com.termux/files/usr ]; then
   ON_TERMUX=1
 else
@@ -60,35 +75,74 @@ FOUND_DIR=""
 FOUND_DATA=""
 FOUND_PORT=""
 
+# Adopt the settings of an installation home ($1).  Reads its config.env, which
+# is what the installer and the ae-secure command use.
+adopt_home() {
+  [ -f "$1/config.env" ] || return 1
+  # shellcheck disable=SC1090
+  . "$1/config.env"
+  FOUND_HOME="$1"
+  FOUND_DIR="${AE_DIR:-$DEFAULT_DIR}"
+  FOUND_DATA="${AE_DATA:-$DEFAULT_DATA}"
+  FOUND_PORT="${AE_PORT:-3000}"
+  return 0
+}
+
+# The supervisor processes running right now, by pid.
+live_supervisors() {
+  pgrep -f 'bin/watchdog' 2>/dev/null || true
+}
+
 # 1. the configuration written by a previous install
-for conf in "$DEFAULT_HOME/config.env" "$HOME/.ae-secure/config.env"; do
-  if [ -f "$conf" ]; then
-    # shellcheck disable=SC1090
-    . "$conf"
-    FOUND_HOME="${AE_HOME:-$DEFAULT_HOME}"
-    FOUND_DIR="${AE_DIR:-$DEFAULT_DIR}"
-    FOUND_DATA="${AE_DATA:-$DEFAULT_DATA}"
-    FOUND_PORT="${AE_PORT:-3000}"
-    say "found a configured install: $FOUND_DIR"
+for conf in "$HOME/.ae-secure/config.env" "$DEFAULT_HOME/config.env"; do
+  if adopt_home "$(dirname "$conf")"; then
+    say "found the install on this phone: $FOUND_DIR"
     break
   fi
 done
 
-# 2. a supervisor running right now, even without a config file
+# 2. a host running right now, even without a config file.  The installer starts
+#    it as "./bin/watchdog" from the install home, so a relative path has to be
+#    resolved against that process's own working directory.
 if [ -z "$FOUND_HOME" ]; then
-  RUNNING="$(pgrep -f 'bin/watchdog' 2>/dev/null | head -1 || true)"
-  if [ -n "$RUNNING" ]; then
-    LIVE_PATH="$(tr '\0' '\n' < "/proc/$RUNNING/cmdline" 2>/dev/null | head -1 || true)"
-    if [ -n "$LIVE_PATH" ]; then
-      FOUND_HOME="$(dirname "$(dirname "$LIVE_PATH")")"
-      say "found a running host supervised from $FOUND_HOME"
+  for RUNNING in $(live_supervisors); do
+    LIVE_PATH="$(tr '\0' '\n' < "/proc/$RUNNING/cmdline" 2>/dev/null | grep -E '(^|/)bin/watchdog$' | tail -1 || true)"
+    [ -n "$LIVE_PATH" ] || continue
+    case "$LIVE_PATH" in
+      /*) LIVE_SCRIPT="$LIVE_PATH" ;;
+      *)  LIVE_CWD="$(readlink "/proc/$RUNNING/cwd" 2>/dev/null || true)"
+          [ -n "$LIVE_CWD" ] || continue
+          LIVE_SCRIPT="$LIVE_CWD/${LIVE_PATH#./}" ;;
+    esac
+    CAND_HOME="$(dirname "$(dirname "$LIVE_SCRIPT")")"
+    if adopt_home "$CAND_HOME"; then
+      say "found a host running from $FOUND_DIR"
+      break
     fi
-  fi
+  done
 fi
 
-# 3. the default layout
-if [ -z "$FOUND_HOME" ] && [ -f "$DEFAULT_HOME/config.env" ]; then
-  FOUND_HOME="$DEFAULT_HOME"
+# 3. the supervisor pid file of a running host, wherever the home lives
+if [ -z "$FOUND_HOME" ]; then
+  for RUNNING in $(live_supervisors); do
+    for pidfile in "$HOME"/*/run/supervisor.pid; do
+      [ -f "$pidfile" ] || continue
+      [ "$(cat "$pidfile" 2>/dev/null)" = "$RUNNING" ] || continue
+      CAND_HOME="$(dirname "$(dirname "$pidfile")")"
+      if adopt_home "$CAND_HOME"; then
+        say "found a host running from $FOUND_DIR"
+        break 2
+      fi
+    done
+  done
+fi
+
+# 4. the default layout, or a fresh install
+if [ -z "$FOUND_HOME" ] && [ -z "$FOUND_DIR" ]; then
+  if [ "${AE_HOME:-}" = "" ] && [ "${AE_DIR:-}" = "" ]; then
+    say "no previous install found — this will be a fresh one"
+    say "set AE_HOME=/path/to/runtime if yours lives somewhere unusual"
+  fi
 fi
 if [ -z "$FOUND_DIR" ] && [ -f "$DEFAULT_DIR/server/index.js" ]; then
   FOUND_DIR="$DEFAULT_DIR"
@@ -132,6 +186,24 @@ sleep 1
 # anything still wearing this install's paths
 for pid in $(pgrep -f "$AE_HOME/bin/watchdog" 2>/dev/null || true); do kill -KILL "$pid" 2>/dev/null; done
 say "host stopped"
+
+# A second copy of AE Secure on the same port is the usual reason a patch
+# "works" but keeps serving the old build, so say it plainly.
+if have node; then
+  if node -e '
+      const net = require("net");
+      const socket = net.connect({ host: "127.0.0.1", port: Number(process.argv[1]) });
+      socket.on("connect", () => { socket.destroy(); process.exit(0); });
+      socket.on("error", () => process.exit(1));
+      setTimeout(() => { socket.destroy(); process.exit(1); }, 1500);
+    ' "$AE_PORT"; then
+    say ""
+    say "warning: something is still listening on port $AE_PORT."
+    say "         Another copy may hold this port. Stop it and run this script again:"
+    say "           ae-secure stop;  pkill -f 'server/index.js'"
+    say ""
+  fi
+fi
 
 # ------------------------------------------------------------- source --------
 step "Fetching the current source"
@@ -180,6 +252,11 @@ RESULT=$?
 [ -n "${TMP_ROOT:-}" ] && rm -rf "$TMP_ROOT"
 
 if [ "$RESULT" -ne 0 ]; then
+  # The host was stopped to free the port, so never walk away leaving the phone
+  # offline: put the version it already had back up, then explain.
+  say ""
+  say "the patch did not finish — starting the version that is already here"
+  restart_existing
   die "the patch did not finish — see the output above, then: ae-secure logs"
 fi
 

@@ -239,6 +239,7 @@ routes['POST /api/auth/login'] = async (ctx) => {
     notifyAdmins({ event: 'admin', kind: 'recovery.used', userId: user.id, handle: user.username, at: now() });
     return {
       token: session.token,
+      session: { id: session.id, device: session.device },
       recovered: true,
       user: selfView(user, { recovered: true }),
       vault: { wrapped: match.wrapped, salt: user.kdf.vaultSalt, iterations: user.kdf.iterations },
@@ -258,7 +259,7 @@ routes['POST /api/auth/login'] = async (ctx) => {
     user.terms.accepted = false;
   }
   realtime.broadcast({ kind: 'presence.changed', userId: user.id, status: realtime.presenceSnapshot()[user.id] }, 'presence', { skipUser: user.id });
-  return { token: session.token, user: selfView(user) };
+  return { token: session.token, session: { id: session.id, device: session.device }, user: selfView(user) };
 };
 
 routes['POST /api/auth/logout'] = async (ctx) => {

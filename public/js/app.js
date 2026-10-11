@@ -295,7 +295,7 @@ const Shell = (() => {
         const result = await API.post('/api/auth/login', { username: handle, authKey: AE.b64encode(authKey) });
         API.setToken(result.token);
         S.set('user', result.user);
-        S.set('session', { id: result.session.id, device: result.session.device });
+        S.set('session', result.session ? { id: result.session.id, device: result.session.device } : null);
         const vault = await AE.openVault(password.value, handle, result.user.kdf, result.user.wrappedMaster);
         await S.unlock(vault, { password: password.value, kdf: result.user.kdf });
         $('.auth-screen').remove();

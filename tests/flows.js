@@ -341,8 +341,12 @@ function sameBytes(a, b) {
     return { client, response };
   })();
   check('second sign-in succeeds', secondLogin.response.status === 200, JSON.stringify(secondLogin.response.data).slice(0, 140));
+  const signInSession = secondLogin.response.data.session;
+  // the device name comes from the user agent, never from the request body
+  check('sign-in hands back the session it opened', !!signInSession && typeof signInSession.id === 'string' && typeof signInSession.device === 'string' && signInSession.device.length > 0, JSON.stringify(signInSession));
   const sessions = (await member.get('/api/sessions')).data.sessions;
   check('both sessions are listed', sessions.length >= 2, `count=${sessions.length}`);
+  check('the session from sign-in is the one on the list', sessions.some((s) => s.id === signInSession.id), `wanted ${signInSession.id}`);
   const other = sessions.find((s) => !s.current);
   const revoke = await member.post('/api/sessions/revoke', { id: other.id });
   check('session revoked by id', revoke.status === 200, JSON.stringify(revoke.data));

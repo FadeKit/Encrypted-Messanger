@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# AE Secure service command. The installer substitutes .
+# below with the real directory, so this works from any shell and from
+# Termux:Boot without any environment set up first.
+set -uo pipefail
+[ -n "${PREFIX:-}" ] && export PATH="$PREFIX/bin:$HOME/bin:$PATH"
+AE_HOME="${AE_HOME:-.}"
+AE_CONF="$AE_HOME/config.env"
+[ -f "$AE_CONF" ] && . "$AE_CONF"
+AE_BIN_DIR="$AE_HOME/bin"
+AE_LOG="$AE_HOME/logs/server.log"
+
+strip_autostart_block() {
+  local profile="$1" tmp
+  [ -f "$profile" ] || return 0
+  grep -q "ae-secure autostart" "$profile" 2>/dev/null || return 0
+  tmp="$(mktemp)" || return 0
+  awk '/^# >>> ae-secure autostart >>>$/{skip=1;next} /^# <<< ae-secure autostart <<<$/{skip=0;next} !skip' "$profile" > "$tmp" && mv "$tmp" "$profile"
+}
+
+status_line() {
+  local pid
+  if pid="$(cat "$AE_HOME/run/supervisor.pid" 2>/dev/null)" && [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    printf 'running (supervisor %s' "$pid"
+    local child; child="$(cat "$AE_HOME/run/server.pid" 2>/dev/null)"
+    [ -n "$child" ] && kill -0 "$child" 2>/dev/null && printf ', server %s' "$child"
+    printf ')\n'
+    return 0
+  fi
+  printf 'stopped\n'
+  return 1
+}
+
+lan_ip() {
+  if command -v termux-wifi-connectioninfo >/dev/null 2>&1; then
+    termux-wifi-connectioninfo 2>/dev/null | sed -n 's/.*"ip".*"\([0-9.]\+\)".*/\1/p' | head -1
+  elif command -v ifconfig >/dev/null 2>&1; then
+    ifconfig 2>/dev/null | awk '/inet /{print $2}' | grep -v '127\.0\.0\.1' | head -1 | sed 's/addr://'
+  elif command -v ip >/dev/null 2>&1; then
+    ip -4 addr show 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 | grep -v '127\.0\.0\.1' | head -1
+  fi
+}
+
+case "${1:-status}" in
+  start)
+    if status_line >/dev/null; then echo "already running"; exit 0; fi
+    mkdir -p "$AE_HOME/logs" "$AE_HOME/run"
+    if [ -f "$AE_LOG" ] && [ "$(wc -c < "$AE_LOG" 2>/dev/null || echo 0)" -gt 2000000 ]; then mv -f "$AE_LOG" "$AE_LOG.1"; fi
+    nohup "$AE_BIN_DIR/watchdog" >/dev/null 2>&1 &
+    sleep 2
+    echo "started"
+    "$0" url
+    ;;
+  stop)
+    if pid="$(cat "$AE_HOME/run/supervisor.pid" 2>/dev/null)" && [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+      kill -TERM "$pid" 2>/dev/null
+      sleep 2
+      kill -KILL "$pid" 2>/dev/null
+      child="$(cat "$AE_HOME/run/server.pid" 2>/dev/null)"
+      [ -n "$child" ] && kill -KILL "$child" 2>/dev/null
+      rm -f "$AE_HOME/run/supervisor.pid" "$AE_HOME/run/server.pid"
+      echo "stopped"
+    else
+      echo "not running"
+    fi
+    ;;
+  restart) "$0" stop >/dev/null; sleep 1; "$0" start ;;
+  guard)
+    # Called by the boot hook and by the periodic Android job. Starting an
+    # already-running service is a no-op, so this is safe to call often.
+    status_line >/dev/null && exit 0
+    "$0" start >/dev/null 2>&1
+    ;;
+  status)  status_line ;;
+  logs)    tail -n "${2:-40}" "$AE_LOG" 2>/dev/null || echo "no log yet" ;;
+  follow)  tail -f "$AE_LOG" ;;
+  url)
+    ip="$(lan_ip)"; [ -n "$ip" ] || ip="your-phone-ip"
+    scheme="http"
+    [ "${AE_TLS:-1}" = "1" ] && [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && scheme="https"
+    echo "on this phone : $scheme://127.0.0.1:${AE_PORT:-3000}"
+    echo "on your network: $scheme://$ip:${AE_PORT:-3000}"
+    if [ "$scheme" = "https" ]; then
+      echo "accept the self-signed certificate once, then crypto works"
+    else
+      echo "warning: plain http — phones cannot create accounts or decrypt here"
+    fi
+    if command -v qrencode >/dev/null 2>&1; then
+      qrencode -t ANSIUTF8 "$scheme://$ip:${AE_PORT:-3000}" 2>/dev/null || true
+    fi
+    ;;
+  update)
+    "$0" stop >/dev/null
+    if [ -d "$AE_DIR/.git" ]; then
+      git -C "$AE_DIR" fetch --depth 1 origin "$AE_BRANCH" && git -C "$AE_DIR" reset --hard FETCH_HEAD && \
+        echo "updated to $(git -C "$AE_DIR" log --oneline -1)"
+    else
+      echo "this install was extracted from an archive — re-run the installer to update"
+    fi
+    "$0" start
+    ;;
+  backup)
+    stamp="$(date '+%Y%m%d-%H%M%S')"
+    out="${2:-$HOME/ae-secure-backup-$stamp.tar.gz}"
+    tar -czf "$out" -C "$(dirname "$AE_DATA")" "$(basename "$AE_DATA")" && echo "backup written: $out"
+    ;;
+  restore)
+    [ -n "${2:-}" ] || { echo "usage: ae-secure restore <backup.tar.gz>"; exit 1; }
+    "$0" stop >/dev/null
+    rm -rf "$AE_DATA"
+    tar -xzf "$2" -C "$(dirname "$AE_DATA")" && echo "restored from $2"
+    "$0" start
+    ;;
+  autostart)
+    profile="$HOME/.bashrc"
+    case "${2:-on}" in
+      on)
+        touch "$profile"
+        strip_autostart_block "$profile"
+        printf '\n# >>> ae-secure autostart >>>\n[ -x "%s" ] && "%s" guard >/dev/null 2>&1\n# <<< ae-secure autostart <<<\n' "$AE_BIN_DIR/ae-secure" "$AE_BIN_DIR/ae-secure" >> "$profile"
+        echo "shell autostart enabled in $profile"
+        ;;
+      off)
+        strip_autostart_block "$profile"
+        echo "shell autostart disabled"
+        ;;
+      *) echo "usage: ae-secure autostart on|off"; exit 1 ;;
+    esac
+    ;;
+  doctor)
+    echo "node      : $(node -v 2>/dev/null || echo 'missing')"
+    echo "code      : $AE_DIR $([ -f "$AE_DIR/server/index.js" ] && echo ok || echo MISSING)"
+    echo "data      : $AE_DATA $([ -d "$AE_DATA" ] && echo ok || echo missing)"
+    echo "config    : $AE_CONF"
+    echo "port      : ${AE_PORT:-3000}"
+    scheme="http"
+    [ "${AE_TLS:-1}" = "1" ] && [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && scheme="https"
+    echo "transport : $scheme (WebCrypto needs https or localhost)"
+    echo "cert      : ${AE_TLS_DIR:-$AE_HOME/tls}/server.crt $([ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && echo present || echo missing)"
+    echo "health    : $(curl -fsSk --max-time 4 "$scheme://127.0.0.1:${AE_PORT:-3000}/api/health" 2>/dev/null || echo 'no answer')"
+    ;;
+  *) echo "usage: ae-secure {start|stop|restart|guard|status|logs|follow|url|update|backup|restore|autostart|doctor}"; exit 1 ;;
+esac
