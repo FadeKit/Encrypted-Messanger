@@ -207,22 +207,24 @@ for (const [call, file] of calls) {
 check(`every client API call resolves (${calls.size} calls, ${routePatterns.length} routes)`, unresolved === 0);
 
 // ------------------------------------------------- design language guardrails
-// The identity is deliberately not a generic AI palette: signal accents on near
-// black, machined plates, mono HUD labels and typographic chrome. These checks
-// keep that intent from eroding in later edits.
+// The identity is deliberately not a generic AI look: ink on paper — flat plates
+// bounded by hairlines, monochrome by default, no gradients, no glow, no glass,
+// no rounded corners. These checks keep that intent from eroding in later edits.
 const sheets = Object.fromEntries(['tokens', 'base', 'windows', 'app'].map((name) => [name, fs.readFileSync(path.join(PUBLIC, 'css', `${name}.css`), 'utf8')]));
 const tokensCss = sheets.tokens;
 const allCss = Object.values(sheets).join('\n');
 
 const THEMES = ['nox', 'acid', 'sector', 'ice', 'chrome'];
-const ACCENTS = ['phosphor', 'lime', 'sodium', 'plasma', 'crimson', 'magenta', 'cyan', 'teal', 'violet'];
+const ACCENTS = ['ink', 'phosphor', 'lime', 'sodium', 'plasma', 'crimson', 'magenta', 'cyan', 'teal', 'violet'];
 for (const theme of THEMES) check(`token block defines theme ${theme}`, tokensCss.includes(`[data-theme="${theme}"]`));
 for (const accent of ACCENTS) check(`token block defines signal accent ${accent}`, tokensCss.includes(`[data-accent="${accent}"]`));
 
 // accents must stay rgb-composable and every theme must define the chrome vars
 for (const accent of ACCENTS) {
   const block = new RegExp(`\\[data-accent="${accent}"\\]\\s*\\{([^}]*)\\}`).exec(tokensCss);
-  check(`accent ${accent} declares --accent-rgb`, !!block && /--accent-rgb:\s*\d+,\s*\d+,\s*\d+/.test(block[1]));
+  // the monochrome signal borrows the theme's ink channels; every other signal
+  // must declare its own so rgba(var(--accent-rgb), x) keeps working.
+  check(`accent ${accent} declares --accent-rgb`, !!block && /--accent-rgb:\s*(\d+,\s*\d+,\s*\d+|var\(--ink-rgb\))/.test(block[1]));
 }
 for (const theme of THEMES) {
   const block = new RegExp(`\\[data-theme="${theme}"\\]\\s*\\{([^}]*)\\}`).exec(tokensCss);
@@ -232,11 +234,48 @@ for (const theme of THEMES) {
   }
 }
 
-// plates are chamfered, never rounded: no radius above 8px may survive
+// plates are square: the only permitted radius in the whole interface is a
+// spinner's 50%, and nothing else may round a corner at all.
 const radiusValues = [...allCss.matchAll(/border-radius:\s*([^;]+);/g)].map((m) => m[1].trim());
-const roundedOffenders = radiusValues.filter((value) => !/50%/.test(value) && parseFloat(value) > 8);
+const roundedOffenders = radiusValues.filter((value) => !/50%/.test(value) && parseFloat(value) > 0);
 check(`no rounded-corner styling remains (${radiusValues.length} radius rules)`, roundedOffenders.length === 0, roundedOffenders.join(' | '));
-check('tokens keep the pill radius sharp', /--radius-pill:\s*2px/.test(tokensCss));
+check('tokens keep every radius at zero', /--radius-pill:\s*0px/.test(tokensCss) && /--radius-window:\s*0px/.test(tokensCss));
+check('tokens default the chamfer to zero', /--chamfer:\s*0px/.test(tokensCss));
+
+// ------------------------------------------------------- ink-on-paper rules
+// No luminosity effects may creep back in: no text glow, and no box-shadow with
+// a blur radius (hard offset sheets and inset hairlines only).
+const textShadows = [...allCss.matchAll(/text-shadow:\s*([^;]+);/g)].map((m) => m[1].trim()).filter((v) => v !== 'none');
+check(`no text glow anywhere (${textShadows.length} text-shadow rules)`, textShadows.length === 0, textShadows.join(' | '));
+const blurryShadows = [];
+for (const [name, sheet] of Object.entries(sheets)) {
+  for (const decl of sheet.matchAll(/box-shadow:\s*([^;]+);/g)) {
+    const value = decl[1];
+    if (value.includes('var(--shadow')) continue; // checked below, in the token file
+    // third length in a shadow is its blur radius; unitless zeroes are lengths too
+    for (const m of value.matchAll(/(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?/gi)) {
+      if (parseFloat(m[3]) !== 0) blurryShadows.push(`${name}: ${value.trim()}`);
+    }
+  }
+}
+check(`no blurred shadows anywhere (${blurryShadows.length} offenders)`, blurryShadows.length === 0, blurryShadows.join(' | '));
+const tokenShadows = [...tokensCss.matchAll(/--shadow-[\w-]+:\s*([^;]+);/g)].map((m) => m[1]);
+const tokenBlur = tokenShadows.filter((value) => [...value.matchAll(/(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?\s+(-?[\d.]+)(?:px)?/gi)].some((m) => parseFloat(m[3]) !== 0));
+check(`theme shadows are hard offsets (${tokenShadows.length} definitions)`, tokenBlur.length === 0, tokenBlur.join(' | '));
+
+// Transparency and fill effects stay opt-in and wall-scoped.
+for (const [name, sheet] of Object.entries(sheets)) {
+  for (const rule of sheet.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const [selector, body] = [rule[1], rule[2]];
+    if (body.includes('backdrop-filter')) {
+      check(`${name}: backdrop blur only for the acrylic opt-in`, selector.includes('data-glass="acrylic"'), selector.trim().slice(0, 60));
+    }
+    if (body.includes('radial-gradient')) {
+      check(`${name}: radial gradients only in wall patterns`, /dots|wallpaper-choice/.test(selector), selector.trim().slice(0, 60));
+    }
+  }
+}
+
 check('chamfer geometry token exists', /--chamfer:/.test(tokensCss) && /--cut:/.test(tokensCss));
 check('display font is a heavy grotesque', /--font-display:[^;]*Archivo Black/.test(tokensCss));
 check('mono HUD font stack is declared', /--font-mono:[^;]*JetBrains Mono/.test(tokensCss));
@@ -256,6 +295,9 @@ const htmlTheme = /<html[^>]*data-theme="([^"]+)"/.exec(html);
 const htmlAccent = /<html[^>]*data-accent="([^"]+)"/.exec(html);
 check('index.html boots on a shipped theme', !!htmlTheme && THEMES.includes(htmlTheme[1]), htmlTheme && htmlTheme[1]);
 check('index.html boots on a shipped accent', !!htmlAccent && ACCENTS.includes(htmlAccent[1]), htmlAccent && htmlAccent[1]);
+// The default experience is monochrome: the shell boots on the ink signal and
+// the picker leads with it.
+check('index.html boots the monochrome signal', !!htmlAccent && htmlAccent[1] === 'ink', htmlAccent && htmlAccent[1]);
 
 // the settings picker must not offer a theme or accent that does not exist
 const settingsSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'settings.js'), 'utf8');
@@ -273,8 +315,11 @@ const stateSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'state.js'), 'utf8');
 const serverSrc = fs.readFileSync(path.join(ROOT, 'server', 'routes-auth.js'), 'utf8');
 for (const [label, src] of [['client', stateSrc], ['server', serverSrc]]) {
   check(`${label} defaults boot on the shipped theme`, /theme:\s*'nox'/.test(src));
-  check(`${label} defaults boot on the shipped signal`, /accent:\s*'phosphor'/.test(src));
+  check(`${label} defaults to the monochrome signal`, /accent:\s*'ink'/.test(src));
+  check(`${label} defaults to opaque panels`, /glass:\s*100/.test(src) && /blur:\s*0/.test(src));
+  check(`${label} defaults to square plates`, /cornerRadius:\s*0/.test(src));
 }
+check('picker leads with the monochrome signal', listedAccents[0] === 'ink', listedAccents.join(','));
 
 // every css custom property that is used must also be defined (typo guard:
 // var(--text-10) once shipped without a definition and silently fell back)

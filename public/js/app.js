@@ -321,7 +321,7 @@ const Shell = (() => {
     ]);
     password.addEventListener('input', () => {
       const score = scorePassword(password.value);
-      [...strength.children].forEach((bar, index) => { bar.style.background = index < score ? ['#f87171', '#fbbf24', '#4ade80', '#22d3ee'][score - 1] : 'var(--line-strong)'; });
+      [...strength.children].forEach((bar, index) => { bar.style.background = index < score ? ['var(--danger)', 'var(--warning)', 'var(--ink-muted)', 'var(--success)'][score - 1] : 'var(--line-strong)'; });
       strengthLabel.textContent = ['Too short', 'Weak', 'Reasonable', 'Strong', 'Excellent'][score] || '';
     });
     form.addEventListener('submit', async (event) => {
@@ -626,7 +626,7 @@ const Shell = (() => {
 
     const tray = el('div', { id: 'taskbar-tray' }, [
       el('div', { class: 'tray-link', id: 'tb-link', title: 'Realtime channel to this server', text: 'LINK_UP' }),
-      el('button', { class: 'tb-btn', id: 'tb-status', title: 'Set activity status', html: '<span style="width:11px;height:11px;background:var(--status-online);display:block;box-shadow:0 0 8px var(--status-online)"></span>', onClick: (event) => statusMenu(event) }),
+      el('button', { class: 'tb-btn', id: 'tb-status', title: 'Set activity status', html: '<span style="width:11px;height:11px;background:var(--status-online);display:block"></span>', onClick: (event) => statusMenu(event) }),
       el('div', { class: 'tray-clock' }, [
         el('div', { class: 'time', id: 'clock-time', text: '--:--' }),
         el('div', { class: 'faint tiny', id: 'clock-date', text: '' }),
@@ -674,7 +674,7 @@ const Shell = (() => {
     if (!pill) return;
     const key = (status && status.effective && status.effective.key) || (status && status.key) || 'offline';
     const color = { online: 'var(--status-online)', idle: 'var(--status-idle)', dnd: 'var(--status-dnd)', purple: 'var(--status-purple)', offline: 'var(--status-offline)' }[key] || 'var(--status-offline)';
-    pill.innerHTML = `<span style="width:11px;height:11px;border-radius:50%;background:${color};display:block"></span>`;
+    pill.innerHTML = `<span style="width:11px;height:11px;background:${color};display:block"></span>`;
     pill.title = `Status: ${UI.statusLabel(key)} — click to change`;
   }
 

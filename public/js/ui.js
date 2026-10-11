@@ -126,9 +126,9 @@ const UI = (() => {
     });
     const name = user ? (user.publicAlias || user.displayName || user.username) : '?';
     const wrap = el('span', { html: esc(initials(name)) });
-    wrap.style.color = '#fff';
-    const hue = hueFor(user ? user.id || user.username : name);
-    node.style.background = `linear-gradient(145deg, hsl(${hue} 62% 46%), hsl(${(hue + 48) % 360} 58% 28%))`;
+    // Monochrome initials plate. Three deterministic ink treatments keep members
+    // visually distinct in a list without introducing a colour of their own.
+    node.dataset.tone = String(hueFor(user ? user.id || user.username : name) % 3);
     node.append(wrap);
     if (user && user.avatarId) {
       const cached = avatarCache.get(user.avatarId);
@@ -152,7 +152,7 @@ const UI = (() => {
     return el('span', {
       class: 'row-tight tiny',
       title: label,
-      html: `<span style="width:8px;height:8px;display:inline-block;color:var(--status-${key === 'dnd' ? 'dnd' : key});background:var(--status-${key === 'dnd' ? 'dnd' : key});box-shadow:0 0 6px currentColor"></span>`,
+      html: `<span style="width:8px;height:8px;display:inline-block;color:var(--status-${key === 'dnd' ? 'dnd' : key});background:var(--status-${key === 'dnd' ? 'dnd' : key});"></span>`,
     });
   }
 

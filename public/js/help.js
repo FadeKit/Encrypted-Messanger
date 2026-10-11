@@ -116,21 +116,21 @@ const Help = (() => {
     },
     {
       title: 'Appearance',
-      tags: ['appearance', 'theme', 'accent', 'signal', 'chamfer', 'blur', 'backdrop', 'wallpaper', 'taskbar', 'nocturne', 'acid', 'sector', 'ice', 'chrome'],
-      summary: 'Five themes, nine signal colours, chamfered plates, backdrop and interface scale.',
-      body: 'The interface is built as a terminal console: hard 1px lines, chamfered panel plates, mono HUD labels and heavy uppercase titles. Five themes ship with it — NOX (phosphor on wet asphalt), ACID (sodium haze), SECTOR (red alert), ICE (server hall) and CHROME (a bleached daylight sheet). Each theme accepts any of nine signal colours, and CHROME darkens every signal automatically so accents stay legible on paper. Panel opacity controls how much of the backdrop shows through a window, blur radius controls the softness behind it (zero is sharpest and cheapest on a phone), and edge chamfer sizes the cut corner on every plate. The backdrop is a live layer: signal grid, signal bloom, data rain, dot matrix or void. Interface scale changes text size everywhere.',
+      tags: ['appearance', 'theme', 'accent', 'signal', 'monochrome', 'grey', 'gray', 'ink', 'chamfer', 'blur', 'backdrop', 'wallpaper', 'taskbar', 'nox', 'acid', 'sector', 'ice', 'chrome'],
+      summary: 'Greyscale themes, one optional signal colour, backdrop and interface scale.',
+      body: 'The interface is printed, not lit: flat plates, 1px ink rules, hard offset shadows, monospaced labels and heavy uppercase titles. There are no gradients, no glow, no glass and no rounded corners anywhere — an optional chamfer cuts one corner of a plate and nothing curves. Four ink-dark themes ship (NOX ink black, ACID bone and graphite, SECTOR carbon, ICE frost) plus CHROME, a paper theme with black ink. Every theme is a pure greyscale ramp, so the interface is monochrome out of the box; the signal setting is the only colour it is allowed, and it defaults to INK, taken from the theme itself. Choosing a hue switches focus rings, selection and active marks to that print-muted ink, and on the paper theme every hue is darkened automatically so it stays legible. Panel opacity is 100% out of the box — lower it only if you want transparency, in which case backdrop blur becomes relevant. Interface scale rescales type and controls together.',
     },
     {
       title: 'Accessibility',
-      tags: ['accessibility', 'contrast', 'dyslexia', 'motion', 'colour blind', 'focus', 'line spacing', 'scanlines'],
-      summary: 'Contrast, dyslexia font, spacing, colour-blind filters, motion and the scanline layer.',
-      body: 'Every accessibility option is applied locally in your browser. High contrast hardens every border and removes text glow. The dyslexia-friendly font widens spacing across the interface. Line spacing is adjustable, and colour-blind filters shift hues so the signal and status colours stay distinguishable. Focus outlines keep keyboard navigation visible, and Reduce motion stops the moving grid, the data rain, the boot log and every transition — which also saves battery on the phone hosting your server. If the scanline layer bothers your eyes, turn on High contrast: it flattens the backdrop to a solid field.',
+      tags: ['accessibility', 'contrast', 'dyslexia', 'motion', 'colour blind', 'focus', 'line spacing', 'legibility'],
+      summary: 'Contrast, dyslexia font, spacing, colour-blind filters and motion.',
+      body: 'Every accessibility option is applied locally in your browser. High contrast doubles every rule to 2px, promotes faint text to full ink and makes all panels opaque — the clearest possible read. The dyslexia-friendly font widens spacing across the interface, line spacing is adjustable, and focus outlines keep keyboard navigation visible. Colour-blind filters shift hues, and only matter if you chose a signal colour: the default interface is greyscale, which no filter can disturb. Reduce motion stops every transition and animation, which also saves battery on the phone hosting your server.',
     },
     {
       title: 'Window management',
       tags: ['windows', 'drag', 'snap', 'maximize', 'minimize', 'shortcuts', 'plates'],
       summary: 'Move, resize, snap and stack window plates.',
-      body: 'Drag a title bar to move a window; drag it to an edge or a screen corner to snap it into halves or quarters. Every window remembers its position and size. The focused plate lights its corner brackets in the signal colour so you always know which surface has input. Caption buttons minimise, maximise and close, Ctrl+W closes the focused window, Ctrl+M minimises it, and Ctrl+` cycles between open windows. On phones every window becomes a full-screen surface with a back arrow.',
+      body: 'Drag a title bar to move a window; drag it to an edge or a screen corner to snap it into halves or quarters. Every window remembers its position and size. The focused plate draws its corner brackets in the signal colour and thickens its left rule so you always know which surface has input. Caption buttons minimise, maximise and close, Ctrl+W closes the focused window, Ctrl+M minimises it, and Ctrl+` cycles between open windows. On phones every window becomes a full-screen surface with a back arrow.',
     },
     {
       title: 'Click Me',

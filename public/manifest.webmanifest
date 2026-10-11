@@ -11,8 +11,8 @@
     "browser"
   ],
   "orientation": "any",
-  "background_color": "#04070a",
-  "theme_color": "#04070a",
+  "background_color": "#0a0b0b",
+  "theme_color": "#0a0b0b",
   "categories": [
     "social",
     "productivity",

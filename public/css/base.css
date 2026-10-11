@@ -1,5 +1,9 @@
 /* ============================================================================
    AE Secure — base: reset, canvas, typography, layout utilities, primitives
+   ----------------------------------------------------------------------------
+   Everything here is flat. Panels are rectangles bounded by 1px rules; there
+   are no gradients, no glows, no blurs and no rounded corners anywhere in this
+   file. Weight, tracking, case and rules do all of the visual work.
    ========================================================================= */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -25,7 +29,7 @@ body {
 
 /* ---------------------------------------------------------- accessibility */
 body[data-dyslexia="on"] {
-  font-family: "Comic Sans MS", "OpenDyslexic", "Verdana", var(--font-sans);
+  font-family: "Comic Sans MS", "OpenDyslexic", Verdana, var(--font-sans);
   letter-spacing: 0.055em;
   word-spacing: 0.16em;
   line-height: 1.85;
@@ -41,11 +45,12 @@ body[data-motion="reduced"] *::after {
   transition-duration: 1ms !important;
   scroll-behavior: auto !important;
 }
-body[data-motion="reduced"] #desktop::before { transform: none !important; }
 
-body[data-colorblind="deuteranopia"] { filter: hue-rotate(-26deg) saturate(1.35) contrast(1.06); }
-body[data-colorblind="protanopia"] { filter: hue-rotate(26deg) saturate(1.3) contrast(1.06); }
-body[data-colorblind="tritanopia"] { filter: hue-rotate(168deg) saturate(1.2) contrast(1.04); }
+/* Only meaningful where a signal hue was chosen; a monochrome interface is
+   unaffected by hue rotation, which is the point of shipping it that way. */
+body[data-colorblind="deuteranopia"] { filter: hue-rotate(-26deg) saturate(1.25) contrast(1.06); }
+body[data-colorblind="protanopia"] { filter: hue-rotate(26deg) saturate(1.2) contrast(1.06); }
+body[data-colorblind="tritanopia"] { filter: hue-rotate(168deg) saturate(1.15) contrast(1.04); }
 
 /* ------------------------------------------------------------------ type */
 h1, h2, h3, h4, h5 {
@@ -77,7 +82,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 ::selection { background: var(--accent); color: var(--on-accent); }
 
 :focus-visible {
-  outline: 2px solid var(--stroke-focus);
+  outline: var(--stroke-focus, 2px) solid var(--accent);
   outline-offset: 2px;
 }
 body[data-focus-ring="off"] :focus-visible { outline: none; }
@@ -99,14 +104,10 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
 
 /* ------------------------------------------------------------- scrollbars */
 * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-*::-webkit-scrollbar { width: 12px; height: 12px; }
-*::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.35); border-left: 1px solid var(--line); }
-*::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border: 3px solid transparent;
-  background-clip: content-box;
-}
-*::-webkit-scrollbar-thumb:hover { background: var(--accent); background-clip: content-box; }
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-track { background: transparent; border-left: 1px solid var(--line); }
+*::-webkit-scrollbar-thumb { background: var(--line-strong); border: 2px solid transparent; background-clip: content-box; }
+*::-webkit-scrollbar-thumb:hover { background: var(--ink-muted); background-clip: content-box; }
 *::-webkit-scrollbar-corner { background: transparent; }
 
 /* ---------------------------------------------------- typographic scale */
@@ -116,8 +117,8 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   font-weight: var(--weight-black);
   text-transform: uppercase;
   letter-spacing: -0.035em;
-  line-height: 0.96;
-  -webkit-text-stroke: 0.022em currentColor;
+  line-height: 0.94;
+  -webkit-text-stroke: 0.015em currentColor;
 }
 .title-2 {
   font-family: var(--font-display);
@@ -167,24 +168,22 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
 .right { text-align: right; }
 .nowrap { white-space: nowrap; }
 
-/* HUD eyebrow: the // label above a block, cyberpunk index style. */
+/* Eyebrow label: small mono capitals over a block. The tracking is the mark;
+   no prefixes, no decorative glyphs. */
 .hud {
   font-size: var(--text-11);
   text-transform: uppercase;
   letter-spacing: var(--track-hud);
-  color: var(--accent-ink);
+  color: var(--ink-muted);
 }
-.hud::before { content: "// "; color: var(--accent); }
 .hud-quiet { color: var(--ink-faint); }
-.hud-quiet::before { content: "// "; color: var(--ink-faint); }
 
 /* Terminal prompt marker used on inputs and readouts. */
 .term::before {
   content: ">";
   font-family: var(--font-mono);
-  color: var(--accent);
+  color: var(--ink-faint);
   margin-right: 6px;
-  animation: caret-blink 1.15s steps(1, end) infinite;
 }
 
 /* ----------------------------------------------------------------- layout */
@@ -225,21 +224,21 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 8px;
+  padding: 2px 7px;
   font-family: var(--font-mono);
   font-size: var(--text-11);
   text-transform: uppercase;
   letter-spacing: var(--track-wide);
   color: var(--ink-muted);
   border: 1px solid var(--line-strong);
-  background: rgba(0, 0, 0, 0.28);
+  background: transparent;
   clip-path: var(--cut-sm);
   white-space: nowrap;
 }
 .pill.accent { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
-.pill.warn { color: var(--warning); border-color: rgba(255, 182, 39, 0.5); background: rgba(255, 182, 39, 0.12); }
-.pill.danger { color: var(--danger); border-color: rgba(255, 77, 94, 0.5); background: rgba(255, 77, 94, 0.13); }
-.pill.success { color: var(--success); border-color: rgba(75, 255, 159, 0.45); background: rgba(75, 255, 159, 0.12); }
+.pill.warn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 55%, transparent); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.pill.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 55%, transparent); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.pill.success { color: var(--success); border-color: color-mix(in srgb, var(--success) 55%, transparent); background: color-mix(in srgb, var(--success) 12%, transparent); }
 .pill.ghost { color: var(--ink-faint); border-color: var(--line); background: transparent; }
 
 .kbd {
@@ -248,15 +247,11 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   font-size: var(--text-11);
   border: 1px solid var(--line-strong);
   border-bottom-width: 2px;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--fill-card);
   color: var(--ink-soft);
 }
 
-.scroll-shadow {
-  background:
-    linear-gradient(var(--surface) 30%, rgba(0, 0, 0, 0)) top / 100% 14px no-repeat,
-    linear-gradient(rgba(0, 0, 0, 0), var(--surface) 70%) bottom / 100% 14px no-repeat;
-}
+.scroll-shadow { box-shadow: inset 0 12px 0 -11px var(--line-strong), inset 0 -12px 0 -11px var(--line-strong); }
 
 .empty-state {
   display: flex;
@@ -268,50 +263,50 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   text-align: center;
   color: var(--ink-muted);
   border: 1px dashed var(--line-strong);
-  background:
-    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.014) 0 8px, transparent 8px 16px);
+  background: transparent;
 }
 .empty-state .glyph {
   font-family: var(--font-mono);
-  font-size: 30px;
-  color: var(--accent);
-  letter-spacing: 2px;
-  text-shadow: var(--glow-text);
+  font-size: 26px;
+  color: var(--ink-muted);
+  letter-spacing: 3px;
+  border: 1px solid var(--line-strong);
+  padding: 6px 12px;
 }
 
 .spinner {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   border: 2px solid var(--line-strong);
-  border-top-color: var(--accent);
+  border-top-color: var(--ink);
   border-radius: 50%;
   animation: spin 620ms linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Loading placeholder: a quiet opacity pulse, not a shimmer sweep. */
 .skeleton {
   height: 12px;
-  background: linear-gradient(90deg, var(--line) 0%, rgba(255, 255, 255, 0.14) 50%, var(--line) 100%);
-  background-size: 240% 100%;
-  animation: skeleton-slide 1.25s var(--ease-standard) infinite;
+  background: var(--fill-card-hover);
+  border: 1px solid var(--line);
+  animation: skeleton-pulse 1.3s var(--ease-standard) infinite;
 }
-@keyframes skeleton-slide { from { background-position: 140% 0; } to { background-position: -40% 0; } }
+@keyframes skeleton-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
 
 .bar-track {
   height: 6px;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid var(--line);
+  background: var(--fill-input);
+  border: 1px solid var(--line-strong);
   overflow: hidden;
 }
 .bar-fill {
   height: 100%;
   width: 0;
   background: var(--accent);
-  box-shadow: 0 0 10px var(--accent-glow);
   transition: width var(--duration) linear;
 }
-.bar-fill.warn { background: var(--warning); box-shadow: none; }
-.bar-fill.danger { background: var(--danger); box-shadow: none; }
+.bar-fill.warn { background: var(--warning); }
+.bar-fill.danger { background: var(--danger); }
 
 /* --------------------------------------------------------------- avatars */
 .avatar {
@@ -332,12 +327,16 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   color: var(--ink-soft);
   overflow: hidden;
 }
-.avatar img { width: 100%; height: 100%; object-fit: cover; filter: saturate(1.05) contrast(1.05); }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
 .avatar.sm { width: 30px; height: 30px; font-size: var(--text-12); }
 .avatar.xs { width: 22px; height: 22px; font-size: var(--text-11); }
 .avatar.lg { width: 54px; height: 54px; font-size: var(--text-18); }
 .avatar.xl { width: 92px; height: 92px; font-size: var(--text-28); }
 .avatar.square { clip-path: none; }
+/* deterministic initials treatments: solid ink, raised plate, outline only */
+.avatar[data-tone="0"] { background: var(--ink); color: var(--ink-inverse); border-color: var(--line-hard); }
+.avatar[data-tone="1"] { background: var(--surface-raised); color: var(--ink); }
+.avatar[data-tone="2"] { background: transparent; color: var(--ink-soft); border-color: var(--line-strong); }
 
 .avatar[data-status]::after {
   content: "";
@@ -346,7 +345,7 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   bottom: -1px;
   width: 11px;
   height: 11px;
-  border: 2px solid var(--surface);
+  border: 2px solid var(--surface-solid);
   background: var(--status-offline);
 }
 .avatar[data-status="online"]::after { background: var(--status-online); }
@@ -358,13 +357,12 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
 .verified-badge {
   display: inline-grid;
   place-items: center;
-  width: 17px;
-  height: 17px;
-  font-size: 11px;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
   font-weight: var(--weight-black);
   color: var(--on-accent);
   background: var(--verified);
-  clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
 }
 .verified-badge.sm { width: 14px; height: 14px; font-size: 9px; }
 
@@ -377,9 +375,9 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   border: 1px solid var(--line-strong);
   color: var(--ink-muted);
 }
-.role-badge.owner { color: var(--accent); border-color: var(--accent-line); }
-.role-badge.admin { color: var(--danger); border-color: rgba(255, 77, 94, 0.45); }
-.role-badge.mod { color: var(--warning); border-color: rgba(255, 182, 39, 0.45); }
+.role-badge.owner { color: var(--ink); border-color: var(--line-hard); }
+.role-badge.admin { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+.role-badge.mod { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 50%, transparent); }
 
 .emoji { font-size: 15px; line-height: 1; }
 
@@ -390,15 +388,16 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   padding: 1px 7px;
   font-family: var(--font-mono);
   font-size: var(--text-11);
-  background: rgba(0, 0, 0, 0.3);
+  background: transparent;
   border: 1px solid var(--line-strong);
   color: var(--ink-soft);
   cursor: pointer;
   transition: border-color var(--duration-fast) linear, color var(--duration-fast) linear;
 }
-.react-chip:hover { border-color: var(--accent); color: var(--ink); }
-.react-chip.mine { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.react-chip:hover { border-color: var(--line-hard); color: var(--ink); }
+.react-chip.mine { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent); }
 
+/* Square gauge plate with a corner rule, no ring. */
 .meter-ring {
   position: relative;
   width: 96px;
@@ -411,9 +410,9 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
 .meter-ring::after {
   content: "";
   position: absolute;
-  inset: -1px;
-  border: 1px solid var(--accent);
-  opacity: 0.4;
+  inset: 0;
+  border-top: 2px solid var(--accent);
+  width: 40%;
   pointer-events: none;
 }
 
@@ -424,13 +423,12 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
   padding: 9px 12px;
   font-size: var(--text-13);
   color: var(--ink-soft);
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--fill-card);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--accent);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  border-left: 3px solid var(--ink-muted);
 }
-.notice-strip.warn { border-left-color: var(--warning); background: rgba(255, 182, 39, 0.08); }
-.notice-strip.danger { border-left-color: var(--danger); background: rgba(255, 77, 94, 0.09); }
+.notice-strip.warn { border-left-color: var(--warning); background: color-mix(in srgb, var(--warning) 9%, transparent); }
+.notice-strip.danger { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 9%, transparent); }
 
 .banner-offline {
   position: fixed;
@@ -452,30 +450,7 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
 /* ------------------------------------------------------- motion library */
 @keyframes caret-blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
 @keyframes spin-slow { to { transform: rotate(360deg); } }
-@keyframes flicker {
-  0%, 100% { opacity: 1; }
-  42% { opacity: 1; }
-  43% { opacity: 0.35; }
-  45% { opacity: 1; }
-  61% { opacity: 0.7; }
-  62% { opacity: 1; }
-}
 @keyframes rise {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
-}
-@keyframes sweep {
-  from { transform: translateY(-110%); }
-  to { transform: translateY(240%); }
-}
-@keyframes glitch-x {
-  0%, 100% { transform: none; }
-  20% { transform: translateX(-2px); }
-  40% { transform: translateX(2px); }
-  60% { transform: translateX(-1px); }
-  80% { transform: translateX(1px); }
-}
-@keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 var(--accent-glow); }
-  100% { box-shadow: 0 0 0 12px rgba(0, 0, 0, 0); }
 }

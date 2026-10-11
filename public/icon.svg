@@ -1,27 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AE Secure">
   <defs>
     <clipPath id="plate">
-      <path d="M0 96 L96 0 H512 V416 L416 512 H0 Z"/>
+      <path d="M0 88 L88 0 H512 V424 L424 512 H0 Z"/>
     </clipPath>
   </defs>
-  <rect width="512" height="512" fill="#04070a"/>
+  <rect width="512" height="512" fill="#0a0b0b"/>
   <g clip-path="url(#plate)">
-    <g stroke="#4bff9f" stroke-opacity=".07" stroke-width="1">
-      <path d="M0 10H512M0 20H512M0 30H512M0 40H512M0 50H512M0 60H512M0 70H512M0 80H512"/>
-      <path d="M0 452H512M0 462H512M0 472H512M0 482H512M0 492H512M0 502H512"/>
+    <g stroke="#f1f1ee" stroke-opacity=".09" stroke-width="1">
+      <path d="M0 16H512M0 32H512M0 48H512M0 64H512M0 448H512M0 464H512M0 480H512M0 496H512"/>
     </g>
-    <path d="M26 156V46A20 20 0 0 1 46 26H156" fill="none" stroke="#4bff9f" stroke-width="9"/>
-    <path d="M486 356v110a20 20 0 0 1-20 20H356" fill="none" stroke="#4bff9f" stroke-opacity=".5" stroke-width="9"/>
-    <!-- AE monogram: heavy geometric display letterforms, drawn as outlines so the
-         mark never depends on a webfont. Outer contours are wound clockwise, the
-         counter of the A is wound anticlockwise, so the default nonzero fill rule
-         cuts a real counter out of the letter. -->
-    <g fill="#4bff9f">
+    <path d="M26 152V46A20 20 0 0 1 46 26H152" fill="none" stroke="#f1f1ee" stroke-opacity=".55" stroke-width="9"/>
+    <path d="M486 360v106a20 20 0 0 1-20 20H360" fill="none" stroke="#f1f1ee" stroke-opacity=".28" stroke-width="9"/>
+    <path d="M28 300H484V304H28Z" fill="#f1f1ee" fill-opacity=".22"/>
+    <!-- AE monogram: heavy geometric display letterforms drawn as outlines so the
+         mark never depends on a webfont. Outer contours wind clockwise and the
+         counter of the A anticlockwise, so the default nonzero fill rule cuts a
+         real counter out of the letter. -->
+    <g fill="#f1f1ee">
       <path d="M125 341 L181 171 L211 171 L267 341 L232 341 L196 269 L159 341 Z
                M159 269 H221 V299 H159 Z
                M196 205 L176 269 H216 Z"/>
       <path d="M279 171 H387 V201 H313 V236 H367 V266 H313 V311 H387 V341 H279 Z"/>
     </g>
   </g>
-  <path d="M96 0H512V416L416 512H0V96Z" fill="none" stroke="#0a1410" stroke-width="2"/>
+  <path d="M88 0H512V424L424 512H0V88Z" fill="none" stroke="#000" stroke-opacity=".55" stroke-width="2"/>
 </svg>

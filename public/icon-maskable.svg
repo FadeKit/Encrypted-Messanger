@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AE Secure">
-  <rect width="512" height="512" fill="#04070a"/>
-  <g stroke="#4bff9f" stroke-opacity=".08" stroke-width="1">
-    <path d="M0 14H512M0 28H512M0 42H512M0 56H512M0 470H512M0 484H512M0 498H512"/>
+  <rect width="512" height="512" fill="#0a0b0b"/>
+  <g stroke="#f1f1ee" stroke-opacity=".1" stroke-width="1">
+    <path d="M0 22H512M0 44H512M0 66H512M0 446H512M0 468H512M0 490H512"/>
   </g>
   <g transform="translate(256 256) scale(.62) translate(-256 -256)">
-    <g fill="#4bff9f">
+    <g fill="#f1f1ee">
       <path d="M125 341 L181 171 L211 171 L267 341 L232 341 L196 269 L159 341 Z
                M159 269 H221 V299 H159 Z
                M196 205 L176 269 H216 Z"/>

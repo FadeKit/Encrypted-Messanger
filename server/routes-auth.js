@@ -365,10 +365,10 @@ routes['POST /api/sessions/revoke-others'] = async (ctx) => {
 function defaultSettings() {
   return {
     theme: 'nox',
-    accent: 'phosphor',
-    glass: 88,
-    blur: 16,
-    cornerRadius: 12,
+    accent: 'ink',
+    glass: 100,
+    blur: 0,
+    cornerRadius: 0,
     wallpaper: 'theme',
     density: 'comfortable',
     fontScale: 1,

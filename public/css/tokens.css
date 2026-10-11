@@ -1,15 +1,30 @@
 /* ============================================================================
-   AE Secure — design tokens
-   Language: cyberpunk terminal. Phosphor signals on near-black, machined
-   chamfered edges, hard 1px lines, no soft glass, no decorative gradients.
-   Type: heavy uppercase display + monospace HUD labels + readable body text.
+   AE Secure — tokens
+   ----------------------------------------------------------------------------
+   Design language: ink on paper.
+
+   One material — flat plates of --surface bounded by 1px ink rules. No
+   gradients, no glass, no glow, no noise, no rounded corners. Every panel is a
+   rectangle; the optional chamfer (default 0, adjustable in Settings) only
+   ever cuts a corner, it never curves one.
+
+   Type does the work instead: Archivo Black for display, a monospaced stack for
+   every label, number and piece of chrome, generous uppercase tracking, and a
+   strict 11–48px scale.
+
+   Colour is a choice, not a default. Every theme is a pure grayscale ramp and
+   the default signal is "ink" — the theme's own text colour. The nine signal
+   inks exist for people who want one, and each ship with a darkened variant for
+   the paper theme so contrast survives daylight.
+
+   Depth comes from hard offset shadows (a printed sheet lifting off the page),
+   never from blur or luminosity, so the whole interface stays legible on a
+   phone screen in sunlight.
    ========================================================================= */
 
 :root {
-  color-scheme: dark;
-
-  /* ---- type ---------------------------------------------------------- */
-  --font-sans: "Inter Tight", "Segoe UI Variable Text", "Segoe UI", "Roboto", "Helvetica Neue", system-ui, -apple-system, sans-serif;
+  /* ---- type ------------------------------------------------------------ */
+  --font-sans: "Inter Tight", "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", system-ui, -apple-system, sans-serif;
   --font-display: "Archivo Black", "Arial Black", "Helvetica Neue", Impact, "Segoe UI Variable Display", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, "SF Mono", "Roboto Mono", Consolas, "DejaVu Sans Mono", monospace;
 
@@ -31,263 +46,348 @@
   --weight-bold: 800;
   --weight-black: 900;
 
-  --track-tight: -0.025em;
-  --track-wide: 0.06em;
-  --track-hud: 0.16em;
-  --stroke-bold: 0.018em;
+  --track-tight: -0.03em;
+  --track-wide: 0.08em;
+  --track-hud: 0.18em;
+  --stroke-bold: 0.02em;
 
-  --leading-tight: 1.06;
+  --leading-tight: 1.04;
   --leading-body: 1.55;
   --line-height: 1.55;
 
-  /* ---- geometry: sharp, one chamfer, no pills ------------------------- */
+  /* ---- geometry: square, hairline, no pills ---------------------------- */
   --radius-window: 0px;
   --radius-lg: 0px;
   --radius-md: 0px;
   --radius-sm: 0px;
-  --radius-pill: 2px;
-  --chamfer: 12px;
-  --chamfer-sm: 7px;
+  --radius-pill: 0px;
+  --chamfer: 0px;
+  --chamfer-sm: 0px;
   --cut: polygon(var(--chamfer) 0, 100% 0, 100% 100%, 0 100%, 0 var(--chamfer));
   --cut-sm: polygon(var(--chamfer-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--chamfer-sm));
   --cut-both: polygon(var(--chamfer) 0, 100% 0, 100% calc(100% - var(--chamfer)), calc(100% - var(--chamfer)) 100%, 0 100%, 0 var(--chamfer));
   --cut-sm-both: polygon(var(--chamfer-sm) 0, 100% 0, 100% calc(100% - var(--chamfer-sm)), calc(100% - var(--chamfer-sm)) 100%, 0 100%, 0 var(--chamfer-sm));
 
-  /* ---- written at runtime by the shell from the account's settings ------- */
-  --font-scale: 1;
-
-  --titlebar-height: 42px;
-  --taskbar-height: 56px;
-  --rail-width: 244px;
-  --rail-width-collapsed: 78px;
   --border: 1px;
   --border-heavy: 2px;
 
-  /* ---- material ------------------------------------------------------ */
-  --glass-blur: 16px;
-  --glass-alpha: 0.88;
-  --shadow-window: 0 0 0 1px rgba(0, 0, 0, 0.85), 14px 14px 0 rgba(0, 0, 0, 0.62);
-  --shadow-flyout: 0 0 0 1px rgba(0, 0, 0, 0.85), 10px 10px 0 rgba(0, 0, 0, 0.58);
-  --shadow-card: 0 0 0 1px var(--line);
-  --shadow-raised: 6px 6px 0 rgba(0, 0, 0, 0.5), 0 0 0 1px var(--line-strong);
-  --glow-accent: 0 0 0 1px var(--accent), 0 0 18px rgba(var(--accent-rgb), 0.35);
-  --glow-text: 0 0 10px rgba(var(--accent-rgb), 0.5);
+  /* ---- written at runtime by the shell from the account's settings ------ */
+  --font-scale: 1;
+  --glass-alpha: 1;
+  --glass-blur: 0px;
 
-  /* ---- motion -------------------------------------------------------- */
-  --duration-fast: 80ms;
-  --duration: 140ms;
+  /* ---- layout ---------------------------------------------------------- */
+  --titlebar-height: 40px;
+  --taskbar-height: 54px;
+  --rail-width: 236px;
+  --rail-width-collapsed: 76px;
+
+  /* ---- motion: short, linear, never decorative ------------------------- */
+  --duration-fast: 90ms;
+  --duration: 150ms;
   --duration-slow: 260ms;
-  --ease-out: cubic-bezier(0.16, 0.84, 0.22, 1);
-  --ease-in: cubic-bezier(0.6, 0, 0.9, 0.3);
-  --ease-standard: cubic-bezier(0.25, 0.6, 0.1, 1);
-  --ease-flick: steps(5, end);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 0.84, 0.24, 1);
+  --ease-in: cubic-bezier(0.6, 0, 1, 0.6);
+  --ease-flick: steps(2, end);
 
-  /* ---- accents (composition requires --accent-rgb) ------------------- */
-  --accent-rgb: 75, 255, 159;
-  --accent: rgb(var(--accent-rgb));
-  --accent-strong: #12c26a;
-  --accent-soft: rgba(var(--accent-rgb), 0.14);
-  --accent-line: rgba(var(--accent-rgb), 0.42);
-  --accent-glow: rgba(var(--accent-rgb), 0.38);
-  --accent-ink: rgba(var(--accent-rgb), 0.72);
-  --on-accent: #04090a;
+  /* ---- severity: muted print inks, readable on both ink and paper ------ */
+  --success: #79c189;
+  --warning: #d3a445;
+  --danger: #d8615c;
+  --info: #8aa6bf;
 
-  /* ---- status -------------------------------------------------------- */
-  --status-online: #4bff9f;
-  --status-idle: #ffb627;
-  --status-dnd: #ff4d5e;
-  --status-purple: #c07dff;
-  --status-offline: #6b7d76;
-  --verified: #39d0ff;
-  --success: #4bff9f;
-  --warning: #ffb627;
-  --danger: #ff4d5e;
-  --info: #39d0ff;
+  --status-online: #7cbf8b;
+  --status-idle: #cfa74c;
+  --status-dnd: #d4605b;
+  --status-purple: #a184d6;
+  --status-offline: #74756f;
 
-  /* ---- ink & line ---------------------------------------------------- */
-  --ink: #e8f2ec;
-  --ink-soft: #b9cbc1;
-  --ink-muted: #86988e;
-  --ink-faint: #5b6b63;
-  --line: rgba(232, 242, 236, 0.11);
-  --line-strong: rgba(232, 242, 236, 0.26);
-  --line-hard: rgba(232, 242, 236, 0.45);
-  --stroke-focus: var(--accent);
-  --scrim: rgba(2, 5, 4, 0.72);
-  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.38'/%3E%3C/svg%3E");
+  --verified: #6aa9d8;
 }
 
-/* ============================================================ NIGHT THEMES */
+/* ============================================================ themes =======
+   Five grayscale ramps. Surfaces are flat; every edge is a rule.
+   --ink is the text colour, --ink-rgb its channels (for translucent rules and
+   the monochrome "ink" signal), --ink-inverse the fill that sits on top of it.
+   ======================================================================== */
 
-/* NOX — the default. Phosphor terminal on wet asphalt. */
+/* NOX — ink black, neutral. The default. */
 [data-theme="nox"] {
-  color-scheme: dark;
-  --wall-1: #04070a;
-  --wall-2: #071016;
-  --wall-3: #0b1a20;
-  --wall-4: #020507;
-  --surface: #090d10;
-  --surface-alt: #0d1317;
-  --surface-raised: #111a1f;
-  --surface-solid: #090d10;
-  --fill-base: 9, 13, 16;
-  --fill-alt: 13, 19, 23;
-  --fill-card: rgba(232, 242, 236, 0.035);
-  --fill-card-hover: rgba(232, 242, 236, 0.07);
-  --fill-input: rgba(2, 6, 8, 0.72);
-  --line: rgba(232, 242, 236, 0.11);
-  --line-strong: rgba(232, 242, 236, 0.26);
-  --ink: #e8f2ec;
-  --ink-soft: #b9cbc1;
-  --ink-muted: #86988e;
-  --ink-faint: #5b6b63;
+  --wall-1: #0a0b0b;
+  --wall-2: #0e0f0f;
+  --wall-3: #141515;
+  --wall-4: #060707;
+
+  --surface: rgba(13, 14, 14, 0.95);
+  --surface-alt: #131414;
+  --surface-raised: #191a1a;
+  --surface-solid: #0f1010;
+
+  --ink: #f1f1ee;
+  --ink-rgb: 241, 241, 238;
+  --ink-inverse: #0a0b0b;
+  --ink-soft: #d5d6d2;
+  --ink-muted: #b2b3af;
+  --ink-faint: #7b7c78;
+
+  --line: rgba(241, 241, 238, 0.1);
+  --line-strong: rgba(241, 241, 238, 0.22);
+  --line-hard: rgba(241, 241, 238, 0.36);
+
+  --fill-base: 10, 11, 11;
+  --fill-alt: 19, 20, 20;
+  --fill-card: rgba(241, 241, 238, 0.035);
+  --fill-card-hover: rgba(241, 241, 238, 0.075);
+  --fill-input: rgba(0, 0, 0, 0.42);
+  --grid-line: rgba(241, 241, 238, 0.055);
+  --scrim: rgba(6, 7, 7, 0.82);
+
+  --shadow-window: 0 0 0 1px rgba(0, 0, 0, 0.6), 10px 10px 0 rgba(0, 0, 0, 0.45);
+  --shadow-raised: 0 0 0 1px rgba(0, 0, 0, 0.55), 4px 4px 0 rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  --shadow-flyout: 0 0 0 1px rgba(0, 0, 0, 0.6), 8px 8px 0 rgba(0, 0, 0, 0.45);
+
+  --on-accent: #090a0a;
+  --stroke-focus: 2px;
 }
 
-/* ACID — sodium streetlight over olive concrete. */
+/* ACID — bone and graphite: warm greys, like newsprint in low light. */
 [data-theme="acid"] {
-  color-scheme: dark;
-  --wall-1: #0a0b04;
-  --wall-2: #16180a;
-  --wall-3: #232616;
-  --wall-4: #060703;
-  --surface: #0e0f08;
-  --surface-alt: #14160c;
-  --surface-raised: #1b1e12;
-  --surface-solid: #0e0f08;
-  --fill-base: 14, 15, 8;
-  --fill-alt: 20, 22, 12;
-  --fill-card: rgba(240, 236, 190, 0.04);
-  --fill-card-hover: rgba(240, 236, 190, 0.08);
-  --fill-input: rgba(4, 5, 2, 0.75);
-  --line: rgba(240, 236, 190, 0.12);
-  --line-strong: rgba(240, 236, 190, 0.28);
-  --ink: #f4f1d9;
-  --ink-soft: #c9c6a4;
-  --ink-muted: #97957a;
-  --ink-faint: #6b6a55;
-  --status-idle: #ffd24a;
+  --wall-1: #0d0c09;
+  --wall-2: #12110d;
+  --wall-3: #18160f;
+  --wall-4: #080705;
+
+  --surface: rgba(17, 16, 12, 0.95);
+  --surface-alt: #16140f;
+  --surface-raised: #1d1a13;
+  --surface-solid: #111009;
+
+  --ink: #f4f1e6;
+  --ink-rgb: 244, 241, 230;
+  --ink-inverse: #0b0a07;
+  --ink-soft: #e0dccb;
+  --ink-muted: #b6b1a0;
+  --ink-faint: #7f7a6b;
+
+  --line: rgba(244, 241, 230, 0.11);
+  --line-strong: rgba(244, 241, 230, 0.23);
+  --line-hard: rgba(244, 241, 230, 0.37);
+
+  --fill-base: 13, 12, 9;
+  --fill-alt: 22, 20, 15;
+  --fill-card: rgba(244, 241, 230, 0.04);
+  --fill-card-hover: rgba(244, 241, 230, 0.08);
+  --fill-input: rgba(0, 0, 0, 0.4);
+  --grid-line: rgba(244, 241, 230, 0.06);
+  --scrim: rgba(8, 7, 5, 0.82);
+
+  --shadow-window: 0 0 0 1px rgba(0, 0, 0, 0.6), 10px 10px 0 rgba(0, 0, 0, 0.45);
+  --shadow-raised: 0 0 0 1px rgba(0, 0, 0, 0.55), 4px 4px 0 rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  --shadow-flyout: 0 0 0 1px rgba(0, 0, 0, 0.6), 8px 8px 0 rgba(0, 0, 0, 0.45);
+
+  --success: #85b87a;
+  --warning: #cfa14b;
+  --danger: #cf6153;
+  --status-online: #86b87c;
+  --status-idle: #cba24e;
+  --status-dnd: #cf6153;
+  --on-accent: #090805;
 }
 
-/* SECTOR — red alert, hazard stripes, emergency lighting. */
+/* SECTOR — carbon: cool neutral greys, station concrete. */
 [data-theme="sector"] {
-  color-scheme: dark;
-  --wall-1: #080406;
-  --wall-2: #140a0d;
-  --wall-3: #241015;
-  --wall-4: #050203;
-  --surface: #0d0608;
-  --surface-alt: #130a0d;
-  --surface-raised: #1c0f13;
-  --surface-solid: #0d0608;
-  --fill-base: 13, 6, 8;
-  --fill-alt: 19, 10, 13;
-  --fill-card: rgba(255, 224, 226, 0.04);
-  --fill-card-hover: rgba(255, 224, 226, 0.08);
-  --fill-input: rgba(6, 2, 3, 0.76);
-  --line: rgba(255, 206, 210, 0.12);
-  --line-strong: rgba(255, 206, 210, 0.3);
-  --ink: #f7e6e8;
-  --ink-soft: #d3b3b8;
-  --ink-muted: #a18086;
-  --ink-faint: #725a5f;
+  --wall-1: #0a0b0d;
+  --wall-2: #0e1013;
+  --wall-3: #14171a;
+  --wall-4: #060708;
+
+  --surface: rgba(13, 15, 17, 0.95);
+  --surface-alt: #121417;
+  --surface-raised: #191c20;
+  --surface-solid: #0e1012;
+
+  --ink: #eef1f3;
+  --ink-rgb: 238, 241, 243;
+  --ink-inverse: #090a0c;
+  --ink-soft: #d4d9dd;
+  --ink-muted: #adb3ba;
+  --ink-faint: #767c84;
+
+  --line: rgba(238, 241, 243, 0.1);
+  --line-strong: rgba(238, 241, 243, 0.22);
+  --line-hard: rgba(238, 241, 243, 0.36);
+
+  --fill-base: 10, 11, 13;
+  --fill-alt: 18, 20, 23;
+  --fill-card: rgba(238, 241, 243, 0.035);
+  --fill-card-hover: rgba(238, 241, 243, 0.075);
+  --fill-input: rgba(0, 0, 0, 0.42);
+  --grid-line: rgba(238, 241, 243, 0.055);
+  --scrim: rgba(6, 7, 8, 0.82);
+
+  --shadow-window: 0 0 0 1px rgba(0, 0, 0, 0.6), 10px 10px 0 rgba(0, 0, 0, 0.45);
+  --shadow-raised: 0 0 0 1px rgba(0, 0, 0, 0.55), 4px 4px 0 rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  --shadow-flyout: 0 0 0 1px rgba(0, 0, 0, 0.6), 8px 8px 0 rgba(0, 0, 0, 0.45);
+
+  --on-accent: #08090a;
 }
 
-/* ICE — cold server hall, desaturated steel cyan. */
+/* ICE — frost: the one mid grey ramp, for bright rooms and dim screens. */
 [data-theme="ice"] {
-  color-scheme: dark;
-  --wall-1: #05090d;
-  --wall-2: #0a141b;
-  --wall-3: #10222c;
-  --wall-4: #03070a;
-  --surface: #0a1015;
-  --surface-alt: #0e171d;
-  --surface-raised: #132129;
-  --surface-solid: #0a1015;
-  --fill-base: 10, 16, 21;
-  --fill-alt: 14, 23, 29;
-  --fill-card: rgba(226, 240, 250, 0.04);
-  --fill-card-hover: rgba(226, 240, 250, 0.09);
-  --fill-input: rgba(3, 7, 10, 0.72);
-  --line: rgba(226, 240, 250, 0.13);
-  --line-strong: rgba(226, 240, 250, 0.3);
-  --ink: #e4f0f7;
-  --ink-soft: #b3c6d2;
-  --ink-muted: #7f929e;
-  --ink-faint: #56666f;
+  --wall-1: #16191b;
+  --wall-2: #1b1f22;
+  --wall-3: #22272a;
+  --wall-4: #101214;
+
+  --surface: rgba(26, 30, 33, 0.95);
+  --surface-alt: #1d2125;
+  --surface-raised: #252a2e;
+  --surface-solid: #191d20;
+
+  --ink: #f2f5f5;
+  --ink-rgb: 242, 245, 245;
+  --ink-inverse: #14181a;
+  --ink-soft: #dbe1e2;
+  --ink-muted: #b6bec0;
+  --ink-faint: #828a8d;
+
+  --line: rgba(242, 245, 245, 0.12);
+  --line-strong: rgba(242, 245, 245, 0.26);
+  --line-hard: rgba(242, 245, 245, 0.42);
+
+  --fill-base: 20, 24, 26;
+  --fill-alt: 29, 33, 37;
+  --fill-card: rgba(242, 245, 245, 0.045);
+  --fill-card-hover: rgba(242, 245, 245, 0.09);
+  --fill-input: rgba(0, 0, 0, 0.3);
+  --grid-line: rgba(242, 245, 245, 0.07);
+  --scrim: rgba(16, 18, 20, 0.8);
+
+  --shadow-window: 0 0 0 1px rgba(0, 0, 0, 0.5), 10px 10px 0 rgba(0, 0, 0, 0.35);
+  --shadow-raised: 0 0 0 1px rgba(0, 0, 0, 0.45), 4px 4px 0 rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  --shadow-flyout: 0 0 0 1px rgba(0, 0, 0, 0.5), 8px 8px 0 rgba(0, 0, 0, 0.35);
+
+  --on-accent: #12171a;
 }
 
-/* CHROME — daylight mode: bleached paper, ink black, stamped signal ink. */
+/* CHROME — paper: bleached stock, black ink, no tint anywhere but the signal. */
 [data-theme="chrome"] {
-  color-scheme: light;
-  --wall-1: #ddd9cf;
-  --wall-2: #f2efe6;
-  --wall-3: #cfcab3;
-  --wall-4: #fbfaf6;
-  --surface: #f6f4ee;
-  --surface-alt: #ece9e0;
-  --surface-raised: #ffffff;
-  --surface-solid: #f6f4ee;
-  --fill-base: 246, 244, 238;
-  --fill-alt: 236, 233, 224;
-  --fill-card: rgba(255, 255, 255, 0.7);
-  --fill-card-hover: rgba(255, 255, 255, 0.95);
-  --fill-input: rgba(255, 255, 255, 0.92);
-  --line: rgba(18, 20, 18, 0.16);
-  --line-strong: rgba(18, 20, 18, 0.4);
-  --line-hard: rgba(18, 20, 18, 0.7);
-  --ink: #141714;
-  --ink-soft: #3a403a;
-  --ink-muted: #616861;
-  --ink-faint: #8d948c;
-  --stroke-focus: #141714;
-  --scrim: rgba(20, 22, 20, 0.4);
-  --shadow-window: 0 0 0 1px rgba(18, 20, 18, 0.5), 12px 12px 0 rgba(18, 20, 18, 0.22);
-  --shadow-flyout: 0 0 0 1px rgba(18, 20, 18, 0.5), 8px 8px 0 rgba(18, 20, 18, 0.2);
-  --shadow-raised: 5px 5px 0 rgba(18, 20, 18, 0.18), 0 0 0 1px var(--line-strong);
-  --glow-accent: 0 0 0 1px var(--accent);
-  --glow-text: none;
+  --wall-1: #e8e7e1;
+  --wall-2: #efeee9;
+  --wall-3: #deddd7;
+  --wall-4: #f7f6f2;
+
+  --surface: rgba(245, 244, 239, 0.96);
+  --surface-alt: #eceae3;
+  --surface-raised: #fbfaf6;
+  --surface-solid: #f4f3ee;
+
+  --ink: #121211;
+  --ink-rgb: 18, 18, 17;
+  --ink-inverse: #f7f6f2;
+  --ink-soft: #2c2c29;
+  --ink-muted: #4f4e49;
+  --ink-faint: #7c7b74;
+
+  --line: rgba(18, 18, 17, 0.16);
+  --line-strong: rgba(18, 18, 17, 0.3);
+  --line-hard: rgba(18, 18, 17, 0.46);
+
+  --fill-base: 245, 244, 239;
+  --fill-alt: 236, 234, 227;
+  --fill-card: rgba(18, 18, 17, 0.04);
+  --fill-card-hover: rgba(18, 18, 17, 0.08);
+  --fill-input: rgba(255, 255, 255, 0.65);
+  --grid-line: rgba(18, 18, 17, 0.07);
+  --scrim: rgba(18, 18, 17, 0.48);
+
+  --shadow-window: 0 0 0 1px rgba(18, 18, 17, 0.35), 8px 8px 0 rgba(18, 18, 17, 0.14);
+  --shadow-raised: 0 0 0 1px rgba(18, 18, 17, 0.28), 3px 3px 0 rgba(18, 18, 17, 0.12);
+  --shadow-card: 0 0 0 1px rgba(18, 18, 17, 0.22);
+  --shadow-flyout: 0 0 0 1px rgba(18, 18, 17, 0.35), 6px 6px 0 rgba(18, 18, 17, 0.14);
+
+  --success: #2f7a45;
+  --warning: #8a6100;
+  --danger: #a8241f;
+  --info: #205a80;
+
+  --status-online: #2f7a45;
+  --status-idle: #8a6100;
+  --status-dnd: #a8241f;
+  --status-purple: #5a3fa0;
+  --status-offline: #6d6d68;
+  --verified: #15618f;
+
+  --on-accent: #ffffff;
 }
 
-/* Signal inks are stamped darker so they stay legible on bleached paper. */
-[data-theme="chrome"][data-accent="phosphor"] { --accent-rgb: 10, 122, 62; --accent-strong: #0a7a3e; }
-[data-theme="chrome"][data-accent="lime"] { --accent-rgb: 88, 122, 6; --accent-strong: #587a06; }
-[data-theme="chrome"][data-accent="sodium"] { --accent-rgb: 168, 103, 0; --accent-strong: #a86700; }
-[data-theme="chrome"][data-accent="plasma"] { --accent-rgb: 186, 62, 12; --accent-strong: #ba3e0c; }
-[data-theme="chrome"][data-accent="crimson"] { --accent-rgb: 190, 24, 42; --accent-strong: #be182a; }
-[data-theme="chrome"][data-accent="magenta"] { --accent-rgb: 186, 20, 104; --accent-strong: #ba1468; }
-[data-theme="chrome"][data-accent="cyan"] { --accent-rgb: 12, 106, 140; --accent-strong: #0c6a8c; }
-[data-theme="chrome"][data-accent="teal"] { --accent-rgb: 10, 122, 106; --accent-strong: #0a7a6a; }
-[data-theme="chrome"][data-accent="violet"] { --accent-rgb: 92, 46, 176; --accent-strong: #5c2eb0; }
-[data-theme="chrome"] { --on-accent: #ffffff; --status-online: #0a7a3e; --status-idle: #a86700; --status-dnd: #be182a; --status-offline: #8d948c; --status-purple: #6d3bbf; --verified: #0c6a8c; }
+/* ============================================================ signals ======
+   "ink" (the default) is the theme's own text colour, so the interface is
+   monochrome until someone deliberately picks a hue.
+   ========================================================================= */
+[data-accent="ink"] {
+  --accent: var(--ink);
+  --accent-rgb: var(--ink-rgb);
+  --accent-soft: rgba(var(--ink-rgb), 0.1);
+  --accent-line: rgba(var(--ink-rgb), 0.42);
+  --accent-ink: var(--ink);
+  --accent-strong: var(--ink);
+  --on-accent: var(--ink-inverse);
+}
+[data-accent="phosphor"] { --accent: #a8d24c; --accent-rgb: 168, 210, 76; --accent-soft: rgba(168, 210, 76, 0.14); --accent-line: rgba(168, 210, 76, 0.5); --accent-ink: #c9e88a; --accent-strong: #b8de63; }
+[data-accent="lime"]     { --accent: #cfe04a; --accent-rgb: 207, 224, 74; --accent-soft: rgba(207, 224, 74, 0.14); --accent-line: rgba(207, 224, 74, 0.5); --accent-ink: #e6f18a; --accent-strong: #dcec5f; }
+[data-accent="sodium"]   { --accent: #e0a63c; --accent-rgb: 224, 166, 60; --accent-soft: rgba(224, 166, 60, 0.14); --accent-line: rgba(224, 166, 60, 0.5); --accent-ink: #f0c67e; --accent-strong: #e8b95c; }
+[data-accent="plasma"]   { --accent: #e2763a; --accent-rgb: 226, 118, 58; --accent-soft: rgba(226, 118, 58, 0.14); --accent-line: rgba(226, 118, 58, 0.5); --accent-ink: #f0a077; --accent-strong: #ea8b55; }
+[data-accent="crimson"]  { --accent: #e04a45; --accent-rgb: 224, 74, 69; --accent-soft: rgba(224, 74, 69, 0.14); --accent-line: rgba(224, 74, 69, 0.5); --accent-ink: #ef8a86; --accent-strong: #e76863; }
+[data-accent="magenta"]  { --accent: #d1479a; --accent-rgb: 209, 71, 154; --accent-soft: rgba(209, 71, 154, 0.14); --accent-line: rgba(209, 71, 154, 0.5); --accent-ink: #e68cc0; --accent-strong: #dc65ac; }
+[data-accent="cyan"]     { --accent: #46b8c8; --accent-rgb: 70, 184, 200; --accent-soft: rgba(70, 184, 200, 0.14); --accent-line: rgba(70, 184, 200, 0.5); --accent-ink: #86d3de; --accent-strong: #62c4d2; }
+[data-accent="teal"]     { --accent: #3aa88f; --accent-rgb: 58, 168, 143; --accent-soft: rgba(58, 168, 143, 0.14); --accent-line: rgba(58, 168, 143, 0.5); --accent-ink: #7ec9b6; --accent-strong: #55b8a2; }
+[data-accent="violet"]   { --accent: #9a7ed6; --accent-rgb: 154, 126, 214; --accent-soft: rgba(154, 126, 214, 0.14); --accent-line: rgba(154, 126, 214, 0.5); --accent-ink: #bfaae6; --accent-strong: #ad95de; }
 
-/* ------------------------------------------------------------ high contrast */
-[data-contrast="high"] {
-  --line: rgba(232, 242, 236, 0.6);
-  --line-strong: rgba(232, 242, 236, 0.95);
-  --line-hard: #ffffff;
-  --fill-card: rgba(0, 0, 0, 0.82);
-  --fill-card-hover: rgba(232, 242, 236, 0.22);
-  --fill-input: rgba(0, 0, 0, 0.9);
+/* Every signal darkens on paper so it stays legible and stops looking like a
+   highlighter. These are ink-wash versions of the same hue. */
+[data-theme="chrome"][data-accent="phosphor"] { --accent: #4d6b00; --accent-rgb: 77, 107, 0; --accent-soft: rgba(77, 107, 0, 0.12); --accent-line: rgba(77, 107, 0, 0.5); --accent-ink: #33500a; --accent-strong: #406000; --on-accent: #ffffff; }
+[data-theme="chrome"][data-accent="lime"]     { --accent: #5f6d00; --accent-rgb: 95, 109, 0; --accent-soft: rgba(95, 109, 0, 0.12); --accent-line: rgba(95, 109, 0, 0.5); --accent-ink: #46520a; --on-accent: #ffffff; }
+[data-theme="chrome"][data-accent="sodium"]   { --accent: #8a5a00; --accent-rgb: 138, 90, 0; --accent-soft: rgba(138, 90, 0, 0.12); --accent-line: rgba(138, 90, 0, 0.5); --accent-ink: #6b4508; --on-accent: #ffffff; }
+[data-theme="chrome"][data-accent="plasma"]   { --accent: #9c3d0e; --accent-rgb: 156, 61, 14; --accent-soft: rgba(156, 61, 14, 0.12); --accent-line: rgba(156, 61, 14, 0.5); --accent-ink: #7a3410; --on-accent: #ffffff; }
+[data-theme="chrome"][data-accent="crimson"]  { --accent: #9c1f1c; --accent-rgb: 156, 31, 28; --accent-soft: rgba(156, 31, 28, 0.12); --accent-line: rgba(156, 31, 28, 0.5); --accent-ink: #7d1c1a; --on-accent: #ffffff; }
+[data-theme="chrome"][data-accent="magenta"]  { --accent: #93246b; --accent-rgb: 147, 36, 107; --accent-soft: rgba(147, 36, 107, 0.12); --accent-line: rgba(147, 36, 107, 0.5); --accent-ink: #771f56; --on-accent: #ffffff; }
+[data-theme="chrome"][data-accent="cyan"]     { --accent: #0f6a78; --accent-rgb: 15, 106, 120; --accent-soft: rgba(15, 106, 120, 0.12); --accent-line: rgba(15, 106, 120, 0.5); --accent-ink: #0c5361; --on-accent: #ffffff; }
+[data-theme="chrome"][data-accent="teal"]     { --accent: #0f6455; --accent-rgb: 15, 100, 85; --accent-soft: rgba(15, 100, 85, 0.12); --accent-line: rgba(15, 100, 85, 0.5); --accent-ink: #0c4e43; --on-accent: #ffffff; }
+[data-theme="chrome"][data-accent="violet"]   { --accent: #5a3fa0; --accent-rgb: 90, 63, 160; --accent-soft: rgba(90, 63, 160, 0.12); --accent-line: rgba(90, 63, 160, 0.5); --accent-ink: #472f80; --on-accent: #ffffff; }
+
+/* ============================================================ overrides ====
+   Accessibility and the shell's runtime switches. Kept at the end so they win
+   over the theme ramps without !important.
+   ========================================================================= */
+
+/* High contrast: rules double in weight, faint text steps up to full ink, and
+   every surface goes opaque — the clearest possible read on a bad screen. */
+body[data-contrast="high"] {
+  --line: rgba(var(--ink-rgb), 0.42);
+  --line-strong: rgba(var(--ink-rgb), 0.7);
+  --line-hard: rgba(var(--ink-rgb), 0.95);
+  --ink-faint: var(--ink-muted);
   --ink-muted: var(--ink-soft);
-  --ink-faint: var(--ink-soft);
-  --glow-text: none;
+  --surface: var(--surface-solid);
+  --fill-card: rgba(var(--ink-rgb), 0.06);
+  --fill-card-hover: rgba(var(--ink-rgb), 0.12);
+  --glass-alpha: 1;
+  --stroke-focus: 3px;
 }
 
-[data-theme="chrome"][data-contrast="high"] {
-  --line: rgba(0, 0, 0, 0.7);
-  --line-strong: #000000;
-  --line-hard: #000000;
-  --fill-card: #ffffff;
-  --fill-input: #ffffff;
+/* Reduce motion: nothing animates, including the ambient backdrops. */
+body[data-motion="reduced"] {
+  --duration-fast: 1ms;
+  --duration: 1ms;
+  --duration-slow: 1ms;
 }
 
-/* ================================================================= ACCENTS */
-[data-accent="phosphor"] { --accent-rgb: 75, 255, 159; --accent-strong: #12c26a; --on-accent: #04090a; }
-[data-accent="lime"] { --accent-rgb: 198, 255, 60; --accent-strong: #8fbf0f; --on-accent: #0a0c02; }
-[data-accent="sodium"] { --accent-rgb: 255, 182, 39; --accent-strong: #c98a08; --on-accent: #0d0800; }
-[data-accent="plasma"] { --accent-rgb: 255, 106, 61; --accent-strong: #d1491a; --on-accent: #100502; }
-[data-accent="crimson"] { --accent-rgb: 255, 77, 94; --accent-strong: #d02135; --on-accent: #100204; }
-[data-accent="magenta"] { --accent-rgb: 255, 61, 154; --accent-strong: #d11576; --on-accent: #100208; }
-[data-accent="cyan"] { --accent-rgb: 57, 208, 255; --accent-strong: #0f9dc9; --on-accent: #02090d; }
-[data-accent="teal"] { --accent-rgb: 32, 227, 178; --accent-strong: #0aa584; --on-accent: #020d0a; }
-[data-accent="violet"] { --accent-rgb: 160, 107, 255; --accent-strong: #7c3fe0; --on-accent: #08040f; }
+@media (prefers-reduced-motion: reduce) {
+  :root { --duration-fast: 1ms; --duration: 1ms; --duration-slow: 1ms; }
+}

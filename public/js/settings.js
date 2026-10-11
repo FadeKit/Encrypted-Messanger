@@ -198,27 +198,27 @@ const Settings = (() => {
   // ------------------------------------------------------------ appearance
   function paintAppearance(fragment) {
     const settings = State.settings();
-    fragment.append(heading('VIS', 'Appearance', 'Signal palettes, panel materials and window geometry.'));
+    fragment.append(heading('VIS', 'Appearance', 'Greyscale themes, one optional signal colour, backdrop and geometry.'));
 
-    const themes = [['nox', 'NOX · night signal'], ['acid', 'ACID · sodium haze'], ['sector', 'SECTOR · red alert'], ['ice', 'ICE · server hall'], ['chrome', 'CHROME · daylight']];
-    const accents = [['phosphor', 'PHOSPHOR · green'], ['lime', 'LIME · acid'], ['sodium', 'SODIUM · amber'], ['plasma', 'PLASMA · orange'], ['crimson', 'CRIMSON · alarm'], ['magenta', 'MAGENTA · neon'], ['cyan', 'CYAN · ice'], ['teal', 'TEAL · cool'], ['violet', 'VIOLET · ultraviolet']];
-    fragment.append(row('Theme', 'Five palettes: three night signals, one red-alert sector and one daylight sheet for bright rooms.', selectControl(settings.theme, themes, (value) => save({ theme: value })), 'Theme'));
-    fragment.append(row('Signal colour', 'Drives the accent, focus rings, meters, graph and every highlight in the interface.', selectControl(settings.accent, accents, (value) => save({ accent: value })), 'Signal colour'));
-    fragment.append(row('Panel opacity', 'How much of the desktop shows through window panels. Lower is more translucent.', sliderControl(settings.glass, 30, 100, 1, (value) => save({ glass: value }), (value) => `${value}%`), 'Panel opacity'));
-    fragment.append(row('Blur radius', 'Backdrop softness behind translucent panels. Zero is sharpest and cheapest on a phone.', sliderControl(settings.blur, 0, 40, 1, (value) => save({ blur: value }), (value) => `${value}px`), 'Blur radius'));
-    fragment.append(row('Edge chamfer', 'Size of the cut corner on panel plates. Zero gives perfectly square plates.', sliderControl(settings.cornerRadius, 0, 24, 1, (value) => {
+    const themes = [['nox', 'NOX · ink black'], ['acid', 'ACID · bone and graphite'], ['sector', 'SECTOR · carbon'], ['ice', 'ICE · frost'], ['chrome', 'CHROME · paper and ink']];
+    const accents = [['ink', 'INK · monochrome (default)'], ['phosphor', 'PHOSPHOR · acid green'], ['lime', 'LIME · chartreuse'], ['sodium', 'SODIUM · amber'], ['plasma', 'PLASMA · burnt orange'], ['crimson', 'CRIMSON · red'], ['magenta', 'MAGENTA · magenta'], ['cyan', 'CYAN · cyan'], ['teal', 'TEAL · teal'], ['violet', 'VIOLET · violet']];
+    fragment.append(row('Theme', 'Four ink-dark greyscale ramps and one paper theme. No theme introduces a colour of its own.', selectControl(settings.theme, themes, (value) => save({ theme: value })), 'Theme'));
+    fragment.append(row('Signal colour', 'The single colour the interface is allowed, used for focus, selection and active marks. INK keeps everything monochrome; the rest are print-muted hues, automatically darkened on paper.', selectControl(settings.accent, accents, (value) => save({ accent: value })), 'Signal colour'));
+    fragment.append(row('Panel opacity', 'Opaque by default. Lower it only if you want the backdrop to show through window panels.', sliderControl(settings.glass, 30, 100, 1, (value) => save({ glass: value }), (value) => `${value}%`), 'Panel opacity'));
+    fragment.append(row('Backdrop blur', 'Only relevant when panel opacity is below 95%. Zero is sharpest and cheapest on a phone.', sliderControl(settings.blur, 0, 40, 1, (value) => save({ blur: value }), (value) => `${value}px`), 'Backdrop blur'));
+    fragment.append(row('Edge chamfer', 'The only corner treatment in the interface: a single cut corner, never a curve. Zero — the default — gives perfectly square plates.', sliderControl(settings.cornerRadius, 0, 24, 1, (value) => {
       document.documentElement.style.setProperty('--chamfer', `${value}px`);
       document.documentElement.style.setProperty('--chamfer-sm', `${Math.max(4, Math.round(value * 0.58))}px`);
       save({ cornerRadius: value });
     }, (value) => `${value}px`), 'Edge chamfer'));
     fragment.append(row('Interface scale', 'Scales text and control sizes across the whole app.', sliderControl(settings.fontScale, 0.85, 1.4, 0.05, (value) => save({ fontScale: value }), (value) => `${Math.round(value * 100)}%`), 'Interface scale'));
     fragment.append(row('Taskbar position', 'Center it like Windows 11, pin it to the left, or auto-hide it.', selectControl(settings.taskbarPosition || 'center', [['center', 'Centered'], ['left', 'Left edge'], ['hidden', 'Auto-hide']], (value) => save({ taskbarPosition: value })), 'Taskbar position'));
-    fragment.append(row('Backdrop', 'The moving backdrop behind every window.', selectControl(settings.wallpaper || 'theme', [
-      ['theme', 'Signal grid · matches the theme'],
-      ['signal', 'Signal bloom · accent glow'],
-      ['rain', 'Data rain · falling code'],
-      ['dots', 'Dot matrix · sparse grid'],
-      ['void', 'Void · flat black'],
+    fragment.append(row('Backdrop', 'A static ruled pattern behind every window. Nothing moves on its own.', selectControl(settings.wallpaper || 'theme', [
+      ['theme', 'Hairline grid · matches the theme'],
+      ['signal', 'Signal grid · stronger rule every fifth line'],
+      ['rain', 'Ruled columns · vertical hairlines'],
+      ['dots', 'Dot matrix · sparse points'],
+      ['void', 'Void · flat field'],
     ], (value) => {
       document.body.dataset.wall = value === 'theme' ? '' : value;
       save({ wallpaper: value });

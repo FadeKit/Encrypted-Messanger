@@ -14,9 +14,46 @@ const AdminClient = (() => {
     data: null, hover: null, pin: null, lastEventAt: Date.now(),
   };
 
-  const KIND_COLORS = {
-    user: '#4cc2ff', dm: '#a78bfa', group: '#f472b6', forum: '#34d399', story: '#fbbf24', airdrop: '#fb7185',
+  // The graph is drawn in the interface's own ink: it reads the live theme
+  // tokens instead of carrying a neon palette of its own, so a monochrome or
+  // paper theme renders a monochrome or ink-on-paper graph. Kinds differ by
+  // mark (square, diamond, ring) as much as by shade, which keeps them
+  // distinguishable when the interface is greyscale.
+  const KIND_STYLE = {
+    user: { token: '--ink', mark: 'square', label: 'member' },
+    dm: { token: '--ink', mark: 'round', label: 'direct channel' },
+    group: { token: '--ink-muted', mark: 'ring', label: 'group chat' },
+    forum: { token: '--ink-soft', mark: 'square', label: 'community' },
+    story: { token: '--warning', mark: 'diamond', label: 'story' },
+    airdrop: { token: '--info', mark: 'diamond', label: 'airdrop' },
   };
+  const FALLBACK_STYLE = { token: '--ink-muted', mark: 'square', label: 'node' };
+  const paletteCache = { key: '', value: null };
+
+  function token(name, fallback) {
+    try {
+      const value = getComputedStyle(document.body).getPropertyValue(name).trim();
+      return value || fallback;
+    } catch { return fallback; }
+  }
+
+  /** Live palette: re-read whenever the theme, accent or contrast setting changes. */
+  function palette() {
+    const settings = State.settings ? State.settings() : {};
+    const key = [document.body.dataset.theme, document.body.dataset.accent, document.body.dataset.contrast, settings.highContrast].join('|');
+    if (paletteCache.key === key && paletteCache.value) return paletteCache.value;
+    const value = {};
+    for (const [kind, style] of Object.entries(KIND_STYLE)) value[kind] = token(style.token, '#b6b6b2');
+    value.line = token('--line-strong', 'rgba(180,180,180,0.3)');
+    value.lineHard = token('--line-hard', 'rgba(200,200,200,0.5)');
+    value.faint = token('--ink-faint', '#808080');
+    value.surface = token('--surface-solid', '#0f1010');
+    value.accent = token('--accent', '#f1f1ee');
+    value.hover = token('--fill-card-hover', 'rgba(200,200,200,0.1)');
+    paletteCache.key = key;
+    paletteCache.value = value;
+    return value;
+  }
 
   function render(body, api) {
     clear(body);
@@ -735,8 +772,8 @@ const AdminClient = (() => {
       el('button', { class: 'btn sm', text: '–', title: 'Zoom out', onClick: () => zoomBy(0.8) }),
       el('span', { class: 'pill tiny', id: 'neural-status', text: 'connecting…' }),
     ]);
-    const legend = el('div', { class: 'neural-legend' }, Object.entries({ user: 'member', dm: 'direct channel', group: 'group chat', forum: 'community' }).map(([kind, label]) => el('div', {}, [
-      el('span', { class: 'dot', style: { background: KIND_COLORS[kind] } }), el('span', { text: label }),
+    const legend = el('div', { class: 'neural-legend' }, Object.entries(KIND_STYLE).map(([kind, style]) => el('div', {}, [
+      el('span', { class: 'dot', style: { background: `var(${style.token})` } }), el('span', { text: style.label }),
     ])).concat([
       el('div', { class: 'tiny faint', text: 'scroll to zoom · drag to pan · click a node to inspect' }),
       el('div', { class: 'tiny faint', id: 'neural-last-event', text: 'waiting for activity…' }),
@@ -803,7 +840,7 @@ const AdminClient = (() => {
       graph.lastEventAt = newest.at;
       for (const event of data.events.slice(-6)) {
         const target = graph.nodes.find((node) => node.id === `user:${event.userId}`);
-        if (target) graph.pulses.push({ x: target.x, y: target.y, r: 4, life: 1, color: KIND_COLORS.user });
+        if (target) graph.pulses.push({ x: target.x, y: target.y, r: 4, life: 1, color: palette()[target.type] || palette().accent });
       }
     }
   }
@@ -938,6 +975,7 @@ const AdminClient = (() => {
   function draw() {
     const ctx = graph.ctx;
     if (!ctx) return;
+    const P = palette();
     const width = graph.width || 800;
     const height = graph.height || 500;
     ctx.clearRect(0, 0, width, height);
@@ -954,49 +992,57 @@ const AdminClient = (() => {
       const b = byId.get(edge.to);
       if (!a || !b) continue;
       const age = Math.min(1, (Date.now() - (edge.lastActivityAt || 0)) / (30 * 60 * 1000));
-      ctx.strokeStyle = `rgba(140,190,255,${0.06 + (1 - age) * 0.36})`;
+      ctx.globalAlpha = 0.16 + (1 - age) * 0.5;
+      ctx.strokeStyle = P.line;
       ctx.lineWidth = Math.max(0.4, (edge.weight || 1) * 0.9) / graph.scale;
       ctx.beginPath();
       ctx.moveTo(a.x, a.y);
       ctx.lineTo(b.x, b.y);
       ctx.stroke();
     }
+    // activity pulses: expanding square frames, no glow, no blur
     for (const pulse of graph.pulses) {
-      ctx.strokeStyle = `rgba(120,220,255,${pulse.life * 0.6})`;
+      ctx.globalAlpha = Math.max(0, pulse.life * 0.7);
+      ctx.strokeStyle = pulse.color || P.accent;
       ctx.lineWidth = 1.4 / graph.scale;
-      ctx.beginPath();
-      ctx.arc(pulse.x, pulse.y, pulse.r, 0, Math.PI * 2);
-      ctx.stroke();
+      const half = pulse.r;
+      ctx.strokeRect(pulse.x - half, pulse.y - half, half * 2, half * 2);
     }
+    ctx.globalAlpha = 1;
     for (const node of graph.nodes) {
-      const color = KIND_COLORS[node.type] || '#9aa7bd';
-      const radius = node.size / 2;
+      const style = KIND_STYLE[node.type] || FALLBACK_STYLE;
+      const color = P[node.type] || P.lineHard;
+      const radius = node.size / 2 + (graph.hover === node.id ? 1.5 : 0);
       const selected = graph.selected === node.id;
-      const hovered = graph.hover === node.id;
-      const gradient = ctx.createRadialGradient(node.x - radius / 3, node.y - radius / 3, 1, node.x, node.y, radius * 1.6);
-      gradient.addColorStop(0, color);
-      gradient.addColorStop(1, 'rgba(6,12,22,0.9)');
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(node.x, node.y, radius + (hovered ? 2 : 0), 0, Math.PI * 2);
+      const shape = (x, y, r) => {
+        ctx.beginPath();
+        if (style.mark === 'round') ctx.arc(x, y, r, 0, Math.PI * 2);
+        else if (style.mark === 'diamond') { ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); }
+        else ctx.rect(x - r, y - r, r * 2, r * 2);
+      };
+      // flat plate: panel fill, 1px rule, no gradient
+      shape(node.x, node.y, radius);
+      ctx.fillStyle = P.surface;
       ctx.fill();
       ctx.lineWidth = (selected ? 2.4 : 1) / graph.scale;
-      ctx.strokeStyle = selected ? '#ffffff' : 'rgba(255,255,255,0.35)';
+      ctx.strokeStyle = selected ? P.accent : color;
       ctx.stroke();
+      // a ring mark gets a second, smaller square inside it
+      if (style.mark === 'ring') { shape(node.x, node.y, radius * 0.55); ctx.stroke(); }
       const recent = Date.now() - (node.lastActivityAt || 0) < 5 * 60 * 1000;
       if (recent) {
-        ctx.strokeStyle = `${color}88`;
+        ctx.globalAlpha = 0.8;
         ctx.lineWidth = 1 / graph.scale;
-        const ring = radius + 4 + Math.sin(Date.now() / 420 + radius) * 1.4;
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, ring, 0, Math.PI * 2);
-        ctx.stroke();
+        ctx.strokeStyle = P.accent;
+        const frame = radius + 4;
+        ctx.strokeRect(node.x - frame, node.y - frame, frame * 2, frame * 2);
+        ctx.globalAlpha = 1;
       }
       if (graph.scale > 0.55 || selected || node.type === 'forum') {
-        ctx.font = `${11 / Math.max(0.7, graph.scale)}px "Segoe UI", system-ui, sans-serif`;
-        ctx.fillStyle = selected ? '#ffffff' : 'rgba(230,240,255,0.85)';
+        ctx.font = `${10 / Math.max(0.7, graph.scale)}px "JetBrains Mono", ui-monospace, Consolas, monospace`;
+        ctx.fillStyle = selected ? P.accent : P.faint;
         ctx.textAlign = 'center';
-        ctx.fillText(String(node.label || '').slice(0, 22), node.x, node.y + radius + 14 / graph.scale);
+        ctx.fillText(String(node.label || '').slice(0, 22).toUpperCase(), node.x, node.y + radius + 14 / graph.scale);
       }
     }
     ctx.restore();
@@ -1160,7 +1206,7 @@ const AdminClient = (() => {
       const target = graph.nodes.find((node) => node.id === `user:${payload.event.userId}`);
       if (target) {
         target.pulse = 1;
-        graph.pulses.push({ x: target.x, y: target.y, r: 6, life: 1, color: '#7dd3fc' });
+        graph.pulses.push({ x: target.x, y: target.y, r: 6, life: 1, color: palette()[target.type] || palette().accent });
       }
     }
   });

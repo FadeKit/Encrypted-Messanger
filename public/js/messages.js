@@ -830,7 +830,7 @@ const Viewer = (() => {
   function open(url, name, kind = 'image') {
     const frame = kind === 'video'
       ? el('video', { src: url, controls: true, autoplay: true, style: { maxWidth: '92vw', maxHeight: '88vh' } })
-      : el('img', { src: url, alt: name, style: { maxWidth: '92vw', maxHeight: '88vh', borderRadius: '10px' } });
+      : el('img', { src: url, alt: name, style: { maxWidth: '92vw', maxHeight: '88vh' } });
     const overlay = el('div', { class: 'story-viewer', onClick: () => overlay.remove() }, [
       el('div', { class: 'frame', style: { width: 'auto', height: 'auto', background: 'transparent', border: 'none' }, onClick: (event) => event.stopPropagation() }, [frame]),
     ]);
