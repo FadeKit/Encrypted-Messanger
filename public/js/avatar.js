@@ -26,6 +26,11 @@ const AvatarEditor = (() => {
    * person backs out.
    */
   function openCrop(source, { title = 'Crop your picture', resolve } = {}) {
+    if (!State.featureEnabled('avatar')) {
+      UI.toast({ level: 'info', title: 'Profile pictures are switched off', body: 'Turn them back on in Settings → General.' });
+      resolve(null);
+      return null;
+    }
     const image = new Image();
     const state = { scale: 1, minScale: 1, offsetX: 0, offsetY: 0, dragging: false, lastX: 0, lastY: 0 };
 

@@ -253,11 +253,28 @@ npm run test:client # client static suite — every script, surface and help art
 npm run test:all    # all three, in order
 ```
 
+Two browser harnesses run the real interface in headless Chrome against a
+throwaway server on a throwaway port. Both need `puppeteer-core` and a Chrome
+binary; they are development tools and are not installed by the server.
+
+```bash
+# every surface, at a chosen viewport: blank screens, clipping, overlaps
+AE_LABEL=phone AE_W=390 AE_H=844 AE_PORT=3480 node tools/visual-audit.mjs
+AE_LABEL=desktop AE_W=1440 AE_H=900 AE_PORT=3481 node tools/visual-audit.mjs
+
+# the flows people actually perform: crop a picture and switch between the last
+# three, post and delete a 24-hour note, make a file and reopen it from the
+# drive, the taskbar tabs, the click counter
+AE_LABEL=phone AE_W=390 AE_H=844 AE_PORT=3490 node tools/e2e-punchlist.mjs
+```
+
+Set `AE_SHOTS` to keep the screenshots somewhere other than `/tmp/ae/shots`.
+
 | Suite | What it proves |
 | --- | --- |
 | `tests/run.js` | 121 checks over accounts, recovery, sessions, messaging, communities, uploads, quotas, requests, one-time codes, airdrops, stories and the operator surface |
-| `tests/flows.js` | 79 checks driving the server with `public/js/crypto.js` executed in a VM: masked operator channels opened from codes, encrypted drive folders and chunked files, airdrops sealed per recipient, audience-key stories, session revocation, the request queue and every console endpoint |
-| `tests/client.js` | 81 checks loading all 17 browser scripts in index.html order against a DOM shim: duplicate bindings, missing surfaces, `Apps.open()` targets, registered window ids and resolvable help articles |
+| `tests/flows.js` | 81 checks driving the server with `public/js/crypto.js` executed in a VM: masked operator channels opened from codes, encrypted drive folders and chunked files, airdrops sealed per recipient, audience-key stories, session revocation, the request queue and every console endpoint |
+| `tests/client.js` | 307 checks loading all 22 browser scripts in index.html order against a DOM shim: duplicate bindings, missing surfaces, `Apps.open()` targets, registered window ids, styled classes and resolvable help articles |
 
 Every suite boots the real server on a random port with a temporary data directory and cleans up after itself — no fixtures to maintain and nothing touches `data/`.
 
@@ -276,7 +293,8 @@ server/            zero-dependency HTTP server
 public/            the client (no build step, no frameworks)
   css/             design tokens, base, window chrome, components
   js/              crypto, api, ui, windows, state, registry, feature modules, shell
-tests/run.js       end-to-end suite
+tests/               end-to-end suites (server, flows, client)
+tools/               browser harnesses: surface audit and the punch-list flows
 data/              created on first run (git-ignored)
 ```
 

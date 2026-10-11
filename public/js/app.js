@@ -697,7 +697,10 @@ const Shell = (() => {
       onClick: (event) => statusMenu(event),
     }, [
       el('span', { class: 'status-dot', id: 'tb-status-dot' }),
+      // AUTO or SET stays visible on a phone; the status name beside it is the
+      // first thing to go when there is no room, and it is one tap away.
       el('span', { class: 'status-mode', id: 'tb-status-mode', text: 'AUTO' }),
+      el('span', { class: 'status-when', id: 'tb-status-when', text: ' · OFFLINE' }),
     ]);
 
     const tray = el('div', { id: 'taskbar-tray' }, [
@@ -760,7 +763,9 @@ const Shell = (() => {
     const mode = manualStatus ? 'SET' : 'AUTO';
     const label = key === 'offline' ? 'OFFLINE' : UI.statusLabel(key).toUpperCase();
     const modeNode = $('#tb-status-mode');
-    if (modeNode) modeNode.textContent = `${mode} · ${label}`;
+    if (modeNode) modeNode.textContent = mode;
+    const whenNode = $('#tb-status-when');
+    if (whenNode) whenNode.textContent = ` · ${label}`;
     pill.dataset.mode = manualStatus || 'auto';
     pill.title = manualStatus
       ? `Status: ${UI.statusLabel(key)} — set by hand. Click to change or go back to automatic.`

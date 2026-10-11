@@ -34,6 +34,8 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR:', e.message));
 page.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE-ERROR:', m.text().slice(0, 200)); });
+// A 404 on any asset is a real defect: name it instead of logging a bare error.
+page.on('response', (r) => { if (r.status() === 404) console.log('HTTP-404:', r.url().replace(`http://127.0.0.1:${PORT}`, '')); });
 await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'networkidle2' });
 
 const PROBE = `(() => {

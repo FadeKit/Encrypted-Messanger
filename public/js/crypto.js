@@ -113,6 +113,29 @@ const AE = (() => {
     try { return JSON.parse(text); } catch { return null; }
   }
 
+  /**
+   * A small JSON object sealed with raw key bytes — a file key straight out of
+   * the key wrap — as one `iv.ct` string, the same shape as a key wrap.  Server
+   * fields are strings, so sealing into a string keeps the two consistent and
+   * removes any chance of a caller posting a `{iv, ct}` object that the server
+   * then drops on the floor.
+   */
+  async function sealJson(rawKeyBytes, object, aad) {
+    const sealed = await encryptJson(await importAes(rawKeyBytes), object, aad);
+    return `${sealed.iv}.${sealed.ct}`;
+  }
+
+  /** Opens a string produced by `sealJson`. Returns null when it cannot be read. */
+  async function openSealedJson(rawKeyBytes, wrapped, aad) {
+    if (typeof wrapped !== 'string' || !wrapped.includes('.')) return null;
+    const [iv, ct] = wrapped.split('.');
+    try {
+      return await decryptJson(await importAes(rawKeyBytes), { iv, ct }, aad);
+    } catch {
+      return null;
+    }
+  }
+
   /** Wrapping a raw key: iv is prepended to the ciphertext and base64 encoded. */
   async function wrapKey(wrappingKey, rawKey, aad) {
     const sealed = await encrypt(wrappingKey, rawKey, aad);
@@ -280,6 +303,8 @@ const AE = (() => {
     decryptText,
     encryptJson,
     decryptJson,
+    sealJson,
+    openSealedJson,
     wrapKey,
     unwrapKey,
     encryptChunkKey,

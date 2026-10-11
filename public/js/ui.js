@@ -31,6 +31,10 @@ const UI = (() => {
       // DOM event types are lowercase, so the suffix is normalised.
       else if (/^on[a-z]+$/i.test(key) && typeof value === 'function') node.addEventListener(key.slice(2).toLowerCase(), value);
       else if (key === 'text') node.textContent = value;
+      // `value` on a <textarea> is a property, not an attribute: setting the
+      // attribute leaves the visible text empty, so a file opened in the editor
+      // showed nothing at all.
+      else if (key === 'value' && 'value' in node) node.value = value;
       else node.setAttribute(key, value === true ? '' : String(value));
     }
     appendChildren(node, children);

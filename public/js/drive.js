@@ -180,17 +180,9 @@ const DriveClient = (() => {
   }
 
   /** Reads the file's name back out of `meta.nameWrapped` when it has one. */
-  async function encryptedName(file, rawKey) {
-    if (!file.meta || !file.meta.nameWrapped) return null;
-    try {
-      const raw = rawKey || await AE.unwrapKey(State.masterKey(), file.keyWrap);
-      if (!raw) return null;
-      const plain = await AE.decryptJson(raw, file.meta.nameWrapped);
-      return (plain && plain.name) || null;
-    } catch {
-      return null;
-    }
-  }
+  // Kept as a local name for the drive's own reads; the work lives in Media so
+  // the editor can resolve the same sealed name without a second copy.
+  const encryptedName = (file, rawKey) => Media.fileName(file, rawKey);
 
   function isTextish(file) {
     const type = (file.meta && file.meta.type) || '';

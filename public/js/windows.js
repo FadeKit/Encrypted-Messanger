@@ -388,7 +388,11 @@ const Windows = (() => {
   function refreshTaskbar() {
     const stack = taskbarStack();
     if (!stack) return;
-    for (const [id, record] of registry) {
+    // `registry` maps an id to a window *entry*; the title, icon and minimized
+    // flag all live on `entry.record`.  Reading them off the entry left every
+    // tab labelled "" with a tooltip of "undefined" and the wrong icon.
+    for (const [id, entry] of registry) {
+      const record = entry.record;
       let button = taskbarButtons.get(id);
       if (!button) {
         button = el('button', { class: 'tb-btn', title: record.title, dataset: { win: id } }, [
@@ -423,6 +427,10 @@ const Windows = (() => {
       button.classList.toggle('running', true);
       button.classList.toggle('focused', focusedId === id);
       button.classList.toggle('active', focusedId === id && !record.minimized);
+      // A minimised window keeps its plate, marked hollow, so it reads as
+      // "tap to come back" rather than "already open".
+      button.classList.toggle('minimized', !!record.minimized);
+      button.title = record.minimized ? `${record.title} — minimised, tap to bring it back` : record.title;
     }
     for (const [id, button] of taskbarButtons) {
       if (!registry.has(id)) { button.remove(); taskbarButtons.delete(id); }

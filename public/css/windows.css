@@ -323,6 +323,13 @@ body[data-taskbar="left"][data-taskbar="hidden"] #taskbar { transform: translate
 #taskbar-stack::-webkit-scrollbar { display: none; }
 .status-btn { width: auto; min-width: 44px; padding: 0 10px; display: flex; align-items: center; gap: 8px; }
 .status-btn .status-dot { width: 11px; height: 11px; display: block; border: 1px solid var(--line-strong); background: var(--status-online); flex: none; }
+.status-btn .status-when {
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
 .status-btn .status-mode {
   font-family: var(--font-mono);
   font-size: var(--text-11);
@@ -345,6 +352,12 @@ body[data-taskbar="left"][data-taskbar="hidden"] #taskbar { transform: translate
   height: 3px;
   background: var(--ink);
 }
+/* A minimised window: same plate, hollow marker and a softer glyph, so the one
+   thing a person wants to tap is the thing that stands out. */
+.tb-btn.minimized { background: transparent; color: var(--ink-soft); border-style: dashed; }
+.tb-btn.minimized .tb-glyph { opacity: 0.75; }
+.tb-btn.minimized::after { background: transparent; border-top: 3px double var(--ink-faint); }
+.tb-btn.minimized:hover { background: var(--ink); color: var(--ink-inverse); border-style: solid; }
 .tb-btn.focused { background: var(--fill-card-hover); border-color: var(--line-hard); color: var(--ink); }
 .tb-btn.focused::after { background: var(--accent); }
 .tb-btn.active { border-color: var(--line-hard); color: var(--ink); }
@@ -849,15 +862,22 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
   }
   #taskbar-stack { gap: 2px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   #taskbar-stack::-webkit-scrollbar { display: none; }
-  #taskbar-tray { gap: 4px; padding-right: 0; }
+  /* The tray keeps its own width and the stack scrolls: squeezing the tray is
+     what pushed the status pill off its own plate. */
+  #taskbar-tray { gap: 4px; padding-right: 0; flex: none; }
   .tb-btn { width: 46px; height: 46px; }
   .tray-link { display: none; }
   .tray-clock { min-width: 68px; padding: 4px 6px; }
   .tray-clock .time { font-size: var(--text-14); }
   .tb-btn .tb-label { display: none; }
   .tb-btn:has(.tb-label) { padding: 0; justify-content: center; }
-  .status-btn .status-mode { display: none; }
-  .status-btn { padding: 0 8px; }
+  /* A phone keeps AUTO / SET and drops the status name: the dot already carries
+     the colour, and the name is one tap away. */
+  .status-btn .status-when { display: none; }
+  /* The fixed 46px plate above would clip "AUTO": the status pill sizes to its
+     own content and keeps a 46px tap target. */
+  .status-btn { width: auto; min-width: 46px; padding: 0 8px; gap: 6px; flex: none; }
+  .status-btn .status-mode { flex: none; }
   .tray-clock .tiny { display: none; }
   .tb-badge { min-width: 16px; height: 16px; line-height: 16px; }
 

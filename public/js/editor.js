@@ -92,6 +92,10 @@ const FileEditor = (() => {
    * an existing document.
    */
   function open(file = {}, options = {}) {
+    if (!State.featureEnabled('editor')) {
+      UI.toast({ level: 'info', title: 'The editor is switched off', body: 'Turn it back on in Settings → General.' });
+      return null;
+    }
     const template = TEMPLATES.find((entry) => entry.id === (file.template || options.template)) || TEMPLATES[0];
     let language = file.language || template.language;
     let currentName = file.name || '';
@@ -200,7 +204,7 @@ const FileEditor = (() => {
           blob,
           meta,
           wrapFileKey: async (raw) => {
-            meta.nameWrapped = await AE.encryptJson(raw, { name: fileName });
+            meta.nameWrapped = await AE.sealJson(raw, { name: fileName });
             return AE.wrapKey(State.masterKey(), raw);
           },
         });
@@ -282,6 +286,10 @@ const FileEditor = (() => {
 
   /** The "new file" picker: choose a kind, land in the editor with it. */
   function create(options = {}) {
+    if (!State.featureEnabled('editor')) {
+      UI.toast({ level: 'info', title: 'The editor is switched off', body: 'Turn it back on in Settings → General.' });
+      return null;
+    }
     const cards = el('div', { class: 'file-type-grid' });
     const ref = UI.dialog({
       title: 'Create a file',
@@ -316,7 +324,9 @@ const FileEditor = (() => {
    * edited; anything binary is refused with a readable reason.
    */
   async function openFromFile(entry) {
-    const name = entry.name || entry.meta?.name || 'download';
+    // The name is not on the record: the drive stores it sealed with the file's
+    // own key, so it has to be opened before it can be shown.
+    const name = entry.name || await Media.fileName(entry) || 'untitled.txt';
     const type = entry.meta?.type || '';
     const ext = (name.split('.').pop() || '').toLowerCase();
     const textish = /^text\//.test(type) || ['txt', 'md', 'html', 'htm', 'css', 'js', 'json', 'csv', 'log', 'xml', 'svg'].includes(ext) || entry.meta?.editor;

@@ -25,11 +25,14 @@ const Settings = (() => {
     ['clickMe', 'Click Me counter', 'The shared global click box in settings.'],
     ['search', 'Search fields', 'Search boxes in the start menu, help and lists.'],
     ['notifications', 'In-app notifications', 'Toast notifications for new activity.'],
+    ['statusBubbles', 'Status notes (24 hours)', 'The short note beside your name in chats. Turn off to hide the whole feature for you.'],
+    ['editor', 'File editor', 'Creating and editing text, HTML and other files, and saving them to the drive.'],
+    ['stores', 'Status notes from others', 'Seeing other members’ 24-hour notes beside their names.'],
   ];
 
   const MENUS = [
     ['messages', '▤ Messages'], ['communities', '▩ Communities'], ['stories', '◉ Public square'],
-    ['drive', '▦ Cloud drive'], ['files', '▥ My files'], ['airdrop', '⇣ Airdrop'], ['admin', '⬢ Admin console'],
+    ['drive', '▦ Cloud drive'], ['files', '▥ My files'], ['editor', '▤ Editor'], ['airdrop', '⇣ Airdrop'], ['admin', '⬢ Admin console'],
   ];
 
   const SECTIONS = [

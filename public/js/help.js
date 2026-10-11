@@ -49,6 +49,24 @@ const Help = (() => {
       body: 'Airdrop is off by default. When it is on, an airdrop mark (⇣) appears in the tray with a badge counting drops received while you were online, and you can send text, images or files to everyone who currently has airdrop on and is online. Each drop key is wrapped individually per recipient with ECDH, so recipients can open it but the server cannot. If nobody is online, the drop goes nowhere — except for operators, who always receive drops even offline.',
     },
     {
+      title: 'Status notes (24 hours)',
+      tags: ['status', 'status note', 'status message', 'bubble', '24h', '24 hours', 'set status', 'clear status', 'discord'],
+      summary: 'A short public note beside your name that clears itself within 24 hours.',
+      body: 'Open My profile → Status note, or click the bubble beside your name in a chat. Type up to 160 characters, pick a symbol, then choose how long it lives: 30 minutes, 1 hour, 4 hours, 8 hours, 24 hours, or "until I delete it". Nothing can live longer than 24 hours. The note is public to anyone who can see your name and is stored unencrypted so it can show before a vault is unlocked, so never put secrets in it. Delete it at any time from the same screen. Two switches in Settings → General control it: "Status notes (24 hours)" hides your own, "Status notes from others" hides everybody else’s.',
+    },
+    {
+      title: 'Profile pictures',
+      tags: ['profile picture', 'avatar', 'picture', 'crop', 'cropper', 'zoom', 'previous pictures', 'change picture', 'photo'],
+      summary: 'Upload a picture, crop it live, and keep the last three to switch between.',
+      body: 'Open My profile and press "Upload & crop picture" (or drop an image on the card). The cropper opens with the picture filling the square: drag to move it, pinch or use the zoom slider to size it, and watch the small preview in the corner. "Use this crop" uploads that square only — the full-size photo never leaves your device. Every picture you set is kept in "Recent pictures" as one of your last three, so switching back is a single click and needs no new upload. Crop, upload and display are all sealed with your master key, so the server only ever holds ciphertext. Settings → General has a "Profile pictures" switch that turns the whole feature off.',
+    },
+    {
+      title: 'Creating and editing files',
+      tags: ['editor', 'file editor', 'create file', 'text file', 'txt', 'html', 'markdown', 'note', 'save to drive', 'write'],
+      summary: 'Make a text, Markdown, HTML, CSS, JS, JSON or CSV file and save it to your encrypted drive.',
+      body: 'Open Editor from the desktop, the start menu, or the "New file" button in Cloud Drive and My files. Pick a kind, give it a name, and write. HTML and Markdown show a live preview on the right; JSON and CSV warn you when something is malformed before you save. Tab indents, Ctrl+S saves to your drive. "Save to Drive" puts the file in Cloud Drive, "Save to Files" puts it in My files, and both are encrypted on this device first — the file name travels sealed with the file key, so the server never learns it either. Open a saved file again with "Open in the editor" in its right-click menu, or download it to your device. The editor has its own switch in Settings → General.',
+    },
+    {
       title: 'Stories',
       tags: ['stories', 'story', '24 hours', 'expire', 'public'],
       summary: 'Ephemeral public media that expires 24 hours after posting.',

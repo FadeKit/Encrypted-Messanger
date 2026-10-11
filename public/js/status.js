@@ -31,6 +31,10 @@ const StatusBubble = (() => {
     const record = user && user.statusMessage;
     if (!record || record.expired || (!record.text && !record.emoji)) return null;
     const mine = !!record.own || (State.user && user.id === State.user.id);
+    // Two switches, both in the viewer's hands: one hides your own notes, the
+    // other hides everybody else's.
+    if (mine && !State.featureEnabled('statusBubbles')) return null;
+    if (!mine && !State.featureEnabled('stores')) return null;
     const node = el('button', {
       class: `status-bubble ${options.compact ? 'compact' : ''} ${mine ? 'mine' : ''}`.trim(),
       type: 'button',
@@ -89,10 +93,9 @@ const StatusBubble = (() => {
   /** The composer, used both to post a new bubble and to edit the live one. */
   function compose(existing) {
     if (!State.featureEnabled('statusBubbles')) {
-      UI.toast({ level: 'info', title: 'Status notes are switched off in your settings' });
+      UI.toast({ level: 'info', title: 'Status notes are switched off', body: 'Turn them back on in Settings → Privacy.' });
       return;
     }
-    if (State.userIdBlocked) { /* placeholder for the kill-switch hook */ }
     const text = el('input', { class: 'input', maxlength: '160', value: (existing && existing.text) || '', placeholder: 'What are you up to?' });
     const ttl = el('select', { class: 'input' }, TTL_OPTIONS.map(([value, label]) =>
       el('option', { value, text: label, selected: (existing && existing.ttl) === value || (!existing && value === '24h') })));

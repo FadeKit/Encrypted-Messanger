@@ -127,6 +127,7 @@ const ConversationClient = (() => {
         peer.verified ? UI.verifiedBadge(peer) : null,
       ]),
       el('div', { class: 'sub truncate', text: conversation.type === 'group' ? `${conversation.members.length + 1} members` : (peer.publicAlias ? `@${peer.username} · ${peer.publicAlias}` : `@${peer.username || 'unknown'}`) }),
+      peer.statusMessage ? el('div', { class: 'tiny faint truncate', text: `${peer.statusMessage.emoji || '💬'} ${peer.statusMessage.text}` }) : null,
     ]);
     const tail = el('div', { class: 'tail' }, [
       el('span', { text: conversation.lastMessageAt ? UI.timeAgo(conversation.lastMessageAt) : '' }),
@@ -190,6 +191,8 @@ const ConversationClient = (() => {
           conversation.anon ? el('span', { class: 'pill accent tiny', text: 'masked operator' }) : null,
         ]),
         el('div', { class: 'tiny faint truncate', text: conversation.type === 'group' ? `${conversation.members.length + 1} members · ${conversation.members.map((member) => member.displayName).slice(0, 4).join(', ')}` : (peer.status ? UI.statusLabel(peer.status.key) : 'Offline') }),
+        // The 24-hour note sits beside the name, exactly where people look for it.
+        peer.statusMessage ? StatusBubble.chip(peer, { compact: true }) : null,
       ]),
       conversation.type === 'group' && conversation.isOwner ? el('button', { class: 'btn sm', text: 'Members', onClick: () => manageGroup(conversation) }) : null,
       el('button', { class: 'btn icon subtle', text: 'ⓘ', title: 'Channel details', onClick: () => channelDetails(conversation) }),
@@ -855,6 +858,7 @@ const Profile = (() => {
       const data = await API.get(`/api/public/profile/${userId}`);
       const profile = data.profile;
       const isSelf = profile.id === State.user.id;
+      const profileForBubbles = Object.assign({}, profile, { statusMessage: profile.statusMessage ? Object.assign({}, profile.statusMessage, { own: isSelf }) : null });
       const presence = State.get('presence')[profile.id];
       const content = el('div', { class: 'stack-12' }, [
         el('div', { class: 'row' }, [
@@ -869,6 +873,7 @@ const Profile = (() => {
             el('div', { class: 'small muted', text: `${profile.fingerprint || ''}` }),
           ]),
         ]),
+        profileForBubbles.statusMessage ? StatusBubble.chip(profileForBubbles, { compact: true }) : null,
         profile.bio ? el('div', { class: 'card', text: profile.bio }) : null,
         el('div', { class: 'grid-3' }, [
           stat('Posts', String(data.posts.length)),

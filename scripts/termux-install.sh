@@ -242,7 +242,7 @@ CNF
 
   if [ -f "$ca_cert" ]; then
     local fingerprint
-    fingerprint="$(openssl x509 -in "$ca_cert" -noout -fingerprint -sha256 2>/dev/null | sed 's/^.*=//' | cut -c1-16 || true)"
+    fingerprint="$(openssl x509 -in "$ca_cert" -noout -fingerprint -sha256 2>/dev/null | sed 's/^.*=//' || true)"
     say ""
     say "To stop the browser warning on your phone, tablet and PC:"
     say "  1. open  https://$ip:$AE_PORT/trust  on that device"
@@ -251,7 +251,8 @@ CNF
     say "     Windows: double-click the file -> Install -> Local Machine -> Trusted Root"
     say "     macOS:   Keychain Access -> System -> drag it in -> Always Trust"
     say "  3. restart the browser: the address bar then shows a plain padlock"
-    [ -n "$fingerprint" ] && note "CA fingerprint (SHA-256, first 16): $fingerprint"
+    [ -n "$fingerprint" ] && note "CA fingerprint (SHA-256): $fingerprint"
+    note "The trust page shows this same value — check they match before installing."
   fi
 
   AE_TLS_CERT="$cert"

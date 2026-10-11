@@ -26,17 +26,27 @@
     );
   }
 
-  // The fingerprint is computed in the browser from the file the server hands
-  // out, so what you compare on the phone is what you installed.
+  // The fingerprint shown here is the certificate's own SHA-256, the same value
+  // `ae-secure trust` prints on the phone.  Asking the server first keeps this
+  // page quiet on an install that has no certificate authority yet.
   (async () => {
     if (!fingerprintNode) return;
     try {
-      const response = await fetch('/ca.crt', { cache: 'no-store' });
-      if (!response.ok) throw new Error(`no authority on this install (${response.status})`);
-      const der = await response.arrayBuffer();
-      const digest = await crypto.subtle.digest('SHA-256', der);
-      const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0').toUpperCase()).join(':');
-      fingerprintNode.textContent = hex.match(/.{1,47}/g).join('\n');
+      const response = await fetch('/api/ca', { cache: 'no-store' });
+      if (!response.ok) throw new Error(`server did not answer (${response.status})`);
+      const info = await response.json();
+      if (!info.available || !info.fingerprint) {
+        fingerprintNode.textContent = 'This install has no certificate authority yet.';
+        const download = document.querySelector('a[download]');
+        if (download) {
+          download.removeAttribute('href');
+          download.setAttribute('aria-disabled', 'true');
+          download.classList.add('disabled');
+          download.textContent = 'Nothing to download yet';
+        }
+        return;
+      }
+      fingerprintNode.textContent = info.fingerprint;
     } catch (error) {
       fingerprintNode.textContent = `unavailable — ${error.message}`;
     }

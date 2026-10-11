@@ -8,6 +8,7 @@
  * contents and file names never arrive in a readable form.
  */
 
+const crypto = require('crypto');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
@@ -35,6 +36,22 @@ const TLS_AVAILABLE = !!(TLS_CERT && TLS_KEY && fs.existsSync(TLS_CERT) && fs.ex
 // a device once is what turns "Not secure" into a plain padlock.
 const TLS_CA = process.env.AE_TLS_CA || '';
 const CA_AVAILABLE = !!(TLS_CA && fs.existsSync(TLS_CA));
+// The authority's own SHA-256 fingerprint, hashed over the DER of the
+// certificate exactly as `openssl x509 -fingerprint -sha256` does, so the value
+// a device sees on /trust is the value the installer prints on the phone.
+const CA_FINGERPRINT = (() => {
+  if (!CA_AVAILABLE) return null;
+  try {
+    const pem = fs.readFileSync(TLS_CA, 'utf8');
+    const body = pem.match(/-----BEGIN CERTIFICATE-----([\s\S]*?)-----END CERTIFICATE-----/);
+    if (!body) return null;
+    const der = Buffer.from(body[1].replace(/\s+/g, ''), 'base64');
+    return crypto.createHash('sha256').update(der).digest('hex')
+      .replace(/(.{2})(?=.)/g, '$1:').toUpperCase();
+  } catch {
+    return null;
+  }
+})();
 const FORCE_HTTPS = String(process.env.AE_FORCE_HTTPS || '') === '1';
 const HTTP_PORT = Number(process.env.AE_HTTP_PORT || 0);
 
@@ -55,6 +72,15 @@ function register(module_) {
 register(require('./routes-auth').routes);
 register(require('./routes-social').routes);
 register(require('./routes-files').routes);
+
+// Public, read-only: what a device needs to know before trusting this host's
+// certificate.  Answers 200 either way, so the page never logs a failed fetch.
+ROUTES.set('GET /api/ca', async () => ({
+  available: CA_AVAILABLE,
+  fingerprint: CA_FINGERPRINT,
+  download: CA_AVAILABLE ? '/ca.crt' : null,
+  secure: TLS_AVAILABLE,
+}));
 register(require('./routes-admin').routes);
 
 ROUTES.set('GET /api/health', async () => ({

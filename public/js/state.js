@@ -284,6 +284,23 @@ const Media = (() => {
     }
   }
 
+  /**
+   * A file's own name, when it was saved by the editor: the name travels sealed
+   * with the file key, so only this device can read it.  Returns null when the
+   * file has no sealed name or when the key is not ours.
+   */
+  async function fileName(file, rawKey) {
+    if (!file || !file.meta || !file.meta.nameWrapped) return null;
+    try {
+      const raw = rawKey || await resolveFileKey(file);
+      if (!raw) return null;
+      const plain = await AE.openSealedJson(raw, file.meta.nameWrapped);
+      return (plain && typeof plain.name === 'string' && plain.name) || null;
+    } catch {
+      return null;
+    }
+  }
+
   async function resolveFileKey(file) {
     if (!file) return null;
     if (file.ownerId === State.user.id) {
@@ -293,7 +310,7 @@ const Media = (() => {
     return null;
   }
 
-  return { loadEncryptedImage, loadAvatar, loadTextFile, resolveFileKey, keyWrapForFile };
+  return { loadEncryptedImage, loadAvatar, loadTextFile, fileName, resolveFileKey, keyWrapForFile };
 })();
 
 window.Media = Media;
