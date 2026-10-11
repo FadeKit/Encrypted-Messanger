@@ -49,6 +49,10 @@ function emptyDatabase() {
       notice: '',
       maxUploadBytes: 2 * 1024 * 1024 * 1024,
       termsVersion: '1.0',
+      // The look the operator publishes for the whole site: a site theme, a
+      // colour ramp and a signal.  Accounts that have not chosen their own
+      // appearance follow it, and it is applied live when it changes.
+      appearance: null,
     },
     counters24: {},
   };

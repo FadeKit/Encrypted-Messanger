@@ -49,6 +49,16 @@
   --track-tight: -0.03em;
   --track-wide: 0.08em;
   --track-hud: 0.18em;
+  /* Labels are set in capitals by default.  A site theme may set this to
+     `none` for a quieter, more editorial page; everything else follows. */
+  --label-case: uppercase;
+
+  /* The desktop picture a user uploads: one custom property holding the dim
+     wash and the image, set from JavaScript when one is chosen. */
+  --wall-image: none;
+  --wall-size: auto;
+  --wall-repeat: repeat;
+  --wall-position: center;
   --stroke-bold: 0.02em;
 
   --leading-tight: 1.04;
@@ -391,3 +401,106 @@ body[data-motion="reduced"] {
 @media (prefers-reduced-motion: reduce) {
   :root { --duration-fast: 1ms; --duration: 1ms; --duration-slow: 1ms; }
 }
+
+
+/* ============================================================================
+   Site themes
+   ----------------------------------------------------------------------------
+   A site theme restyles the whole page — type, label case, rules, shadows and
+   the weight of the desktop grid — without inventing a colour.  Colour stays
+   the job of the ramp (theme) and the single signal (accent), so any site theme
+   works on any ramp: ink on paper, however it is set.
+
+   The selectors are attribute-only, not `body[...]`, so the settings page can
+   render a live preview of a theme by hanging the attribute on a small card.
+   ========================================================================= */
+
+/* --- INK · the shipped house style ---------------------------------------- */
+[data-sitetheme="ink"] {
+  --label-case: uppercase;
+  --track-hud: 0.18em;
+}
+
+/* --- BROADSHEET · a newspaper page --------------------------------------- */
+[data-sitetheme="broadsheet"] {
+  --font-display: "Playfair Display", Georgia, "Times New Roman", "Liberation Serif", serif;
+  --font-sans: Georgia, "Times New Roman", "Liberation Serif", "Iowan Old Style", serif;
+  --label-case: none;
+  --track-hud: 0.06em;
+  --track-wide: 0.04em;
+  --leading-body: 1.62;
+  --line-height: 1.62;
+  --weight-bold: 700;
+  --weight-black: 700;
+  --shadow-window: 0 0 0 1px rgba(0, 0, 0, 0.6), 6px 6px 0 rgba(0, 0, 0, 0.28);
+  --shadow-raised: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  --shadow-card: none;
+  --shadow-flyout: 0 0 0 1px rgba(0, 0, 0, 0.6), 5px 5px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* --- TERMINAL · a printout ------------------------------------------------- */
+[data-sitetheme="terminal"] {
+  --font-display: var(--font-mono);
+  --font-sans: var(--font-mono);
+  --label-case: uppercase;
+  --track-hud: 0.22em;
+  --leading-body: 1.5;
+  --line-height: 1.5;
+  --shadow-window: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  --shadow-raised: 0 0 0 1px rgba(0, 0, 0, 0.45);
+  --shadow-card: none;
+  --shadow-flyout: 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+
+/* --- BLUEPRINT · a drawing sheet ----------------------------------------- */
+[data-sitetheme="blueprint"] {
+  --font-display: var(--font-mono);
+  --font-sans: var(--font-mono);
+  --label-case: uppercase;
+  --track-hud: 0.26em;
+  --track-wide: 0.12em;
+  --shadow-window: 0 0 0 1px rgba(0, 0, 0, 0.55), 3px 3px 0 rgba(0, 0, 0, 0.35);
+  --shadow-raised: 0 0 0 1px rgba(0, 0, 0, 0.4);
+  --shadow-card: none;
+  --shadow-flyout: 0 0 0 1px rgba(0, 0, 0, 0.6), 3px 3px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* --- QUIET · the same page, read calmly ---------------------------------- */
+[data-sitetheme="quiet"] {
+  --font-display: var(--font-sans);
+  --label-case: none;
+  --track-hud: 0.02em;
+  --track-wide: 0.01em;
+  --track-tight: -0.01em;
+  --weight-bold: 600;
+  --weight-black: 700;
+  --leading-body: 1.68;
+  --line-height: 1.68;
+  --shadow-window: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  --shadow-raised: none;
+  --shadow-card: none;
+  --shadow-flyout: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+
+/* a drawing sheet rules its frames with a broken line, and numbers its panels */
+[data-sitetheme="blueprint"] .window { border-style: dashed; }
+[data-sitetheme="blueprint"] .window-titlebar { border-bottom-style: dashed; }
+[data-sitetheme="blueprint"] .card { border-style: dashed; }
+
+/* a newspaper double-rules the head of every panel */
+[data-sitetheme="broadsheet"] .window-titlebar { border-bottom: 3px double var(--line-strong); }
+[data-sitetheme="broadsheet"] .window-title { font-family: var(--font-display); letter-spacing: 0.01em; }
+
+/* a printout has no shadows to speak of, and the display type is a heading,
+   never a billboard */
+[data-sitetheme="terminal"] .title-1,
+[data-sitetheme="terminal"] .title-2,
+[data-sitetheme="terminal"] .display { font-weight: var(--weight-bold); letter-spacing: 0.04em; }
+
+/* the blueprint grid is part of the drawing */
+[data-sitetheme="blueprint"] #desktop::before { mask-image: none; }
+[data-sitetheme="blueprint"] { --grid-line: rgba(241, 241, 238, 0.14); }
+[data-theme="chrome"][data-sitetheme="blueprint"] { --grid-line: rgba(24, 24, 22, 0.14); }
+
+/* the quoted page reads better with a heavier rule under its headings */
+[data-sitetheme="quiet"] .window-titlebar { border-bottom-color: var(--line); }

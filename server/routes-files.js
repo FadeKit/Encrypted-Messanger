@@ -16,6 +16,9 @@ const KINDS = {
   forum: { scope: 'upload' },
   airdrop: { scope: 'upload' },
   avatar: { scope: 'upload' },
+  // a desktop picture: private, encrypted, and its own small cap so a big
+  // photograph cannot be smuggled in through the wallpaper control
+  background: { scope: 'upload' },
   drive: { scope: 'drive' },
   story: { scope: 'upload' },
   public: { scope: 'upload' },
@@ -30,6 +33,10 @@ function limitFor(user, kind, size) {
   if (kind === 'story') {
     h.checkStoryUpload(user, size);
     return user.limits.storyQuotaBytes;
+  }
+  if (kind === 'background') {
+    h.checkDmUpload(user, size);
+    return Math.min(user.limits.dmUploadBytes, 12 * 1024 * 1024);
   }
   h.checkDmUpload(user, size);
   return user.limits.dmUploadBytes;
@@ -85,6 +92,8 @@ route['POST /api/files/init'] = async (ctx) => {
     createdAt: now(),
     completedAt: null,
     audience: kind === 'story' || kind === 'public' ? 'public' : kind === 'avatar' ? 'public' : 'private',
+    // a wallpaper is private to the account that uploaded it; only its owner
+    // (and the operator, through the envelope) can read it back
   };
   store.db.files[fileId] = file;
   store.touch();

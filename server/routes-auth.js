@@ -113,6 +113,8 @@ routes['GET /api/bootstrap'] = async (ctx) => {
       notice: global.notice,
       maxUploadBytes: global.maxUploadBytes,
       termsVersion: global.termsVersion,
+      // the look the operator published for the site, if any
+      appearance: global.appearance || null,
       time: now(),
       uptime: process.uptime(),
       counts: {

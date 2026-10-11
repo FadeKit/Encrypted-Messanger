@@ -884,12 +884,61 @@ const AdminClient = (() => {
           el('button', { class: 'btn', text: 'Preview agreement', onClick: () => Terms.show() }),
         ]),
       ]),
+      paintSiteAppearance(global),
       el('div', { class: 'card stack-8' }, [
         el('div', { class: 'uppercase', text: 'Operator notes' }),
         el('div', { class: 'small muted', text: 'The server stores ciphertext, wrapped keys, account metadata (handles, avatars, limits, sessions) and traffic counters. Direct messages, private communities, drive files and story media can never be decrypted from the server side — the neural view shows structure and timing instead of content.' }),
         el('div', { class: 'small muted', text: 'Public community content is sealed with a community audience key, so it can be reviewed in the neural view for moderation.' }),
       ]),
     ]));
+  }
+
+  /**
+   * The site's own look.  A published appearance is what every account follows
+   * until it chooses its own, and it is applied live — nobody has to reload to
+   * see the change.
+   */
+  function paintSiteAppearance(global) {
+    const published = global.appearance || null;
+    const siteThemes = [['ink', 'Ink'], ['broadsheet', 'Broadsheet'], ['terminal', 'Terminal'], ['blueprint', 'Blueprint'], ['quiet', 'Quiet']];
+    const ramps = [['', 'Leave as chosen'], ['nox', 'NOX · ink black'], ['acid', 'ACID · bone and graphite'], ['sector', 'SECTOR · carbon'], ['ice', 'ICE · frost'], ['chrome', 'CHROME · paper and ink']];
+    const accents = [['', 'Leave as chosen'], ['ink', 'INK · monochrome'], ['phosphor', 'PHOSPHOR'], ['lime', 'LIME'], ['sodium', 'SODIUM'], ['plasma', 'PLASMA'], ['crimson', 'CRIMSON'], ['magenta', 'MAGENTA'], ['cyan', 'CYAN'], ['teal', 'TEAL'], ['violet', 'VIOLET']];
+    const siteSelect = el('select', { class: 'select' }, siteThemes.map(([value, label]) => el('option', { value, text: label, selected: published ? published.siteTheme === value : value === 'ink' })));
+    const rampSelect = el('select', { class: 'select' }, ramps.map(([value, label]) => el('option', { value, text: label, selected: published ? (published.theme || '') === value : value === '' })));
+    const accentSelect = el('select', { class: 'select' }, accents.map(([value, label]) => el('option', { value, text: label, selected: published ? (published.accent || '') === value : value === '' })));
+    const note = el('input', { class: 'input', value: (published && published.note) || '', placeholder: 'Optional note shown to members' });
+    return el('div', { class: 'card stack-8' }, [
+      el('div', { class: 'uppercase', text: 'Site appearance' }),
+      el('div', { class: 'small muted', text: 'Publish a website theme, colour ramp and signal for everyone. Accounts that have not chosen their own look follow it, and it changes on their screen without a reload. Anyone can keep their own choices in Settings → Appearance.' }),
+      el('div', { class: 'grid-3' }, [
+        el('div', { class: 'field' }, [el('label', { text: 'Website theme' }), siteSelect]),
+        el('div', { class: 'field' }, [el('label', { text: 'Colour ramp' }), rampSelect]),
+        el('div', { class: 'field' }, [el('label', { text: 'Signal' }), accentSelect]),
+      ]),
+      el('div', { class: 'field' }, [el('label', { text: 'Note' }), note]),
+      el('div', { class: 'row' }, [
+        el('button', { class: 'btn primary', text: 'Publish to the site', onClick: async () => {
+          try {
+            const result = await API.post('/api/admin/appearance', {
+              siteTheme: siteSelect.value,
+              theme: rampSelect.value || null,
+              accent: accentSelect.value || null,
+              note: note.value,
+            });
+            UI.toast({ level: 'success', title: 'Site appearance published', body: `${result.appearance.siteTheme}${result.appearance.theme ? ` on ${result.appearance.theme}` : ''}.` });
+            paintSection();
+          } catch (error) {
+            UI.toast({ level: 'danger', title: 'Could not publish', body: error.message });
+          }
+        } }),
+        published ? el('button', { class: 'btn subtle', text: 'Clear', onClick: async () => {
+          await API.post('/api/admin/appearance', { clear: true });
+          UI.toast({ level: 'info', title: 'Site appearance cleared', body: 'Every account falls back to its own choices.' });
+          paintSection();
+        } }) : null,
+        el('span', { class: 'tiny faint', text: published ? `published ${UI.timeAgo(published.updatedAt)}` : 'nothing published' }),
+      ]),
+    ]);
   }
 
   // ------------------------------------------------------- neural network

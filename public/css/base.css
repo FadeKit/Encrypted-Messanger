@@ -173,7 +173,8 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .uppercase {
   font-family: var(--font-mono);
-  text-transform: uppercase;
+  /* the site theme decides whether labels are set in capitals at all */
+  text-transform: var(--label-case, uppercase);
   letter-spacing: var(--track-hud);
   font-size: var(--text-11);
   color: var(--ink-muted);
@@ -190,7 +191,7 @@ body[data-focus-ring="off"] :focus-visible { outline: none; }
    no prefixes, no decorative glyphs. */
 .hud {
   font-size: var(--text-11);
-  text-transform: uppercase;
+  text-transform: var(--label-case, uppercase);
   letter-spacing: var(--track-hud);
   color: var(--ink-muted);
 }

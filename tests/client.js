@@ -460,7 +460,15 @@ check('the console registers a flyout a link can open',
   check('the client compares its stamp with the server', /function checkBuild\(bootData\)/.test(appSource) && /checkBuild\(bootData\)/.test(appSource));
   check('a page that is behind says so', /A newer version is on this server/.test(appSource));
   check('only themes this build ships are applied', /const pick = \(value, list, fallback\)/.test(appSource)
-    && /body\.dataset\.theme = pick\(settings\.theme, THEMES, 'nox'\)/.test(appSource));
+    && /body\.dataset\.theme = pick\(ramp, THEMES, 'nox'\)/.test(appSource)
+    && /body\.dataset\.sitetheme = pick\(siteTheme, SITE_THEMES, 'ink'\)/.test(appSource));
+  // every site theme the client can apply has a block in the stylesheet
+  const siteThemeNames = [...appSource.matchAll(/const SITE_THEMES = \[([^\]]+)\]/g)].map((m) => m[1]).join(',').match(/'[a-z]+'/g) || [];
+  const tokensCss = fs.readFileSync(path.join(PUBLIC, 'css', 'tokens.css'), 'utf8');
+  for (const quoted of siteThemeNames) {
+    const name = quoted.replace(/'/g, '');
+    check(`site theme “${name}” is styled`, tokensCss.includes(`[data-sitetheme="${name}"]`));
+  }
   const settingNames = fs.readFileSync(path.join(PUBLIC, 'js', 'settings.js'), 'utf8');
   check('About names the build and whether the page is it', /this page is up to date/.test(settingNames) && /this page is an older copy/.test(settingNames));
   const installer = fs.readFileSync(path.join(ROOT, 'scripts', 'termux-install.sh'), 'utf8');

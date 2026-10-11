@@ -70,6 +70,15 @@ const State = (() => {
   // ------------------------------------------------------------ settings
   const DEFAULT_SETTINGS = {
     theme: 'nox', accent: 'ink', glass: 100, blur: 0, cornerRadius: 0, wallpaper: 'theme',
+    // The site theme restyles the page itself, independently of the colour
+    // ramp; `ink` is the house style this build ships with.
+    siteTheme: 'ink',
+    // An uploaded desktop picture: the library, the one in use, and how it is
+    // drawn.  The files are encrypted like everything else.
+    backgrounds: [], wallpaperFileId: null, wallpaperFit: 'cover', wallpaperDim: 25, wallpaperTone: true,
+    // Whether this account follows the operator's published site appearance or
+    // keeps its own choices.
+    appearanceSource: 'site',
     density: 'comfortable', fontScale: 1, animations: true, reduceMotion: false,
     highContrast: false, dyslexiaFont: false, lineHeight: 1.45, colorBlind: 'none',
     focusRing: true, uiSounds: false, notificationToasts: true, desktopNotifications: false,
@@ -135,6 +144,9 @@ const State = (() => {
   }
 
   function clearSession() {
+    // The desktop picture is this account's; it goes with the session, not with
+    // the browser.  Background is optional so this module keeps working alone.
+    if (typeof Background !== 'undefined' && Background.reset) Background.reset();
     for (const url of objectUrls) URL.revokeObjectURL(url);
     objectUrls.clear();
     channelKeyCache.clear();

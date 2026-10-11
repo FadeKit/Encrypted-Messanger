@@ -200,15 +200,74 @@ const Settings = (() => {
     ], 'Custom CSS'));
   }
 
+  /**
+   * A miniature of the real interface, drawn with the theme's own attribute so
+   * the stylesheet does the previewing.  What you see on the card is what the
+   * page will look like.
+   */
+  function themeSample(siteTheme) {
+    return el('div', { class: 'theme-sample', 'data-sitetheme': siteTheme }, [
+      el('div', { class: 'bar' }, [
+        el('div', { class: 'dots' }, [el('div', { class: 'dot' }), el('div', { class: 'dot' }), el('div', { class: 'dot' })]),
+        el('div', { class: 'label', text: 'Panel' }),
+      ]),
+      el('div', { class: 'head', text: 'AE Secure' }),
+      el('div', { class: 'line' }),
+      el('div', { class: 'line short' }),
+      el('div', { class: 'btn', text: 'Action' }),
+    ]);
+  }
+
+  const SITE_THEMES = [
+    ['ink', 'Ink', 'The house style: heavy display type, capital labels, printed shadows.'],
+    ['broadsheet', 'Broadsheet', 'A newspaper page: serif type, quieter labels, a rule under every heading.'],
+    ['terminal', 'Terminal', 'Everything set in the monospace face, capitals, no shadows.'],
+    ['blueprint', 'Blueprint', 'A drawing sheet: dashed frames, wide numerals, the grid exposed.'],
+    ['quiet', 'Quiet', 'No capitals, no shadows, softer contrast — the same page, read calmly.'],
+  ];
+
   // ------------------------------------------------------------ appearance
   function paintAppearance(fragment) {
     const settings = State.settings();
-    fragment.append(heading('VIS', 'Appearance'));
+    fragment.append(heading('WEB', 'Website theme'));
+
+    const boot = State.get('boot') || {};
+    const published = (boot.server && boot.server.appearance) || null;
+    const following = settings.appearanceSource !== 'self' && published;
+
+    const grid = el('div', { class: 'theme-grid' });
+    for (const [id, name, note] of SITE_THEMES) {
+      const active = (following ? published.siteTheme : settings.siteTheme) === id;
+      grid.append(el('button', {
+        class: `theme-card ${active ? 'on' : ''}`,
+        title: `Use the ${name} site theme`,
+        onClick: async () => {
+          await save({ siteTheme: id, appearanceSource: 'self' });
+          paintRefresh();
+        },
+      }, [themeSample(id), el('div', { class: 'name', text: name }), el('div', { class: 'note', text: note })]));
+    }
+    fragment.append(el('div', { class: 'card stack-8' }, [
+      el('div', { class: 'small muted', text: 'How the whole site is set — type, label case, frames and shadows. It is independent of the colour ramp below, so any theme works on any ramp.' }),
+      grid,
+    ]));
+
+    if (published) {
+      const mine = settings.appearanceSource === 'self';
+      fragment.append(row('Follow the site appearance',
+        { text: `The operator published ${(SITE_THEMES.find(([id]) => id === published.siteTheme) || [null, 'a look'])[1]}${published.theme ? ` on the ${published.theme} ramp` : ''}. Follow it, or keep your own choices.` },
+        el('div', { class: 'row' }, [
+          el('button', { class: `btn sm ${mine ? '' : 'primary'}`, text: 'Follow the site', onClick: async () => { await save({ appearanceSource: 'site' }); paintRefresh(); } }),
+          el('button', { class: `btn sm ${mine ? 'primary' : ''}`, text: 'My own', onClick: async () => { await save({ appearanceSource: 'self' }); paintRefresh(); } }),
+        ]), 'Follow the site appearance'));
+    }
+    fragment.append(heading('VIS', 'Colour ramp'));
 
     const themes = [['nox', 'NOX · ink black'], ['acid', 'ACID · bone and graphite'], ['sector', 'SECTOR · carbon'], ['ice', 'ICE · frost'], ['chrome', 'CHROME · paper and ink']];
     const accents = [['ink', 'INK · monochrome (default)'], ['phosphor', 'PHOSPHOR · acid green'], ['lime', 'LIME · chartreuse'], ['sodium', 'SODIUM · amber'], ['plasma', 'PLASMA · burnt orange'], ['crimson', 'CRIMSON · red'], ['magenta', 'MAGENTA · magenta'], ['cyan', 'CYAN · cyan'], ['teal', 'TEAL · teal'], ['violet', 'VIOLET · violet']];
     fragment.append(row('Theme', 'Four ink-dark greyscale ramps and one paper theme. No theme introduces a colour of its own.', selectControl(settings.theme, themes, (value) => save({ theme: value })), 'Theme'));
     fragment.append(row('Signal colour', 'The single colour the interface is allowed, used for focus, selection and active marks. INK keeps everything monochrome; the rest are print-muted hues, automatically darkened on paper.', selectControl(settings.accent, accents, (value) => save({ accent: value })), 'Signal colour'));
+    fragment.append(heading('LAY', 'Layout and material'));
     fragment.append(row('Panel opacity', 'Opaque by default. Lower it only if you want the backdrop to show through window panels.', sliderControl(settings.glass, 30, 100, 1, (value) => save({ glass: value }), (value) => `${value}%`), 'Panel opacity'));
     fragment.append(row('Backdrop blur', 'Only relevant when panel opacity is below 95%. Zero is sharpest and cheapest on a phone.', sliderControl(settings.blur, 0, 40, 1, (value) => save({ blur: value }), (value) => `${value}px`), 'Backdrop blur'));
     fragment.append(row('Edge chamfer', 'The only corner treatment in the interface: a single cut corner, never a curve. Zero — the default — gives perfectly square plates.', sliderControl(settings.cornerRadius, 0, 24, 1, (value) => {
@@ -217,17 +276,94 @@ const Settings = (() => {
       save({ cornerRadius: value });
     }, (value) => `${value}px`), 'Edge chamfer'));
     fragment.append(row('Interface scale', 'Scales text and control sizes across the whole app.', sliderControl(settings.fontScale, 0.85, 1.4, 0.05, (value) => save({ fontScale: value }), (value) => `${Math.round(value * 100)}%`), 'Interface scale'));
-    fragment.append(row('Taskbar position', 'Center it like Windows 11, pin it to the left, or auto-hide it.', selectControl(settings.taskbarPosition || 'center', [['center', 'Centered'], ['left', 'Left edge'], ['hidden', 'Auto-hide']], (value) => save({ taskbarPosition: value })), 'Taskbar position'));
-    fragment.append(row('Backdrop', 'A static ruled pattern behind every window. Nothing moves on its own.', selectControl(settings.wallpaper || 'theme', [
+    fragment.append(row('Bar position', 'Where the running-app bar sits: centred along the bottom, or as a rail down the left or right edge. Auto-hide keeps it out of the way until you reach for it.', selectControl(settings.taskbarPosition || 'center', [
+      ['center', 'Bottom · centred'], ['left', 'Rail · left edge'], ['right', 'Rail · right edge'], ['hidden', 'Auto-hide'],
+    ], (value) => save({ taskbarPosition: value })), 'Bar position'));
+    fragment.append(row('Backdrop', 'A static ruled pattern behind every window. Nothing moves on its own.', selectControl(settings.wallpaper === 'custom' ? 'custom' : (settings.wallpaper || 'theme'), [
       ['theme', 'Hairline grid · matches the theme'],
       ['signal', 'Signal grid · stronger rule every fifth line'],
       ['rain', 'Ruled columns · vertical hairlines'],
       ['dots', 'Dot matrix · sparse points'],
       ['void', 'Void · flat field'],
+      ['custom', 'My own picture · encrypted, below'],
     ], (value) => {
+      if (value === 'custom' && !Background.list().length) {
+        UI.toast({ level: 'info', title: 'No background uploaded yet', body: 'Add a picture to your library first — it then sits behind the grid.', actions: [{ label: 'Upload one', primary: true, onClick: () => document.getElementById('background-input')?.click() }] });
+        return;
+      }
       document.body.dataset.wall = value === 'theme' ? '' : value;
       save({ wallpaper: value });
     }), 'Backdrop'));
+
+    paintBackgrounds(fragment);
+  }
+
+  // ------------------------------------------------------------ backgrounds
+  function paintBackgrounds(fragment) {
+    const settings = State.settings();
+    const library = Background.list();
+    fragment.append(heading('BGD', 'Desktop picture'));
+
+    const input = el('input', {
+      type: 'file', id: 'background-input', accept: 'image/*', style: { display: 'none' },
+      onChange: async (event) => {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = '';
+        if (file) await Background.upload(file);
+        Background.invalidate();
+        paintRefresh();
+      },
+    });
+    fragment.append(input);
+
+    const shelf = el('div', { class: 'wall-shelf' });
+    for (const entry of library) {
+      const active = settings.wallpaper === 'custom' && settings.wallpaperFileId === entry.id
+        || (!settings.wallpaperFileId && settings.wallpaper === 'custom' && library[library.length - 1].id === entry.id);
+      const thumb = Background.preview(entry, 'lg');
+      if (active) thumb.classList.add('on');
+      shelf.append(el('div', { class: 'wall-item' }, [
+        el('button', {
+          class: 'btn plain', title: `Use ${entry.name} on the desktop`,
+          onClick: async () => { await Background.use(entry.id); paintRefresh(); },
+        }, [thumb]),
+        el('div', { class: 'name', title: entry.name, text: entry.name }),
+        el('div', { class: 'row' }, [
+          el('span', { class: 'tiny faint grow', text: UI.bytes(entry.size) }),
+          el('button', { class: 'btn icon sm subtle', html: UI.icon('trash'), title: 'Delete this picture', onClick: async () => { await Background.remove(entry.id); Background.invalidate(); paintRefresh(); } }),
+        ]),
+      ]));
+    }
+    if (!library.length) {
+      shelf.append(el('div', { class: 'small muted', text: `Nothing uploaded yet. Up to ${Background.MAX_STORED} pictures, ${UI.bytes(Background.MAX_BYTES)} each.` }));
+    }
+
+    const uploadRow = el('div', { class: 'row wrap' }, [
+      el('button', {
+        class: 'btn', html: `${UI.icon('upload')}<span>Upload a picture</span>`,
+        disabled: library.length >= Background.MAX_STORED,
+        onClick: () => input.click(),
+      }),
+      settings.wallpaper === 'custom' ? el('button', {
+        class: 'btn subtle', text: 'Back to the theme backdrop',
+        onClick: async () => { document.body.dataset.wall = 'theme'; await save({ wallpaper: 'theme' }); paintRefresh(); },
+      }) : null,
+    ]);
+
+    fragment.append(el('div', { class: 'card stack-8' }, [
+      el('div', { class: 'small muted', text: 'Your own picture, sealed with your key before it leaves this device — the server stores ciphertext and cannot see it. The grid stays on top, so the desktop still reads as paper.' }),
+      shelf,
+      uploadRow,
+      el('div', { class: 'row wrap' }, [
+        el('span', { class: 'small muted', text: 'Fit' }),
+        selectControl(settings.wallpaperFit || 'cover', [
+          ['cover', 'Cover the screen'], ['contain', 'Fit inside'], ['stretch', 'Stretch'], ['tile', 'Tile'], ['centre', 'Centre at full size'],
+        ], (value) => { Background.invalidate(); save({ wallpaperFit: value }); }),
+      ]),
+    ]));
+
+    fragment.append(row('Dim the picture', 'A wash between the picture and the grid, so labels stay readable over a bright photograph.', sliderControl(settings.wallpaperDim ?? 35, 0, 80, 5, (value) => save({ wallpaperDim: value }), (value) => `${value}%`), 'Dim the picture'));
+    fragment.append(row('Match the interface', 'Print the picture in the same ink as everything else — desaturated to grayscale, so no wallpaper can break the monochrome rule.', switchControl(settings.wallpaperTone !== false, (value) => { Background.invalidate(); save({ wallpaperTone: value }); }), 'Match the interface'));
   }
 
   // --------------------------------------------------------- accessibility

@@ -490,6 +490,38 @@ route['POST /api/admin/global'] = async (ctx) => {
   return { ok: true, global };
 };
 
+/**
+ * The site's own look.  Anything left null means "whatever the account chose",
+ * so an operator can publish just a site theme, just a ramp, or all three, and
+ * every account that follows the site picks it up without a reload.
+ */
+route['POST /api/admin/appearance'] = async (ctx) => {
+  const admin = h.requireAdmin(ctx);
+  const body = ctx.body || {};
+  const global = store.db.global;
+  if (body.clear) {
+    global.appearance = null;
+  } else {
+    const siteThemes = ['ink', 'broadsheet', 'terminal', 'blueprint', 'quiet'];
+    const ramps = ['nox', 'acid', 'sector', 'ice', 'chrome'];
+    const accents = ['ink', 'phosphor', 'lime', 'sodium', 'plasma', 'crimson', 'magenta', 'cyan', 'teal', 'violet'];
+    const next = {
+      siteTheme: siteThemes.includes(body.siteTheme) ? body.siteTheme : ((global.appearance && global.appearance.siteTheme) || 'ink'),
+      theme: ramps.includes(body.theme) ? body.theme : ((global.appearance && global.appearance.theme) || 'nox'),
+      accent: accents.includes(body.accent) ? body.accent : ((global.appearance && global.appearance.accent) || 'ink'),
+      note: sanitizeText(body.note, 160),
+      updatedAt: now(),
+      by: admin.id,
+    };
+    global.appearance = next;
+  }
+  store.touch();
+  store.audit(admin.id, 'admin.appearance_updated', global.appearance || { cleared: true });
+  realtime.broadcast({ kind: 'global', global }, 'global');
+  realtime.broadcast(global.appearance, 'appearance', {});
+  return { ok: true, appearance: global.appearance };
+};
+
 // ------------------------------------------------------------------ files (server-wide)
 route['GET /api/admin/files'] = async (ctx) => {
   h.requireAdmin(ctx);

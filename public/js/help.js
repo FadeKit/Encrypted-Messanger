@@ -19,6 +19,18 @@ const Help = (() => {
       body: 'Direct messages and group chats use a per-channel AES-GCM-256 key. That key is wrapped for each member with a key derived from ECDH P-256 plus HKDF-SHA256, so the server stores wrapped copies it cannot open. File attachments are sealed with their own random key and uploaded as 512 KiB encrypted chunks; every chunk carries a fresh 12-byte IV and its index is authenticated as additional data, which prevents reordering or swapping chunks. The server keeps ciphertext, wrapped keys, account metadata (handle, avatar, limits, sessions) and traffic counters.',
     },
     {
+      title: 'Website theme',
+      tags: ['website theme', 'site theme', 'appearance', 'look', 'broadsheet', 'terminal', 'blueprint', 'quiet', 'theme'],
+      summary: 'The look of the whole site — type, label case, frames and shadows — separate from the colour ramp.',
+      body: 'Settings → Appearance opens with the website themes. INK is the house style: heavy display type, capital labels and printed offset shadows. BROADSHEET sets the page like a newspaper, with serif type, a double rule under every heading and quieter labels. TERMINAL sets everything in the monospace face with capitals and no shadows. BLUEPRINT rules its frames with a broken line and exposes the drawing grid. QUIET drops the capitals and the shadows and softens the contrast for long reading sessions. A website theme never introduces a colour: the ramp and the signal colour below it stay in charge of that, so any website theme works on any ramp. If the operator of this server has published a site appearance, the top of the page offers to follow it or to keep your own choices, and following it means the look changes on your screen the moment they publish.',
+    },
+    {
+      title: 'Desktop picture',
+      tags: ['background', 'wallpaper', 'desktop picture', 'upload background', 'custom background', 'dim', 'fit'],
+      summary: 'Upload your own picture for the desktop — sealed with your key, drawn behind the grid.',
+      body: 'Settings → Appearance → Desktop picture stores up to six pictures. Each one is encrypted in this browser with your master key before it is uploaded, so the server holds ciphertext it cannot open, and the library travels with your account rather than with the device. Choose a picture to put it on the desktop; the hairline grid stays on top and “Dim the picture” adds a wash between the two, which keeps labels readable over a brightly lit photograph. “Match the interface” prints the picture in grayscale, the same ink as everything else. “Fit” chooses between covering the screen, fitting inside it, stretching, tiling, or sitting at full size in the centre. Deleting a picture removes the ciphertext from the server; any device showing it falls back to the theme backdrop.',
+    },
+    {
       title: 'Passphrase rules',
       tags: ['passphrase', 'password', 'strength', 'change passphrase'],
       summary: 'Twelve characters minimum, and it never leaves the device.',

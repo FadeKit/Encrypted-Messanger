@@ -94,7 +94,10 @@ const Shell = (() => {
   // not the others.
   const THEMES = ['nox', 'acid', 'sector', 'ice', 'chrome'];
   const ACCENTS = ['ink', 'phosphor', 'lime', 'sodium', 'plasma', 'crimson', 'magenta', 'cyan', 'teal', 'violet'];
-  const WALLPAPERS = ['theme', 'grid', 'signal', 'rain', 'dots', 'void'];
+  const WALLPAPERS = ['theme', 'grid', 'signal', 'rain', 'dots', 'void', 'custom'];
+  // Website themes: how the page itself is set, independent of the colour ramp
+  // and of the desktop knobs.  Keep in step with tokens.css.
+  const SITE_THEMES = ['ink', 'broadsheet', 'terminal', 'blueprint', 'quiet'];
 
   // ------------------------------------------------------------------ theme
   function applyTheme() {
@@ -109,8 +112,19 @@ const Shell = (() => {
       ConsoleLog.log('UI', `theme value "${value}" is not in this build — using ${fallback}`);
       return fallback;
     };
-    body.dataset.theme = pick(settings.theme, THEMES, 'nox');
-    body.dataset.accent = pick(settings.accent, ACCENTS, 'ink');
+    // The operator can publish a look for the whole site; an account keeps its
+    // own choices unless it has asked to follow that one.
+    const boot = S.get('boot') || {};
+    const published = (boot.server && boot.server.appearance) || null;
+    const following = settings.appearanceSource !== 'self' && published;
+    const ramp = following && published.theme ? published.theme : settings.theme;
+    const accent = following && published.accent ? published.accent : settings.accent;
+    const siteTheme = following && published.siteTheme ? published.siteTheme : settings.siteTheme;
+    body.dataset.theme = pick(ramp, THEMES, 'nox');
+    body.dataset.accent = pick(accent, ACCENTS, 'ink');
+    // The site's own look follows the same rule: a name from an older release
+    // falls back to the house style rather than leaving the page unstyled.
+    body.dataset.sitetheme = pick(siteTheme, SITE_THEMES, 'ink');
     const wall = pick(settings.wallpaper, WALLPAPERS, 'theme');
     body.dataset.wall = wall === 'theme' ? '' : wall;
     body.dataset.contrast = settings.highContrast ? 'high' : 'normal';
@@ -133,6 +147,9 @@ const Shell = (() => {
     root.style.setProperty('--glass-blur', `${settings.blur ?? 16}px`);
     root.style.setProperty('--font-scale', String(settings.fontScale || 1));
     root.style.setProperty('--line-height', String(settings.lineHeight || 1.55));
+    // The uploaded desktop picture, decrypted in this tab.  A theme or a fit
+    // change redraws it; nothing is fetched twice.
+    if (window.Background) Background.apply();
     let custom = $('#custom-css');
     if (settings.customCss) {
       if (!custom) { custom = el('style', { id: 'custom-css' }); document.head.append(custom); }
@@ -1135,7 +1152,20 @@ const Shell = (() => {
       S.user.purpleAllowed = payload.purpleAllowed;
       S.emit('user', S.user);
     });
-    API.on('global', () => {});
+    API.on('global', (payload) => {
+      // the whole global record arrives; only the published look matters here
+      const incoming = (payload && payload.global) || payload || {};
+      if (!incoming.appearance) return;
+      const boot = S.get('boot') || {};
+      S.set('boot', Object.assign({}, boot, { server: Object.assign({}, boot.server, { appearance: incoming.appearance }) }));
+      applyTheme();
+    });
+    // the operator changed the site's look: accounts that follow it repaint
+    API.on('appearance', (payload) => {
+      const boot = S.get('boot') || {};
+      S.set('boot', Object.assign({}, boot, { server: Object.assign({}, boot.server, { appearance: payload || null }) }));
+      applyTheme();
+    });
     API.on('disconnected', () => {
       const banner = el('div', { class: 'banner-offline', id: 'offline-banner', text: 'Reconnecting to the server…' });
       if (!$('#offline-banner')) document.body.append(banner);

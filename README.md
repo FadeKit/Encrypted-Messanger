@@ -20,6 +20,7 @@ Running on a phone? The whole stack is dependency-free Node.js, so it runs comfo
 | Admin console | Live statistics, neural network traffic graph, member management, limits, sessions, moderation, all uploads, story storage, karma, audit log, global switches |
 | Requests | Members ask for larger upload limits, more drive space, bigger stories, purple status — operators approve with a value, approve as unlimited, or deny |
 | Privacy tools | One-time DM codes that never reveal the operator account, backup codes, remote sign-out, activity status with manual overrides |
+| Appearance | Five website themes that restyle the whole page (type, label case, frames, shadows) independently of the colour ramp, a desktop picture you upload yourself — encrypted before it leaves the device, toned to the site's ink, dimmed and fitted to taste — and a site appearance operators can publish for everyone, applied live |
 | Console | Taskbar dropdown with a live, visual-only activity log — link state, message counts, key changes, masked request lines — plus a local command line for theme, backdrop and navigation |
 | Design | Ink on paper: greyscale themes, one optional signal ink, hairline rules, hard offset shadows, monospaced chrome, oversized display type, movable windows, static backdrops, square plates, full accessibility suite, bottom sheets and thumb-sized controls on phones |
 
