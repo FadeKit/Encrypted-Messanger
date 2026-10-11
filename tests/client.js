@@ -618,6 +618,8 @@ if (shim.State && shim.Apps) {
     check('installer prints the lan address', /on your network/.test(script));
     check('installer can back up the data directory', /backup written/.test(script));
     check('installer can point at another git remote', /AE_GIT_URL/.test(script));
+    check('the service command carries its own install path', /@AE_HOME_DEFAULT@/.test(script) && /sed -i "s\|@AE_HOME_DEFAULT@\|\$AE_HOME\|"/.test(script));
+    check('installer fails loudly if the path is not baked in', /could not bake the install path/.test(script));
     const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
     check('readme documents the installer and its commands', /scripts\/termux-install\.sh/.test(readme) && /ae-secure update/.test(readme) && /ae-secure backup/.test(readme));
     check('readme names the branch the app lives on', readme.includes('arena/442b6c1e-encrypted-messanger'));

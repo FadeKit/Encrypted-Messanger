@@ -431,10 +431,12 @@ install_command() {
   mkdir -p "$AE_BIN_DIR"
   cat > "$AE_BIN_DIR/ae-secure" <<'CLI'
 #!/usr/bin/env bash
-# AE Secure service command.
+# AE Secure service command. The installer substitutes @AE_HOME_DEFAULT@
+# below with the real directory, so this works from any shell and from
+# Termux:Boot without any environment set up first.
 set -uo pipefail
 [ -n "${PREFIX:-}" ] && export PATH="$PREFIX/bin:$HOME/bin:$PATH"
-AE_HOME="${AE_HOME:-$HOME/.ae-secure}"
+AE_HOME="${AE_HOME:-@AE_HOME_DEFAULT@}"
 AE_CONF="$AE_HOME/config.env"
 [ -f "$AE_CONF" ] && . "$AE_CONF"
 AE_BIN_DIR="$AE_HOME/bin"
@@ -528,6 +530,10 @@ case "${1:-status}" in
   *) echo "usage: ae-secure {start|stop|restart|status|logs|follow|url|update|backup|restore|doctor}"; exit 1 ;;
 esac
 CLI
+  # bake in this install's directory: `ae-secure status` must work in a fresh
+  # shell, where nothing from the install is exported
+  sed -i "s|@AE_HOME_DEFAULT@|$AE_HOME|" "$AE_BIN_DIR/ae-secure"
+  grep -q '@AE_HOME_DEFAULT@' "$AE_BIN_DIR/ae-secure" && die "could not bake the install path into the command"
   chmod +x "$AE_BIN_DIR/ae-secure"
 
   # make it reachable from any Termux prompt
