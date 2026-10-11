@@ -620,6 +620,9 @@ if (shim.State && shim.Apps) {
     check('installer can point at another git remote', /AE_GIT_URL/.test(script));
     check('the service command carries its own install path', /@AE_HOME_DEFAULT@/.test(script) && /sed -i "s\|@AE_HOME_DEFAULT@\|\$AE_HOME\|"/.test(script));
     check('installer fails loudly if the path is not baked in', /could not bake the install path/.test(script));
+    const cliTemplate = (script.match(/<<'CLI'([\s\S]*?)\nCLI\n/) || [])[1] || '';
+    check('service command template ships with a placeholder path', cliTemplate.includes('AE_HOME:-@AE_HOME_DEFAULT@'), cliTemplate.slice(0, 80));
+    check('service command never guesses its directory', !cliTemplate.includes('AE_HOME:-$HOME/.ae-secure'));
     const readme = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
     check('readme documents the installer and its commands', /scripts\/termux-install\.sh/.test(readme) && /ae-secure update/.test(readme) && /ae-secure backup/.test(readme));
     check('readme names the branch the app lives on', readme.includes('arena/442b6c1e-encrypted-messanger'));
