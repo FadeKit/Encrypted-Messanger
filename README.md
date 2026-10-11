@@ -20,7 +20,7 @@ Running on a phone? The whole stack is dependency-free Node.js, so it runs comfo
 | Admin console | Live statistics, neural network traffic graph, member management, limits, sessions, moderation, all uploads, story storage, karma, audit log, global switches |
 | Requests | Members ask for larger upload limits, more drive space, bigger stories, purple status — operators approve with a value, approve as unlimited, or deny |
 | Privacy tools | One-time DM codes that never reveal the operator account, backup codes, remote sign-out, activity status with manual overrides |
-| Design | Windows 11 style acrylic windows, themes, accents, 5 themes, 9 accents, full accessibility suite, phone-friendly layout |
+| Design | Cyberpunk console: signal themes, chamfered plates, mono HUD labels, oversized display type, movable windows, live backdrops, full accessibility suite, phone-friendly layout |
 
 ---
 

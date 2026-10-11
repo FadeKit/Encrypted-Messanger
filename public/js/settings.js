@@ -198,7 +198,7 @@ const Settings = (() => {
   // ------------------------------------------------------------ appearance
   function paintAppearance(fragment) {
     const settings = State.settings();
-    fragment.append(heading('VIS', 'Appearance', 'Themes, acrylic materials and window geometry.'));
+    fragment.append(heading('VIS', 'Appearance', 'Signal palettes, panel materials and window geometry.'));
 
     const themes = [['nox', 'NOX · night signal'], ['acid', 'ACID · sodium haze'], ['sector', 'SECTOR · red alert'], ['ice', 'ICE · server hall'], ['chrome', 'CHROME · daylight']];
     const accents = [['phosphor', 'PHOSPHOR · green'], ['lime', 'LIME · acid'], ['sodium', 'SODIUM · amber'], ['plasma', 'PLASMA · orange'], ['crimson', 'CRIMSON · alarm'], ['magenta', 'MAGENTA · neon'], ['cyan', 'CYAN · ice'], ['teal', 'TEAL · cool'], ['violet', 'VIOLET · ultraviolet']];

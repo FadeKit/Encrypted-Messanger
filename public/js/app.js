@@ -14,8 +14,8 @@ const Shell = (() => {
   let audioContext = null;
 
   // ------------------------------------------------------------------ sound
-  function blip(frequency = 660, durationMs = 90, gain = 0.045) {
-    if (!S.settings().uiSounds) return;
+  function blip(frequency = 660, durationMs = 90, gain = 0.045, force = false) {
+    if (!force && !S.settings().uiSounds) return;
     try {
       audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
       const osc = audioContext.createOscillator();
@@ -28,6 +28,37 @@ const Shell = (() => {
       amp.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + durationMs / 1000);
       osc.stop(audioContext.currentTime + durationMs / 1000);
     } catch { /* audio unavailable */ }
+  }
+
+  // ------------------------------------------------------- screen reader hints
+  let srHintObserver = null;
+
+  /**
+   * When the setting is on, every control that carries a tooltip also carries an
+   * aria-label, so screen readers announce icon-only buttons with a real name.
+   * A light observer keeps late-rendered surfaces covered; it stays off (and
+   * disconnected) for everyone else.
+   */
+  function applySrHints(enabled) {
+    const decorate = (root) => {
+      if (!root || typeof root.querySelectorAll !== 'function') return;
+      for (const node of root.querySelectorAll('[title]')) {
+        if (typeof node.getAttribute !== 'function') continue;
+        if (!node.getAttribute('aria-label')) node.setAttribute('aria-label', node.getAttribute('title'));
+      }
+    };
+    decorate(document.body);
+    if (!enabled) {
+      if (srHintObserver) { srHintObserver.disconnect(); srHintObserver = null; }
+      return;
+    }
+    if (srHintObserver || typeof MutationObserver !== 'function') return;
+    srHintObserver = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes || []) if (node.nodeType === 1) decorate(node);
+      }
+    });
+    srHintObserver.observe(document.body, { childList: true, subtree: true });
   }
 
   // ------------------------------------------------------------------ theme
@@ -44,6 +75,9 @@ const Shell = (() => {
     body.dataset.colorblind = settings.colorBlind && settings.colorBlind !== 'none' ? settings.colorBlind : 'off';
     body.dataset.focusRing = settings.focusRing === false ? 'off' : 'on';
     body.dataset.taskbar = settings.taskbarPosition || 'center';
+    body.dataset.density = settings.density === 'compact' ? 'compact' : 'comfortable';
+    body.dataset.sidebar = settings.layout && settings.layout.sidebarCompact ? 'compact' : 'comfortable';
+    applySrHints(settings.screenReaderHints === true);
     if (typeof settings.cornerRadius === 'number') {
       document.documentElement.style.setProperty('--chamfer', `${settings.cornerRadius}px`);
       document.documentElement.style.setProperty('--chamfer-sm', `${Math.max(4, Math.round(settings.cornerRadius * 0.58))}px`);

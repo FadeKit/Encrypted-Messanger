@@ -10,8 +10,8 @@
 
   /* ---- type ---------------------------------------------------------- */
   --font-sans: "Inter Tight", "Segoe UI Variable Text", "Segoe UI", "Roboto", "Helvetica Neue", system-ui, -apple-system, sans-serif;
-  --font-display: "Archivo Black", "Segoe UI Variable Display", "Segoe UI", "Roboto Flex", "Roboto", "Helvetica Neue", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, "SF Mono", "Roboto Mono", "Consolas", monospace;
+  --font-display: "Archivo Black", "Arial Black", "Helvetica Neue", Impact, "Segoe UI Variable Display", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, "SF Mono", "Roboto Mono", Consolas, "DejaVu Sans Mono", monospace;
 
   --text-11: 0.6875rem;
   --text-12: 0.75rem;

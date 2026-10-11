@@ -1160,6 +1160,25 @@
 #typing-indicator { min-height: 14px; }
 #thread-composer { border-top: 1px solid var(--line-strong); background: var(--surface-alt); padding: 10px 12px; }
 
+/* ----------------------------------------------------------- compact sidebar */
+body[data-sidebar="compact"] .split-list .list-item { padding-top: 6px; padding-bottom: 6px; }
+body[data-sidebar="compact"] .split-list .avatar { width: 30px; height: 30px; }
+body[data-sidebar="compact"] .split-list .list-item .title-3 { font-size: var(--text-13); }
+
+/* -------------------------------------------------------------- density -- */
+body[data-density="compact"] .card,
+body[data-density="compact"] .stat-card { padding: 11px 12px; }
+body[data-density="compact"] .setting-row { padding: 8px 0; gap: 12px; }
+body[data-density="compact"] .list-item,
+body[data-density="compact"] .user-row,
+body[data-density="compact"] .thread-row,
+body[data-density="compact"] .session-row { padding: 7px 10px; }
+body[data-density="compact"] .message-group { padding: 6px 10px; }
+body[data-density="compact"] .message-list { gap: 4px; }
+body[data-density="compact"] .drive-grid { gap: 10px; padding: 10px; }
+body[data-density="compact"] .settings-body,
+body[data-density="compact"] .admin-main { padding: 12px 14px 30px; }
+
 /* --------------------------------------------------------------- mobile -- */
 @media (max-width: 640px) {
   .auth-card { grid-template-columns: 1fr; }

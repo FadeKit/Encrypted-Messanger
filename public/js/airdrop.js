@@ -31,7 +31,7 @@ const AirdropClient = (() => {
 
   function handle(payload) {
     refresh();
-    Shell.blip(980, 70, 0.04);
+    Shell.blip(980, 70, 0.04, State.settings().airdropSound);
     const drop = payload.airdrop || {};
     UI.toast({
       level: 'info',

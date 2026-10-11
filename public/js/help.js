@@ -275,7 +275,7 @@ const Help = (() => {
     },
     {
       title: 'Your desktop',
-      body: 'Shortcut icons launch each surface. Windows are acrylic, movable and resizable, and they remember the position you leave them in. On a phone they open full-screen with a back arrow.',
+      body: 'Shortcut icons launch each surface. Windows are movable, resizable plates with corner brackets, and they remember the position you leave them in. On a phone they open full-screen with a back arrow.',
       target: '#desktop-icons',
     },
     {

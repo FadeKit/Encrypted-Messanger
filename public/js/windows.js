@@ -1,5 +1,5 @@
 /* ============================================================================
-   AE Secure — movable acrylic window manager
+   AE Secure — movable window manager: plates, chamfers, snapping, taskbar
    Drag, resize, snap layouts, minimise to the taskbar, maximise, z-order,
    per-window state memory and a mobile sheet mode for phone hosts.
    ========================================================================== */
