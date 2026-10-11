@@ -129,26 +129,38 @@ Every knob is an environment variable: `AE_OWNER`, `AE_REPO`, `AE_BRANCH`,
 
 ### Patch a phone that is already running AE Secure
 
-`scripts/termux-patch.sh` stops the host that is running now, installs the
-current source over it, keeps the encrypted data directory exactly where it is,
-and starts it again — one line, no arguments:
+`scripts/termux-patch.sh` finds the existing settings, downloads and validates
+the source **before stopping the host**, backs up the old code and runtime
+settings (never account data), installs the new build, reapplies the boot hooks,
+and checks the health endpoint. The configured encrypted data directory is not
+changed. If installation or the health check fails, it restores the old code and
+runtime settings, then starts the prior host again.
 
 ```bash
-curl -fsSL https://codeload.github.com/FadeKit/Encrypted-Messanger/tar.gz/refs/heads/arena/442b6c1e-encrypted-messanger \
-  | tar -xz -C "$TMPDIR" && bash "$TMPDIR"/Encrypted-Messanger-*/scripts/termux-patch.sh
+set -o pipefail
+PATCH_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ae-patch-source.XXXXXX")" &&
+  curl -fsSL https://codeload.github.com/FadeKit/Encrypted-Messanger/tar.gz/refs/heads/arena/442b6c1e-encrypted-messanger \
+    | tar -xz -C "$PATCH_DIR" &&
+  bash "$PATCH_DIR"/Encrypted-Messanger-*/scripts/termux-patch.sh
 ```
 
-It finds the install through `~/.ae-secure/config.env`, or through the
-supervisor that is running, or through its pid file, and it prints the address
-to open when it is done, along with the **build** it just installed.
+It finds the install through `~/.ae-secure/config.env`, a running supervisor,
+or its pid file. It preserves the configured TLS/HTTP ports, certificate paths,
+health settings, data path, host and developer link. It also prints the actual
+HTTP or HTTPS address and the **build** it installed. The bootstrap reuses its
+downloaded checkout; it does not fetch the same archive twice.
 
 Every install reports the build it is running: `ae-secure doctor` prints it,
 `GET /api/health` returns it, and **Settings → About** shows the same identifier
 with a note saying whether the page you are looking at is that build. If a tab
 was left open across a patch it says *this page is an older copy — reload*, and
 offers a reload button, so an interface that looks wrong after an update can be
-told apart from an interface that is actually broken. If the patch fails it puts the version that was
-already on the phone back up, so a failed patch never leaves the phone dark.
+told apart from an interface that is actually broken. On a patch failure, it
+restores the prior code and runtime settings and starts that host again. If
+storage or permissions prevent recovery, it retains the recovery archive and
+prints its location. It identifies processes by the specific install's command
+path/working directory and refuses to replace overlapping code/data/runtime/TLS
+paths; there is no broad `pkill` command.
 The last step restarts the phone, so it comes back up clean and the boot hook
 starts the host again; press any key during the ten-second countdown to skip
 that once, or set `AE_REBOOT=0` to leave the phone on.
@@ -167,11 +179,18 @@ never written into the config file.
 # keep the phone awake while the server runs
 termux-wake-lock
 
-# run in the background, logging to a file
+# run in the background, logging to a file, and save this process's PID
 nohup node server/index.js > ae.log 2>&1 &
+printf '%s\n' "$!" > ae.pid
 
-# stop it later
-pkill -f server/index.js
+# stop only that process after verifying its command line
+PID="$(cat ae.pid)"
+if [ -r "/proc/$PID/cmdline" ] && tr '\0' ' ' < "/proc/$PID/cmdline" | grep -Fq 'server/index.js'; then
+  kill -TERM "$PID"
+  rm -f ae.pid
+else
+  echo "PID file is stale or does not name this server; inspect it before stopping anything."
+fi
 ```
 
 Useful options — all optional, all via environment variables:

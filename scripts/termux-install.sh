@@ -43,7 +43,7 @@ AE_LOG="$AE_HOME/logs/server.log"
 AE_PID="$AE_HOME/run/server.pid"
 AE_SUP_PID="$AE_HOME/run/supervisor.pid"
 AE_CONF="$AE_HOME/config.env"
-AE_HEALTH_PATH="/api/health"
+AE_HEALTH_PATH="${AE_HEALTH_PATH:-/api/health}"
 AE_TLS="${AE_TLS:-1}"
 AE_HTTP_PORT="${AE_HTTP_PORT:-8080}"
 AE_TLS_DIR="${AE_TLS_DIR:-$AE_HOME/tls}"
@@ -139,6 +139,12 @@ check_node() {
 install_tls() {
   step "Transport"
   if [ "$AE_TLS" != "1" ]; then
+    # A prior config may contain generated certificate paths. Clear them when
+    # HTTP is explicitly selected, or the server can still start HTTPS while
+    # the service command advertises a plain-http URL.
+    AE_TLS_CERT=""
+    AE_TLS_KEY=""
+    AE_TLS_CA=""
     note "plain http requested (AE_TLS=0) — phones will not be able to create accounts"
     return 0
   fi
@@ -156,6 +162,21 @@ install_tls() {
 
   local ip; ip="$(lan_ip)"
   local cert="$AE_TLS_DIR/server.crt" key="$AE_TLS_DIR/server.key"
+  # Existing custom certificate paths are part of the install configuration.
+  # Keep a valid custom pair intact instead of silently replacing it with a
+  # generated key under AE_TLS_DIR. The default generated pair still follows
+  # the address/expiry refresh path below.
+  if [ -n "${AE_TLS_CERT:-}" ] || [ -n "${AE_TLS_KEY:-}" ]; then
+    [ -n "${AE_TLS_CERT:-}" ] && [ -n "${AE_TLS_KEY:-}" ] || die "both AE_TLS_CERT and AE_TLS_KEY are required"
+    if [ "$AE_TLS_CERT" != "$cert" ] || [ "$AE_TLS_KEY" != "$key" ]; then
+      [ -f "$AE_TLS_CERT" ] && [ -f "$AE_TLS_KEY" ] || die "configured TLS certificate/key is missing; check AE_TLS_CERT and AE_TLS_KEY"
+      openssl x509 -in "$AE_TLS_CERT" -noout >/dev/null 2>&1 || die "configured AE_TLS_CERT is not a valid certificate"
+      openssl pkey -in "$AE_TLS_KEY" -noout >/dev/null 2>&1 || die "configured AE_TLS_KEY is not a valid private key"
+      if [ -n "${AE_TLS_CA:-}" ] && [ ! -f "$AE_TLS_CA" ]; then die "configured AE_TLS_CA is missing"; fi
+      say "using the configured TLS certificate: $AE_TLS_CERT"
+      return 0
+    fi
+  fi
   mkdir -p "$AE_TLS_DIR"
 
   local needs=0
@@ -712,6 +733,11 @@ refresh_tls() {
   command -v openssl >/dev/null 2>&1 || return 0
   local dir="${AE_TLS_DIR:-$AE_HOME/tls}"
   local cert="$dir/server.crt" key="$dir/server.key" ca="$dir/ca.crt"
+  # Custom certificate locations are caller-managed; do not replace them with
+  # a generated leaf when the boot hook refreshes the current LAN address.
+  if [ -n "${AE_TLS_CERT:-}" ] || [ -n "${AE_TLS_KEY:-}" ]; then
+    [ "${AE_TLS_CERT:-}" = "$cert" ] && [ "${AE_TLS_KEY:-}" = "$key" ] || return 0
+  fi
   [ -f "$key" ] || return 0
   local ip; ip="$(lan_ip)"
   [ -n "$ip" ] || return 0
@@ -796,11 +822,12 @@ case "${1:-status}" in
   url)
     ip="$(lan_ip)"; [ -n "$ip" ] || ip="your-phone-ip"
     scheme="http"
-    [ "${AE_TLS:-1}" = "1" ] && [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/server.crt" ] && scheme="https"
+    [ "${AE_TLS:-1}" = "1" ] && [ -n "${AE_TLS_CERT:-}" ] && [ -f "$AE_TLS_CERT" ] \
+      && [ -n "${AE_TLS_KEY:-}" ] && [ -f "$AE_TLS_KEY" ] && scheme="https"
     echo "on this phone : $scheme://127.0.0.1:${AE_PORT:-3000}"
     echo "on your network: $scheme://$ip:${AE_PORT:-3000}"
     if [ "$scheme" = "https" ]; then
-      if [ -f "${AE_TLS_DIR:-$AE_HOME/tls}/ca.crt" ]; then
+      if [ -n "${AE_TLS_CA:-}" ] && [ -f "$AE_TLS_CA" ]; then
         echo "install $scheme://$ip:${AE_PORT:-3000}/ca.crt once per device, then the"
         echo "warning disappears ('ae-secure trust' walks through it)"
       else
