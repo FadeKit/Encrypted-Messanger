@@ -1,0 +1,29 @@
+{
+  "name": "ae-secure",
+  "version": "1.0.0",
+  "description": "AE Secure — zero-knowledge encrypted messaging, cloud drive and community platform.",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "test": "node tests/run.js",
+    "test:flows": "node tests/flows.js",
+    "test:client": "node tests/client.js",
+    "test:all": "node tests/run.js && node tests/flows.js && node tests/client.js",
+    "port": "node -e \"require('./server/index.js')\""
+  },
+  "dependencies": {},
+  "keywords": [
+    "encryption",
+    "e2ee",
+    "messaging",
+    "termux",
+    "self-hosted"
+  ],
+  "license": "UNLICENSED"
+}

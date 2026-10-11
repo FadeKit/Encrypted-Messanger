@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="AE Secure">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4C8DFA"/>
+      <stop offset="1" stop-color="#8A5CF6"/>
+    </linearGradient>
+    <linearGradient id="s" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#g)"/>
+  <rect width="512" height="512" rx="116" fill="url(#s)"/>
+  <path d="M256 96c-58 0-104 44-104 100 0 30 12 56 32 74v40c0 12 10 22 22 22h100c12 0 22-10 22-22v-40c20-18 32-44 32-74 0-56-46-100-104-100zm0 44c32 0 58 25 58 56s-26 56-58 56-58-25-58-56 26-56 58-56z" fill="#0B0F16" fill-opacity=".38"/>
+  <path d="M150 356h212c14 0 24 12 21 25l-9 39c-9 38-43 64-82 64h-72c-39 0-73-26-82-64l-9-39c-3-13 7-25 21-25z" fill="#0B0F16" fill-opacity=".55"/>
+  <path d="M214 330h84v34c0 23-19 42-42 42s-42-19-42-42v-34z" fill="#FFFFFF" fill-opacity=".92"/>
+  <circle cx="256" cy="200" r="20" fill="#FFFFFF" fill-opacity=".92"/>
+</svg>

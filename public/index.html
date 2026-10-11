@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" data-theme="midnight" data-accent="azure">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=yes" />
+  <title>AE Secure — encrypted messaging &amp; storage</title>
+  <meta name="description" content="AE Secure is a self-hosted, end-to-end encrypted messenger and cloud drive. Keys are derived on your device; the server only ever holds ciphertext." />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#111721" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f4f6fb" media="(prefers-color-scheme: light)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="AE Secure" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/windows.css" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <style id="boot-style">
+    #boot-splash {
+      position: fixed; inset: 0; display: grid; place-content: center; gap: 18px;
+      background: radial-gradient(1200px 800px at 20% -10%, rgba(56, 122, 221, .28), transparent 60%),
+                  radial-gradient(900px 700px at 110% 20%, rgba(147, 92, 240, .22), transparent 55%),
+                  #0b0f16;
+      color: #eef2f9; font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+      text-align: center; z-index: 5;
+    }
+    #boot-splash .mark {
+      width: 74px; height: 74px; margin: 0 auto; border-radius: 20px; display: grid; place-items: center;
+      background: linear-gradient(150deg, #4c8dfa, #8a5cf6); font-weight: 700; font-size: 26px; letter-spacing: .5px;
+      box-shadow: 0 18px 44px rgba(0, 0, 0, .45);
+    }
+    #boot-splash h1 { margin: 0; font-size: 23px; font-weight: 600; letter-spacing: .2px; }
+    #boot-splash p { margin: 0; font-size: 13px; color: #9fb0c8; max-width: 40ch; line-height: 1.55; }
+    #boot-splash .bar { width: 190px; height: 3px; margin: 4px auto 0; border-radius: 999px; background: rgba(255, 255, 255, .13); overflow: hidden; }
+    #boot-splash .bar i { display: block; width: 40%; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #4c8dfa, #8a5cf6); animation: boot-slide 1.25s ease-in-out infinite; }
+    @keyframes boot-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(320%); } }
+    @media (prefers-reduced-motion: reduce) { #boot-splash .bar i { animation: none; width: 65%; } }
+  </style>
+</head>
+<body data-theme="midnight" data-accent="azure">
+  <div id="boot-splash">
+    <div class="mark">AE</div>
+    <h1>AE Secure</h1>
+    <p>End-to-end encrypted messaging and storage. Your keys are derived on this device and never leave it.</p>
+    <div class="bar"><i></i></div>
+  </div>
+
+  <noscript>
+    <div style="position:fixed;inset:0;display:grid;place-content:center;background:#0b0f16;color:#eef2f9;font-family:system-ui,sans-serif;text-align:center;padding:24px;z-index:20">
+      <div style="max-width:44ch;line-height:1.6">
+        <h1 style="font-size:20px;margin:0 0 10px">JavaScript is required</h1>
+        <p style="color:#9fb0c8;font-size:14px;margin:0">AE Secure performs all encryption in the browser. Enable JavaScript for this site to sign in — nothing is stored or transmitted in plain text.</p>
+      </div>
+    </div>
+  </noscript>
+
+  <!-- Crypto and platform layer -->
+  <script defer src="/js/crypto.js"></script>
+  <script defer src="/js/api.js"></script>
+  <script defer src="/js/ui.js"></script>
+  <script defer src="/js/windows.js"></script>
+  <script defer src="/js/state.js"></script>
+  <script defer src="/js/registry.js"></script>
+  <!-- Surfaces -->
+  <script defer src="/js/terms.js"></script>
+  <script defer src="/js/messages.js"></script>
+  <script defer src="/js/communities.js"></script>
+  <script defer src="/js/drive.js"></script>
+  <script defer src="/js/stories.js"></script>
+  <script defer src="/js/airdrop.js"></script>
+  <script defer src="/js/clicker.js"></script>
+  <script defer src="/js/help.js"></script>
+  <script defer src="/js/settings.js"></script>
+  <script defer src="/js/admin.js"></script>
+  <!-- Shell boots last -->
+  <script defer src="/js/app.js"></script>
+</body>
+</html>
