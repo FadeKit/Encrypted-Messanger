@@ -88,8 +88,27 @@ class Store {
       }
     }
     this.loaded = true;
+    this.backfillUsers();
     this.pruneSessions();
     return this;
+  }
+
+  /**
+   * Accounts created before a field existed must still work: this fills in the
+   * defaults a newer version reads, without touching anything already set.
+   */
+  backfillUsers() {
+    let changed = false;
+    for (const user of Object.values(this.db.users || {})) {
+      if (!Array.isArray(user.avatarHistory)) { user.avatarHistory = user.avatarId ? [user.avatarId] : []; changed = true; }
+      if (user.statusMessage === undefined) { user.statusMessage = null; changed = true; }
+    }
+    for (const message of Object.values(this.db.messages || {})) {
+      if (message.attachments === undefined) { message.attachments = []; changed = true; }
+      if (message.reactions === undefined) { message.reactions = {}; changed = true; }
+    }
+    if (changed) this.touch();
+    return changed;
   }
 
   touch() {
@@ -140,6 +159,10 @@ class Store {
       wrappedMaster: null,
       wrappedIdentity: null,
       avatarId: null,
+      // The three most recent profile pictures, newest first.
+      avatarHistory: [],
+      // The 24-hour status bubble: { text, emoji, createdAt, expiresAt }.
+      statusMessage: null,
       bio: '',
       verified: false,
       purpleAllowed: false,

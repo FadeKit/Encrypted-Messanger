@@ -263,6 +263,27 @@ const Media = (() => {
     }
   }
 
+  /**
+   * Decrypts an uploaded text file into a string, for the editor.  Returns null
+   * when the key cannot be unwrapped rather than throwing: a file you do not own
+   * simply is not editable.
+   */
+  async function loadTextFile(file) {
+    if (!file) return null;
+    try {
+      const raw = await resolveFileKey(file);
+      if (!raw) return null;
+      const blob = await API.downloadDecrypted(file.id, {
+        chunks: file.chunks,
+        fileKeyRaw: raw,
+        mime: (file.meta && file.meta.type) || 'text/plain',
+      });
+      return await blob.text();
+    } catch {
+      return null;
+    }
+  }
+
   async function resolveFileKey(file) {
     if (!file) return null;
     if (file.ownerId === State.user.id) {
@@ -272,7 +293,7 @@ const Media = (() => {
     return null;
   }
 
-  return { loadEncryptedImage, loadAvatar, resolveFileKey, keyWrapForFile };
+  return { loadEncryptedImage, loadAvatar, loadTextFile, resolveFileKey, keyWrapForFile };
 })();
 
 window.Media = Media;

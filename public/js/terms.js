@@ -64,7 +64,7 @@ const Terms = (() => {
     checkbox.addEventListener('change', () => { acceptButton.disabled = !checkbox.checked; });
     dialogRef = UI.dialog({
       title: TITLE,
-      glyph: '§',
+      icon: 'editor',
       size: 'wide',
       dismissable: !requireAccept,
       content: el('div', { class: 'stack-12' }, [
@@ -93,7 +93,7 @@ const Terms = (() => {
     checkbox.addEventListener('change', () => { button.disabled = !checkbox.checked; });
     dialogRef = UI.dialog({
       title: TITLE,
-      glyph: '§',
+      icon: 'editor',
       size: 'wide',
       dismissable: false,
       content: el('div', { class: 'stack-12' }, [

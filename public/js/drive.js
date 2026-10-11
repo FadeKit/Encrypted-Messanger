@@ -43,6 +43,7 @@ const DriveClient = (() => {
       ]),
       meterHost,
       el('button', { class: 'btn sm', text: 'Request more space', onClick: () => Settings.open('requests') }),
+      el('button', { class: 'btn sm', text: 'New file', onClick: () => FileEditor.create({ onSaved: () => Apps.open('drive') }) }),
       el('button', { class: 'btn sm', text: 'New folder', onClick: () => newFolder() }),
       el('button', { class: 'btn sm primary', text: 'Upload', onClick: () => picker() }),
     ]);
@@ -98,14 +99,14 @@ const DriveClient = (() => {
         cell.addEventListener('contextmenu', (event) => {
           event.preventDefault();
           UI.contextMenu([
-            { glyph: '▸', label: 'Open', onClick: () => { view.folderId = folder.id; clear(toolbar2); paint(); } },
-            { glyph: '✎', label: 'Rename', onClick: async () => {
+            { icon: 'messages', label: 'Open', onClick: () => { view.folderId = folder.id; clear(toolbar2); paint(); } },
+            { icon: 'editor', label: 'Rename', onClick: async () => {
               const next = await UI.prompt({ title: 'Rename folder', value: name });
               if (!next) return;
               await API.patch(`/api/drive/folders/${folder.id}`, { payload: await AE.encryptJson(State.masterKey(), { name: next }) });
               paint();
             } },
-            { glyph: '⌫', label: 'Delete folder', danger: true, onClick: async () => {
+            { icon: 'trash', label: 'Delete folder', danger: true, onClick: async () => {
               if (!await UI.confirm({ title: 'Delete this folder?', message: 'Files inside move back to the drive root.', danger: true, confirmLabel: 'Delete' })) return;
               await API.del(`/api/drive/folders/${folder.id}`);
               paint();
@@ -178,10 +179,33 @@ const DriveClient = (() => {
     }
   }
 
+  /** Reads the file's name back out of `meta.nameWrapped` when it has one. */
+  async function encryptedName(file, rawKey) {
+    if (!file.meta || !file.meta.nameWrapped) return null;
+    try {
+      const raw = rawKey || await AE.unwrapKey(State.masterKey(), file.keyWrap);
+      if (!raw) return null;
+      const plain = await AE.decryptJson(raw, file.meta.nameWrapped);
+      return (plain && plain.name) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  function isTextish(file) {
+    const type = (file.meta && file.meta.type) || '';
+    return (file.meta && file.meta.editor) || /^text\//.test(type) || /json|javascript|xml|html|csv/.test(type);
+  }
+
   function driveCell(file) {
     const cell = el('div', { class: 'drive-cell' });
     const thumb = el('div', { class: 'thumb', text: '' });
-    cell.append(thumb, el('div', { class: 'truncate small', text: 'Encrypted file' }), el('div', { class: 'tiny faint', text: `${UI.bytes(file.size)} · ${UI.timeAgo(file.createdAt)}` }));
+    const label = el('div', { class: 'truncate small', text: 'Encrypted file' });
+    cell.append(thumb, label, el('div', { class: 'tiny faint', text: `${UI.bytes(file.size)} · ${UI.timeAgo(file.createdAt)}` }));
+    (async () => {
+      const name = await encryptedName(file);
+      if (name) label.textContent = name;
+    })();
     (async () => {
       const raw = await AE.unwrapKey(State.masterKey(), file.keyWrap);
       if (!raw) { thumb.textContent = '▨'; return; }
@@ -214,23 +238,25 @@ const DriveClient = (() => {
     cell.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       UI.contextMenu([
-        { glyph: '↓', label: 'Download & decrypt', onClick: async () => {
+        isTextish(file) ? { icon: 'editor', label: 'Open in the editor', onClick: () => FileEditor.openFromFile(file) } : null,
+        { icon: 'download', label: 'Download & decrypt', onClick: async () => {
           const raw = await AE.unwrapKey(State.masterKey(), file.keyWrap);
           const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: raw, mime: file.meta?.type || 'application/octet-stream' });
-          UI.download(blob, `ae-drive-${file.id.slice(0, 8)}`);
+          const name = await encryptedName(file, raw);
+          UI.download(blob, name || `ae-drive-${file.id.slice(0, 8)}`);
         } },
-        { glyph: '≡', label: 'File details', onClick: () => UI.dialog({
+        { icon: 'console', label: 'File details', onClick: () => UI.dialog({
           title: 'Encrypted file',
-          glyph: '≡',
+          icon: 'console',
           content: el('div', { class: 'stack-8 small' }, [
             el('div', { text: `Ciphertext size: ${UI.bytes(file.size)}` }),
             el('div', { text: `Chunks: ${file.chunks} × 512 KiB sealed blocks` }),
             el('div', { text: `Uploaded: ${UI.dateTime(file.createdAt)}` }),
             el('div', { text: `Key wrap: ${file.keyWrap ? 'wrapped with your master key' : 'missing'}` }),
-            el('div', { class: 'notice-strip', html: '<span>▨</span><span>Names and contents never reach the server in readable form.</span>' }),
+            el('div', { class: 'notice-strip', html: '<span>▨</span><span>Contents never reach the server in readable form. A file made in the editor also carries its name as ciphertext.</span>' }),
           ]),
         }) },
-        { glyph: '⌫', label: 'Delete', danger: true, onClick: async () => {
+        { icon: 'trash', label: 'Delete', danger: true, onClick: async () => {
           if (!await UI.confirm({ title: 'Delete this file?', message: 'Space is returned to your drive quota immediately.', danger: true, confirmLabel: 'Delete' })) return;
           await API.del(`/api/files/${file.id}`);
           await refreshStatus();
@@ -260,6 +286,7 @@ const DriveClient = (() => {
         el('div', { class: 'tiny faint', text: 'Every attachment you have sent: chats, communities, stories and airdrops.' }),
       ]),
       meterHost,
+      el('button', { class: 'btn sm', text: 'New file', onClick: () => FileEditor.create() }),
       el('button', { class: 'btn sm', text: 'Refresh', onClick: () => paint() }),
     ]);
     pane.append(header, list);
@@ -317,21 +344,21 @@ const DriveClient = (() => {
 window.DriveClient = DriveClient;
 
 Apps.register({
-  id: 'drive', title: 'Cloud Drive', glyph: '▦', order: 20, featureFlag: 'drive',
+  id: 'drive', title: 'Cloud Drive', icon: 'drive', order: 20, featureFlag: 'drive',
   description: 'Encrypted personal cloud storage with folders and space requests.',
   keywords: ['cloud', 'drive', 'storage', 'files', 'folders', 'quota', 'upload'],
   run: () => Windows.open({
-    id: 'drive', title: 'Cloud Drive', glyph: '▦', geometry: { w: 1040, h: 680 },
+    id: 'drive', title: 'Cloud Drive', icon: 'drive', geometry: { w: 1040, h: 680 },
     render: (body, api) => DriveClient.renderDrive(body, api),
   }),
 });
 
 Apps.register({
-  id: 'files', title: 'My Files', glyph: '▥', order: 22, featureFlag: 'drive',
+  id: 'files', title: 'My Files', icon: 'files', order: 22, featureFlag: 'drive',
   description: 'Every encrypted upload you own, grouped by destination.',
   keywords: ['uploads', 'attachments', 'files', 'storage'],
   run: () => Windows.open({
-    id: 'files', title: 'My Files', glyph: '▥', geometry: { w: 780, h: 620 },
+    id: 'files', title: 'My Files', icon: 'files', geometry: { w: 780, h: 620 },
     render: (body, api) => DriveClient.renderFiles(body, api),
   }),
 });

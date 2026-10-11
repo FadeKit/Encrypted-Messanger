@@ -112,12 +112,12 @@ const Clicker = (() => {
 window.Clicker = Clicker;
 
 Apps.register({
-  id: 'clicker', title: 'Click Me', glyph: '⊞', order: 70,
+  id: 'clicker', title: 'Click Me', icon: 'clicker', order: 70,
   description: 'The shared global click counter.',
   keywords: ['click', 'clicker', 'counter', 'fun'],
   featureFlag: 'clickMe',
   run: () => Windows.open({
-    id: 'clicker', title: 'Click Me', glyph: '⊞', geometry: { w: 520, h: 520 },
+    id: 'clicker', title: 'Click Me', icon: 'clicker', geometry: { w: 520, h: 520 },
     render: (body) => Clicker.render(body),
   }),
 });

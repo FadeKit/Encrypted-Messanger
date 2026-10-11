@@ -1199,6 +1199,104 @@ body[data-density="compact"] .admin-main { padding: 12px 14px 30px; }
   .name { flex-wrap: wrap; }
 }
 
+/* icons inside empty states, toasts and dialogs */
+.empty-state .glyph svg { width: 26px; height: 26px; }
+.toast-icon svg { width: 16px; height: 16px; }
+.btn.icon svg { width: 14px; height: 14px; }
+.btn.icon { display: inline-grid; place-items: center; }
+.dialog-mark { display: grid; place-items: center; width: 26px; height: 24px; border: 1px solid var(--line-strong); color: var(--ink); flex: none; }
+.dialog-mark svg { width: 15px; height: 15px; }
+.empty-state .glyph svg, .toast-icon svg { display: block; }
+
+/* ============================================================ STATUS NOTES == */
+/* The 24-hour bubble: a flat plate with a hard left rule, no rounding, no glow. */
+.status-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--accent);
+  background: var(--fill-card);
+  color: var(--ink-soft);
+  font-size: var(--text-13);
+  text-align: left;
+  cursor: pointer;
+}
+.status-bubble:hover { background: var(--fill-card-hover); color: var(--ink); }
+.status-bubble.compact { padding: 4px 8px; font-size: var(--text-12); }
+.status-bubble.big { padding: 12px 14px; font-size: var(--text-16); width: 100%; }
+.status-bubble .bubble-mark svg { width: 14px; height: 14px; display: block; color: var(--ink-faint); }
+.status-bubble .bubble-emoji { font-size: 15px; line-height: 1; }
+.status-bubble .bubble-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-bubble .bubble-time { font-family: var(--font-mono); font-size: var(--text-11); color: var(--ink-faint); flex: none; }
+.status-bubble .bubble-edit svg { width: 12px; height: 12px; display: block; color: var(--ink-faint); }
+.emoji-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.emoji-pick {
+  width: 34px; height: 30px;
+  display: grid; place-items: center;
+  border: 1px solid var(--line); background: var(--fill-card);
+  font-size: 15px; cursor: pointer; color: var(--ink);
+}
+.emoji-pick.on { border-color: var(--accent); background: var(--accent-soft); }
+.emoji-pick:hover { border-color: var(--line-strong); }
+
+/* ========================================================= PROFILE PICTURES = */
+.avatar-strip { display: flex; flex-wrap: wrap; gap: 10px; }
+.avatar-slot {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px; border: 1px solid var(--line); background: var(--fill-card);
+  cursor: pointer; color: var(--ink-muted);
+}
+.avatar-slot:hover { border-color: var(--line-strong); color: var(--ink); }
+.avatar-slot.on { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.avatar-slot .slot-frame { display: block; }
+.avatar-slot .slot-frame .avatar { width: 56px; height: 56px; }
+.avatar-slot .slot-label { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.crop-stage { position: relative; width: 320px; max-width: 100%; aspect-ratio: 1; margin: 0 auto; border: 1px solid var(--line-strong); background: var(--fill-input); touch-action: none; cursor: grab; }
+.crop-stage:active { cursor: grabbing; }
+.crop-canvas { display: block; width: 100%; height: 100%; }
+.crop-guide { position: absolute; inset: 0; pointer-events: none; border: 1px dashed var(--line-hard); opacity: 0.7; }
+.crop-preview { width: 64px; height: 64px; border: 1px solid var(--line-strong); background: var(--fill-input); }
+.crop-zoom { flex: 1 1 auto; min-width: 120px; accent-color: var(--accent); }
+.drop-target { border-color: var(--accent); background: var(--accent-soft); }
+
+/* ================================================================= EDITOR == */
+.editor-shell { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.editor-bar {
+  display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px; border-bottom: 1px solid var(--line);
+}
+.editor-name { display: flex; flex-direction: column; gap: 4px; flex: 1 1 200px; min-width: 0; }
+.editor-ext { display: flex; flex-direction: column; gap: 4px; flex: 0 0 110px; }
+.editor-panes { display: flex; flex: 1 1 auto; min-height: 0; }
+.editor-pane { display: flex; flex: 1 1 50%; min-width: 0; min-height: 0; border-right: 1px solid var(--line); }
+.editor-pane:last-child { border-right: 0; }
+.editor-area {
+  flex: 1 1 auto; min-height: 0; resize: none; border: 0; outline: none;
+  padding: 14px; background: var(--fill-input); color: var(--ink);
+  font-family: var(--font-mono); font-size: var(--text-13); line-height: 1.6;
+  tab-size: 2;
+}
+.editor-preview { flex: 1 1 auto; min-height: 0; background: var(--fill-base); }
+.editor-preview iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+.editor-status {
+  padding: 8px 12px; border-top: 1px solid var(--line);
+  font-family: var(--font-mono); font-size: var(--text-11); color: var(--ink-faint);
+}
+.editor-status.bad { color: var(--warning); }
+.file-type-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.file-type-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  padding: 12px; border: 1px solid var(--line); background: var(--fill-card);
+  text-align: left; cursor: pointer; color: var(--ink-soft);
+}
+.file-type-card:hover { border-color: var(--accent); background: var(--fill-card-hover); color: var(--ink); }
+.file-type-card .glyph { display: grid; place-items: center; width: 30px; height: 28px; border: 1px solid var(--line-strong); }
+.file-type-card .glyph svg { width: 16px; height: 16px; }
+.file-type-card .label { font-family: var(--font-display); font-size: var(--text-14); text-transform: uppercase; letter-spacing: -0.01em; }
+
 /* ------------------------------------------------------------- trust page -- */
 /* Standalone sheet (public/trust.html) for installing the local CA. */
 .trust-page {
@@ -1251,3 +1349,12 @@ body[data-density="compact"] .admin-main { padding: 12px 14px 30px; }
   .trust-page { padding: 24px 12px 48px; }
   .trust-table th { white-space: normal; }
 }
+
+/* Anonymised member plate in the operator panels: an icon and a pseudonym,
+   never a handle. */
+.member-plate {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 20px; margin-right: 6px;
+  border: 1px solid var(--line); color: var(--ink-faint); vertical-align: middle;
+}
+.member-plate svg { width: 12px; height: 12px; display: block; }

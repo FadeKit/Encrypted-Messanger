@@ -194,7 +194,9 @@ const UI = (() => {
     const stack = $('#toast-stack');
     if (!stack) return null;
     const node = el('div', { class: `toast ${config.level || ''}` });
-    node.append(el('div', { class: 'toast-icon', text: config.glyph || { success: '✓', warning: '!', danger: '✕', info: 'i' }[config.level] || '◈' }));
+    const toastIcon = { success: 'check', warning: 'generic', danger: 'close', info: 'generic' }[config.level] || 'generic';
+    if (config.glyph) node.append(el('div', { class: 'toast-icon', text: config.glyph }));
+    else node.append(el('div', { class: 'toast-icon', html: icon(toastIcon) }));
     const body = el('div', { class: 'toast-body' });
     if (config.title) body.append(el('div', { class: 'body-strong', text: config.title }));
     if (config.body) body.append(el('div', { class: 'small muted', text: config.body }));
@@ -206,7 +208,7 @@ const UI = (() => {
       body.append(actions);
     }
     node.append(body);
-    node.append(el('button', { class: 'btn icon sm subtle', text: '✕', title: 'Dismiss', onClick: () => dismiss() }));
+    node.append(el('button', { class: 'btn icon sm subtle', html: icon('close'), title: 'Dismiss', onClick: () => dismiss() }));
     let timeout = null;
     function dismiss() {
       clearTimeout(timeout);
@@ -227,12 +229,16 @@ const UI = (() => {
     const close = () => { layer.classList.remove('open'); clear(layer); options.onClose && options.onClose(); };
     modal.append(el('div', { class: 'modal-header' }, [
       el('div', { class: 'row' }, [
-        options.glyph ? el('span', { class: 'title-2', text: options.glyph }) : null,
+        options.glyph
+          ? (typeof Icons !== 'undefined' && Icons.has(options.glyph)
+              ? el('span', { class: 'dialog-mark', html: icon(options.glyph) })
+              : el('span', { class: 'title-2', text: options.glyph }))
+          : null,
         el('div', { class: 'grow' }, [
           el('div', { class: 'title-2', text: options.title || '' }),
           options.subtitle ? el('div', { class: 'caption', text: options.subtitle }) : null,
         ]),
-        el('button', { class: 'btn icon subtle', text: '✕', title: 'Close', onClick: close }),
+        el('button', { class: 'btn icon subtle', html: icon('close'), title: 'Close', onClick: close }),
       ]),
     ]));
     const body = el('div', { class: 'modal-body' });
@@ -448,15 +454,10 @@ const UI = (() => {
     return el('div', { class: 'stack-8 pad-12' }, Array.from({ length: count }, () => el('div', { class: 'skeleton', style: { height: '42px' } })));
   }
 
-  /**
-   * Empty state.  The first argument is an icon name ('drive', 'messages'…) or,
-   * for older call sites, a short text mark.
-   */
-  function empty(glyphOrIcon, title, body, action, iconName) {
-    const name = iconName || glyphOrIcon;
-    const isIcon = typeof Icons !== 'undefined' && Icons.has(name);
+  function empty(glyph, title, body, action) {
+    const drawn = typeof Icons !== 'undefined' && Icons.has(glyph);
     return el('div', { class: 'empty-state' }, [
-      isIcon ? el('div', { class: 'glyph', html: icon(name) }) : el('div', { class: 'glyph', text: glyphOrIcon }),
+      drawn ? el('div', { class: 'glyph', html: icon(glyph) }) : el('div', { class: 'glyph', text: glyph }),
       el('div', { class: 'body-strong', text: title }),
       body ? el('div', { class: 'small muted', text: body }) : null,
       action || null,
@@ -508,6 +509,7 @@ const UI = (() => {
     toast, dialog, confirm, prompt, contextMenu, closeMenus, swipeBack,
     copy, download, debounce, throttle, sparkline, meter, skeletonList, empty, iconButton,
     icon, iconNode,
+    get iconNames() { return typeof Icons === 'undefined' ? [] : Object.keys(Icons.PATHS); },
   };
 
   function statusLabel(key) {

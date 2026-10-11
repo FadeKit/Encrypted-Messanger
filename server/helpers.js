@@ -105,6 +105,7 @@ function selfView(user, extras = {}) {
     verified: user.verified,
     purpleAllowed: user.purpleAllowed,
     identityPublic: user.identityPublic,
+    statusMessage: statusMessageView(user, user.id),
     wrappedMaster: user.wrappedMaster,
     wrappedIdentity: user.wrappedIdentity,
     kdf: user.kdf,
@@ -119,6 +120,9 @@ function selfView(user, extras = {}) {
       audienceKey: user.publicProfile.audienceKey,
     },
     status: Object.assign({}, user.status, { effective: realtime.statusOf(user.id) }),
+    // The 24-hour status bubble and the profile-picture history the profile
+    // screen switches between.
+    avatarHistory: (user.avatarHistory || []).slice(0, 3),
     settings: user.settings,
     terms: user.terms,
     backup: { count: user.backup.codes.filter((c) => !c.usedAt).length, generatedAt: user.backup.generatedAt },
@@ -128,8 +132,32 @@ function selfView(user, extras = {}) {
   }, extras);
 }
 
+/**
+ * A status message lives at most 24 hours, and can also be removed by hand.
+ * Anything past its expiry is reported as gone, so a client that was offline
+ * overnight never shows a stale bubble.
+ */
+function statusMessageView(user, viewerId) {
+  const record = user && user.statusMessage;
+  if (!record || !record.text) return null;
+  const expiresAt = Number(record.expiresAt) || 0;
+  const expired = expiresAt > 0 && expiresAt <= Date.now();
+  return {
+    text: record.text,
+    emoji: record.emoji || '',
+    createdAt: record.createdAt || 0,
+    expiresAt: expiresAt || null,
+    updatedAt: record.updatedAt || record.createdAt || 0,
+    expired,
+    clearOnExpiry: !!record.clearOnExpiry,
+    own: viewerId ? viewerId === user.id : false,
+    // Whole hours left, rounded up, for the bubble's countdown chip.
+    hoursLeft: expiresAt ? Math.max(0, Math.ceil((expiresAt - Date.now()) / 3600000)) : null,
+  };
+}
+
 /** The public card other users see. No key material except the public identity key. */
-function publicUser(user, { includeBio = false } = {}) {
+function publicUser(user, { includeBio = false, viewerId = null } = {}) {
   if (!user) return null;
   const profile = user.publicProfile || {};
   return {
@@ -140,6 +168,9 @@ function publicUser(user, { includeBio = false } = {}) {
     verified: !!user.verified,
     identityPublic: user.identityPublic,
     status: realtime.statusOf(user.id),
+    // The 24-hour bubble travels with the public card: it is how people show a
+    // short note beside their name without editing their permanent bio.
+    statusMessage: statusMessageView(user, viewerId),
     publicAlias: profile.enabled && profile.alias ? profile.alias : null,
     // Public audience key: readable by every signed-in account, used to seal
     // stories, public posts and public profile photos.

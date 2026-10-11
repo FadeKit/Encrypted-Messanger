@@ -71,10 +71,11 @@ const AdminClient = (() => {
       ['sessions', '04', 'Sessions'],
       ['requests', '05', 'Requests'],
       ['files', '06', 'All uploads'],
-      ['stories', '07', 'Story storage'],
-      ['karma', '08', 'Karma'],
-      ['audit', '09', 'Audit log'],
-      ['global', '10', 'Global state'],
+      ['messages', '07', 'Messages'],
+      ['stories', '08', 'Story storage'],
+      ['karma', '09', 'Karma'],
+      ['audit', '10', 'Audit log'],
+      ['global', '11', 'Global state'],
     ];
     for (const [id, glyph, label] of sections) {
       nav.append(el('button', { class: id === section ? 'on' : '', onClick: () => { section = id; render(body, api); } }, [
@@ -100,6 +101,7 @@ const AdminClient = (() => {
       sessions: paintSessions,
       requests: paintRequests,
       files: paintFiles,
+      messages: paintMessages,
       stories: paintStories,
       karma: paintKarma,
       audit: paintAudit,
@@ -272,16 +274,16 @@ const AdminClient = (() => {
 
   function userMenu(event, user) {
     UI.contextMenu([
-      { glyph: '▣', label: 'Open profile panel', onClick: () => openUser(user.id) },
-      { glyph: '▤', label: 'Chat with member', onClick: () => ConversationClient.startWith(user.id) },
-      { glyph: '#', label: 'Generate one-time DM code', onClick: () => generateCode(user) },
+      { icon: 'profile', label: 'Open profile panel', onClick: () => openUser(user.id) },
+      { icon: 'messages', label: 'Chat with member', onClick: () => ConversationClient.startWith(user.id) },
+      { icon: 'hash', label: 'Generate one-time DM code', onClick: () => generateCode(user) },
       { separator: true },
-      { glyph: '⬢', label: user.banned ? 'Lift suspension' : 'Suspend account', danger: !user.banned, onClick: async () => {
+      { icon: 'admin', label: user.banned ? 'Lift suspension' : 'Suspend account', danger: !user.banned, onClick: async () => {
         await API.patch(`/api/admin/users/${user.id}`, { banned: !user.banned });
         UI.toast({ level: 'success', title: user.banned ? 'Suspension lifted' : 'Account suspended' });
         paintUsers();
       } },
-      { glyph: '⊘', label: user.disabled ? 'Re-enable account' : 'Disable account', danger: !user.disabled, onClick: async () => {
+      { icon: 'close', label: user.disabled ? 'Re-enable account' : 'Disable account', danger: !user.disabled, onClick: async () => {
         await API.patch(`/api/admin/users/${user.id}`, { disabled: !user.disabled });
         paintUsers();
       } },
@@ -292,7 +294,7 @@ const AdminClient = (() => {
     const result = await API.post('/api/dm-codes', { userId: user.id });
     UI.dialog({
       title: 'One-time chat code',
-      glyph: '#',
+      icon: 'hash',
       subtitle: `Send this code to @${user.username} through any channel you trust.`,
       content: el('div', { class: 'stack-8' }, [
         el('div', { class: 'recovery-code', text: result.code, onClick: () => UI.copy(result.code, 'Code copied') }),
@@ -430,7 +432,7 @@ const AdminClient = (() => {
         el('div', { class: 'hint', text: 'Filenames and contents are end-to-end encrypted and not readable here.' }),
       ]),
     ]);
-    UI.dialog({ title: `@${user.username}`, glyph: '◧', size: 'wide', content });
+    UI.dialog({ title: `@${user.username}`, icon: 'profile', size: 'wide', content });
   }
 
   function toggle(label, value, onChange, description) {
@@ -498,7 +500,7 @@ const AdminClient = (() => {
       el('button', { class: 'btn sm', text: '', onClick: () => paintSection() }),
     ]), scroll);
 
-    if (!data.requests.length) scroll.append(UI.empty('generic', 'No requests', 'Members can ask for bigger uploads, drive space or the purple status.'));
+    if (!data.requests.length) scroll.append(UI.empty('05', 'No requests', 'Members can ask for bigger uploads, drive space or the purple status.'));
     for (const request of data.requests) {
       const card = el('div', { class: 'card stack-8' });
       const user = request.user || { displayName: 'unknown' };
@@ -595,10 +597,10 @@ const AdminClient = (() => {
       el('thead', {}, [el('tr', {}, ['Owner', 'Kind', 'Blob id', 'Size', 'Uploaded', 'Linked to', ''].map((label) => el('th', { text: label })))]),
       el('tbody', {}, data.files.map((file) => el('tr', {}, [
         el('td', {}, [file.owner ? el('div', { class: 'user-row' }, [
-          UI.avatar(file.owner, { size: 'xs' }),
+          el('span', { class: 'member-plate', html: UI.icon('profile') }),
           el('div', {}, [
-            el('div', { class: 'row' }, [el('span', { text: file.owner.displayName }), file.owner.verified ? UI.verifiedBadge(file.owner) : null]),
-            el('div', { class: 'tiny faint', text: `@${file.owner.username} · ${file.owner.role}` }),
+            el('div', { class: 'row' }, [el('span', { text: file.owner.label || 'Member' })]),
+            el('div', { class: 'tiny faint', text: `${file.owner.role || 'member'} · identity withheld` }),
           ]),
         ]) : el('span', { text: 'unknown' })]),
         el('td', {}, [el('span', { class: 'pill tiny', text: file.kind })]),
@@ -618,6 +620,53 @@ const AdminClient = (() => {
     const apply = UI.debounce(() => paintFiles(kindSelect.value, search.value), 320);
     search.addEventListener('input', apply);
     kindSelect.addEventListener('change', () => paintFiles(kindSelect.value, search.value));
+  }
+
+  /**
+   * Every message on the server, with the author shown as a stable pseudonym.
+   * Bodies stay sealed end to end, so what the operator gets is the shape of
+   * the traffic — channel, size, reactions, attachments — and the power to act
+   * on it without a directory of who said what.
+   */
+  async function paintMessages(query = '') {
+    hostNode.append(UI.skeletonList(5));
+    const data = await API.get(`/api/admin/messages?limit=200`);
+    clear(hostNode);
+    const search = el('input', { class: 'input', placeholder: 'Filter by channel or id…', value: query });
+    const rows = query
+      ? data.messages.filter((m) => `${m.channel} ${m.conversationId} ${m.author}`.toLowerCase().includes(query.toLowerCase()))
+      : data.messages;
+
+    hostNode.append(el('div', { class: 'toolbar' }, [
+      el('div', { class: 'search-box grow' }, [search]),
+      el('span', { class: 'pill', text: `${data.total} messages` }),
+      el('span', { class: 'pill accent', text: `${rows.length} shown` }),
+      el('button', { class: 'btn sm', text: 'Refresh', onClick: () => paintSection() }),
+    ]));
+    hostNode.append(el('div', { class: 'notice-strip pad-8' }, [
+      el('span', { html: UI.icon('profile') }),
+      el('span', { text: 'Authors are shown as pseudonyms. Message text is encrypted end to end and is not readable here.' }),
+    ]));
+
+    const table = el('table', { class: 'table' }, [
+      el('thead', {}, [el('tr', {}, ['Author', 'Channel', 'When', 'Attachments', 'Reactions', 'State', ''].map((label) => el('th', { text: label })))]),
+      el('tbody', {}, rows.map((message) => el('tr', {}, [
+        el('td', {}, [el('span', { class: 'member-plate', html: UI.icon('profile') }), el('span', { text: message.author })]),
+        el('td', {}, [el('span', { class: 'pill tiny', text: message.channel }), el('div', { class: 'mono tiny faint', text: String(message.conversationId || '').slice(0, 10) })]),
+        el('td', { class: 'tiny', text: UI.timeAgo(message.createdAt) }),
+        el('td', { class: 'mono tiny', text: String(message.attachments) }),
+        el('td', { class: 'mono tiny', text: String(message.reactions) }),
+        el('td', {}, [message.deleted ? el('span', { class: 'pill danger tiny', text: 'deleted' }) : el('span', { class: 'tiny faint', text: 'live' })]),
+        el('td', {}, [el('button', { class: 'btn sm danger', text: 'Delete', onClick: async () => {
+          if (!await UI.confirm({ title: 'Delete this message?', message: 'The ciphertext is removed from the server for everyone in that channel.', danger: true, confirmLabel: 'Delete' })) return;
+          await API.del(`/api/admin/messages/${message.id}`);
+          paintMessages(search.value);
+        } })]),
+      ]))),
+    ]);
+    hostNode.append(el('div', { class: 'pane-scroll' }, [table]));
+    const apply = UI.debounce(() => paintMessages(search.value), 320);
+    search.addEventListener('input', apply);
   }
 
   async function paintStories() {
@@ -1085,7 +1134,7 @@ const AdminClient = (() => {
         el('button', { class: 'btn sm', text: 'Moderate', onClick: () => openUser(id) }),
         el('button', { class: 'btn sm', text: 'DM code', onClick: async () => {
           const result = await API.post('/api/dm-codes', { userId: id });
-          UI.dialog({ title: 'One-time chat code', glyph: '#', content: el('div', { class: 'stack-8' }, [
+          UI.dialog({ title: 'One-time chat code', icon: 'hash', content: el('div', { class: 'stack-8' }, [
             el('div', { class: 'recovery-code', text: result.code, onClick: () => UI.copy(result.code, 'Code copied') }),
             el('div', { class: 'hint', text: 'Single use. The member sees “Server Administration”.' }),
           ]) });
@@ -1159,7 +1208,7 @@ const AdminClient = (() => {
     content.append(titleNode, bodyNode);
     const replies = el('div', { class: 'stack-6' });
     content.append(el('div', { class: 'uppercase', text: `Replies (${detail.items.length})` }), replies);
-    UI.dialog({ title: forumId, glyph: '≡', size: 'wide', content });
+    UI.dialog({ title: forumId, icon: 'console', size: 'wide', content });
 
     let key = null;
     if (node.publicSeed) key = await AE.audienceKey(node.publicSeed, `forum:${forumId}`);
@@ -1217,11 +1266,11 @@ const AdminClient = (() => {
 window.AdminClient = AdminClient;
 
 Apps.register({
-  id: 'admin', title: 'Admin Console', glyph: '⬢', order: 90, adminOnly: true,
+  id: 'admin', title: 'Admin Console', icon: 'admin', order: 90, adminOnly: true,
   description: 'Server statistics, moderation, quotas, uploads and the live neural network.',
   keywords: ['admin', 'operator', 'neural', 'moderation', 'requests', 'storage', 'sessions'],
   run: () => Windows.open({
-    id: 'admin', title: 'Admin Console', glyph: '⬢', geometry: { w: 1180, h: 760 },
+    id: 'admin', title: 'Admin Console', icon: 'admin', geometry: { w: 1180, h: 760 },
     render: (body, api) => AdminClient.render(body, api),
   }),
 });

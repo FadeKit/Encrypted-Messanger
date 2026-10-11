@@ -40,8 +40,10 @@ const Windows = (() => {
     const record = {
       id,
       title: options.title || 'Window',
+      // Callers may pass an icon name in `glyph` (the whole app does now) or a
+      // literal character; `icon` always holds a name the icon set can draw.
       glyph: options.glyph || APP_ICONS[id] || '',
-      icon: options.icon || id,
+      icon: options.icon || (UI.iconNames && UI.iconNames.includes(options.glyph) ? options.glyph : null) || id,
       subtitle: options.subtitle || '',
       minimized: false,
       maximized: false,
@@ -121,7 +123,7 @@ const Windows = (() => {
       record.body.append(target);
       try { render(target, API(id)); } catch (error) {
         console.error('[ae] render failed for', id, error);
-        target.append(UI.empty('close', 'This panel failed to render', error.message));
+        target.append(UI.empty('!', 'This panel failed to render', error.message));
       }
     }
   }

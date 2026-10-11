@@ -35,7 +35,7 @@ const AirdropClient = (() => {
     const drop = payload.airdrop || {};
     UI.toast({
       level: 'info',
-      glyph: '⇣',
+      icon: 'airdrop',
       title: 'Airdrop received while you were online',
       body: drop.kind === 'text' ? 'A text drop landed in your airdrop inbox.' : `A ${drop.kind || 'file'} drop (${UI.bytes(drop.size || 0)}) landed in your airdrop inbox.`,
       actions: [{ label: 'Open inbox', primary: true, onClick: () => Apps.open('airdrop') }],
@@ -167,7 +167,7 @@ const AirdropClient = (() => {
     let ref;
     ref = UI.dialog({
       title: 'Send an airdrop',
-      glyph: '⇣',
+      icon: 'airdrop',
       size: 'wide',
       subtitle: recipients.note,
       content: el('div', { class: 'stack-12' }, [
@@ -219,12 +219,12 @@ const AirdropClient = (() => {
 window.AirdropClient = AirdropClient;
 
 Apps.register({
-  id: 'airdrop', title: 'Airdrop', glyph: '⇣', order: 40, featureFlag: 'airdrop',
+  id: 'airdrop', title: 'Airdrop', icon: 'airdrop', order: 40, featureFlag: 'airdrop',
   hiddenWhenOff: 'airdrop',
   description: 'Send an encrypted drop to every online member, instantly.',
   keywords: ['airdrop', 'drop', 'share', 'broadcast', 'online'],
   run: () => Windows.open({
-    id: 'airdrop', title: 'Airdrop', glyph: '⇣', geometry: { w: 720, h: 620 },
+    id: 'airdrop', title: 'Airdrop', icon: 'airdrop', geometry: { w: 720, h: 620 },
     render: (body, api) => AirdropClient.render(body, api),
   }),
 });

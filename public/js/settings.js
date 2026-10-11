@@ -412,7 +412,7 @@ const Settings = (() => {
               const result = await API.post('/api/dm-codes', {});
               UI.dialog({
                 title: 'Your operator chat code',
-                glyph: '#',
+                icon: 'hash',
                 size: 'narrow',
                 subtitle: 'Single use · hand it to the operator',
                 content: el('div', { class: 'stack-8' }, [
@@ -432,7 +432,7 @@ const Settings = (() => {
           text: 'Redeem a code',
           disabled: !State.featureEnabled('dmCodes'),
           onClick: async () => {
-            const code = await UI.prompt({ title: 'Redeem a one-time code', placeholder: 'XXXXX-XXXXX-XXXXX-XXXXX', confirmLabel: 'Open channel', glyph: '#' });
+            const code = await UI.prompt({ title: 'Redeem a one-time code', placeholder: 'XXXXX-XXXXX-XXXXX-XXXXX', confirmLabel: 'Open channel', icon: 'hash' });
             if (!code) return;
             try {
               const result = await API.post('/api/dm-codes/redeem', { code });
@@ -525,7 +525,7 @@ const Settings = (() => {
     const done = el('button', { class: 'btn primary', text: 'Done', disabled: true });
     const dialogRef = UI.dialog({
       title: 'Your five backup codes',
-      glyph: '◇',
+      icon: 'generic',
       size: 'wide',
       subtitle: 'Each code restores this account once, then it stops working.',
       dismissable: false,
@@ -725,11 +725,11 @@ const Settings = (() => {
 window.Settings = Settings;
 
 Apps.register({
-  id: 'settings', title: 'Settings', glyph: '⚙', order: 80,
+  id: 'settings', title: 'Settings', icon: 'settings', order: 80,
   description: 'Personalisation, accessibility, privacy, storage requests and help.',
   keywords: ['settings', 'theme', 'accessibility', 'privacy', 'requests', 'backup codes', 'tutorial', 'help'],
   run: (meta = {}) => Windows.open({
-    id: 'settings', title: 'Settings', glyph: '⚙', geometry: { w: 1000, h: 700 },
+    id: 'settings', title: 'Settings', icon: 'settings', geometry: { w: 1000, h: 700 },
     render: (body, api) => Settings.render(body, api, meta.section),
   }),
 });

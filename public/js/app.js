@@ -519,7 +519,7 @@ const Shell = (() => {
       });
       dialogRef = UI.dialog({
         title: 'Secure the account again',
-        glyph: '⬢',
+        icon: 'admin',
         subtitle: 'One backup code was consumed. Set a new passphrase — every other session is signed out immediately.',
         content: el('div', { class: 'stack-12' }, [
           el('div', { class: 'notice-strip warn', html: '<span>!</span><span>Your old passphrase no longer works. Save the new backup codes that appear next.</span>' }),
@@ -561,7 +561,7 @@ const Shell = (() => {
     button.addEventListener('click', () => { dialogRef.close(); done && done(); });
     const dialogRef = UI.dialog({
       title: 'Your five backup codes',
-      glyph: '◇',
+      icon: 'generic',
       subtitle: 'Each code restores this account once — but only while it stays unused.',
       size: 'wide',
       dismissable: false,
@@ -634,14 +634,14 @@ const Shell = (() => {
       Apps.open(requested);
       if (requested !== 'messages') {
         Windows.open({
-          id: 'messages', title: 'Messages', glyph: '▤', geometry: { w: 1120, h: 720, x: null, y: null },
+          id: 'messages', title: 'Messages', icon: 'messages', geometry: { w: 1120, h: 720, x: null, y: null },
           render: (body, api) => ConversationClient.render(body, api),
         });
       }
       return;
     }
     Windows.open({
-      id: 'messages', title: 'Messages', glyph: '▤', geometry: { w: 1120, h: 720, x: null, y: null },
+      id: 'messages', title: 'Messages', icon: 'messages', geometry: { w: 1120, h: 720, x: null, y: null },
       render: (body, api) => ConversationClient.render(body, api),
     });
   }
@@ -650,15 +650,15 @@ const Shell = (() => {
     const desktop = $('#desktop');
     const grid = el('div', { id: 'desktop-icons' });
     const apps = [
-      { id: 'messages', glyph: '▤', label: 'Messages' },
-      { id: 'communities', glyph: '▩', label: 'Communities' },
-      { id: 'stories', glyph: '◉', label: 'Public' },
-      { id: 'drive', glyph: '▦', label: 'Drive' },
-      { id: 'files', glyph: '▥', label: 'Files' },
-      { id: 'airdrop', glyph: '⇣', label: 'Airdrop' },
-      { id: 'settings', glyph: '⚙', label: 'Settings' },
+      { id: 'messages', icon: 'messages', label: 'Messages' },
+      { id: 'communities', icon: 'communities', label: 'Communities' },
+      { id: 'stories', icon: 'stories', label: 'Public' },
+      { id: 'drive', icon: 'drive', label: 'Drive' },
+      { id: 'files', icon: 'files', label: 'Files' },
+      { id: 'airdrop', icon: 'airdrop', label: 'Airdrop' },
+      { id: 'settings', icon: 'settings', label: 'Settings' },
     ];
-    if (S.user.role === 'owner' || S.user.role === 'admin') apps.push({ id: 'admin', glyph: '⬢', label: 'Console' });
+    if (S.user.role === 'owner' || S.user.role === 'admin') apps.push({ id: 'admin', icon: 'admin', label: 'Console' });
     for (const app of apps) {
       if (S.menuHidden(app.id)) continue;
       grid.append(el('button', { class: 'desk-icon', onClick: () => Apps.open(app.id), ondblclick: () => Apps.open(app.id) }, [
@@ -869,7 +869,7 @@ const Shell = (() => {
         const message = payload.message;
         ConversationClient.bumpUnread(payload.conversationId);
         if (!S.settings().hideMessagePreviews && message) {
-          notify({ title: 'New encrypted message', body: 'Open Messages to decrypt and read.', level: 'info', glyph: '▤' });
+          notify({ title: 'New encrypted message', body: 'Open Messages to decrypt and read.', level: 'info', icon: 'messages' });
         }
       }
     });

@@ -180,8 +180,8 @@ const StoriesClient = (() => {
 
     function postMenu(event, post) {
       UI.contextMenu([
-        { glyph: '⧉', label: 'Copy author handle', onClick: () => UI.copy(`@${post.author.username}`, 'Handle copied') },
-        { glyph: '⌫', label: 'Delete post', danger: true, onClick: async () => {
+        { icon: 'copy', label: 'Copy author handle', onClick: () => UI.copy(`@${post.author.username}`, 'Handle copied') },
+        { icon: 'trash', label: 'Delete post', danger: true, onClick: async () => {
           if (!await UI.confirm({ title: 'Delete this public post?', danger: true, confirmLabel: 'Delete' })) return;
           await API.del(`/api/public/posts/${post.id}`);
           refresh().then(paint);
@@ -209,7 +209,7 @@ const StoriesClient = (() => {
     let ref;
     ref = UI.dialog({
       title: 'Post a story',
-      glyph: '◉',
+      icon: 'stories',
       subtitle: 'Sealed with your public audience key, visible to signed-in members for 24 hours.',
       content: el('div', { class: 'stack-12' }, [input, caption, status, bar]),
       footer: [
@@ -358,7 +358,7 @@ const StoriesClient = (() => {
     let ref;
     ref = UI.dialog({
       title: 'Public profile',
-      glyph: '◍',
+      icon: 'stories',
       size: 'wide',
       subtitle: 'Off by default. While it is on, your alias, bio, photos, stories and public posts are visible to signed-in members.',
       content: el('div', { class: 'stack-12' }, [
@@ -400,49 +400,114 @@ const StoriesClient = (() => {
 window.StoriesClient = StoriesClient;
 
 Apps.register({
-  id: 'stories', title: 'Public', glyph: '◉', order: 30, featureFlag: 'stories',
+  id: 'stories', title: 'Public', icon: 'stories', order: 30, featureFlag: 'stories',
   description: 'Stories that expire in 24 hours, public posts and profile publishing.',
   keywords: ['stories', 'public', 'profile', 'alias', 'bio', 'square', 'talk'],
   run: () => Windows.open({
-    id: 'stories', title: 'Public square', glyph: '◉', geometry: { w: 900, h: 700 },
+    id: 'stories', title: 'Public square', icon: 'stories', geometry: { w: 900, h: 700 },
     render: (body, api) => StoriesClient.render(body, api),
   }),
 });
 
 Apps.register({
-  id: 'profile', title: 'My profile', glyph: '◧', order: 46,
-  description: 'Display name, avatar, bio and public profile controls.',
-  keywords: ['profile', 'avatar', 'bio', 'display name'],
+  id: 'profile', title: 'My profile', icon: 'profile', order: 46,
+  description: 'Display name, picture with a cropper, 24-hour status note, bio and public profile.',
+  keywords: ['profile', 'avatar', 'picture', 'crop', 'status', 'bio', 'display name', 'pictures'],
   run: () => Windows.open({
-    id: 'profile', title: 'My profile', glyph: '◧', geometry: { w: 620, h: 620 },
+    id: 'profile', title: 'My profile', icon: 'profile', geometry: { w: 680, h: 700 },
     render: (body, api) => {
       const { el, clear } = UI;
       clear(body);
       const pane = el('div', { class: 'pane-scroll stack-12' });
       const avatarHost = el('div', { class: 'row' }, [UI.avatar(State.user, { size: 'xl', showStatus: true })]);
       const fileInput = el('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
+      const strip = AvatarEditor.historyStrip({ onChange: () => { repaintAvatar(); AppShellRefresh(); } });
+
+      function repaintAvatar() {
+        const fresh = State.get('user') || State.user;
+        UI.clear(avatarHost).append(UI.avatar(fresh, { size: 'xl', showStatus: true }));
+      }
+
+      /** Uploads the finished square after it has been cropped on the device. */
+      async function uploadCropped(blob) {
+        if (!State.featureEnabled('avatar')) {
+          UI.toast({ level: 'info', title: 'Profile pictures are switched off in your settings' });
+          return;
+        }
+        const toast = UI.toast({ level: 'info', title: 'Uploading your picture…', duration: 2000 });
+        try {
+          const result = await API.uploadEncrypted({ kind: 'avatar', blob, meta: { type: 'image/png' }, wrapFileKey: (raw) => AE.wrapKey(State.masterKey(), raw) });
+          const updated = await API.patch('/api/profile', { avatarId: result.fileId });
+          State.set('user', updated.user);
+          repaintAvatar();
+          await strip.refresh();
+          AppShellRefresh();
+          UI.toast({ level: 'success', title: 'Profile picture updated', body: 'Your last three pictures stay here to switch between.' });
+        } catch (error) {
+          if (toast) toast.remove();
+          UI.toast({ level: 'danger', title: 'Upload failed', body: error.message });
+        }
+      }
+
       fileInput.addEventListener('change', async () => {
         const file = fileInput.files[0];
         if (!file) return;
-        if (!State.featureEnabled('avatar')) { UI.toast({ level: 'info', title: 'Profile pictures are switched off in your settings' }); return; }
-        const result = await API.uploadEncrypted({ kind: 'avatar', blob: file, meta: { type: file.type }, wrapFileKey: (raw) => AE.wrapKey(State.masterKey(), raw) });
-        const updated = await API.patch('/api/profile', { avatarId: result.fileId });
-        State.set('user', updated.user);
-        UI.toast({ level: 'success', title: 'Profile picture updated' });
-        AppShellRefresh();
+        const dataUrl = await AvatarEditor.fromFile(file);
+        fileInput.value = '';
+        if (!dataUrl) return;
+        AvatarEditor.openCrop(dataUrl, {
+          resolve: (blob) => { if (blob) uploadCropped(blob); },
+        });
       });
+
+      // dropping a picture straight onto the card opens the same cropper
+      const card = el('div', { class: 'card stack-12' }, [
+        avatarHost,
+        el('div', { class: 'row' }, [
+          el('button', { class: 'btn sm', text: 'Upload & crop picture', onClick: () => fileInput.click() }),
+          el('button', { class: 'btn sm', text: 'Status note', onClick: () => StatusBubble.compose(State.user.statusMessage) }),
+          fileInput,
+          el('button', { class: 'btn sm', text: 'Remove', onClick: async () => {
+            const updated = await API.patch('/api/profile', { avatarId: null });
+            State.set('user', updated.user);
+            repaintAvatar();
+            AppShellRefresh();
+          } }),
+        ]),
+        el('div', { class: 'uppercase tiny muted', text: 'Recent pictures' }),
+        strip.node,
+        el('div', { class: 'hint', text: 'Pictures are cropped on this device, then sealed with your master key. The server only ever stores ciphertext.' }),
+      ]);
+      card.addEventListener('dragover', (event) => { event.preventDefault(); card.classList.add('drop-target'); });
+      card.addEventListener('dragleave', () => card.classList.remove('drop-target'));
+      card.addEventListener('drop', async (event) => {
+        event.preventDefault();
+        card.classList.remove('drop-target');
+        const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+        const dataUrl = await AvatarEditor.fromFile(file);
+        if (dataUrl) AvatarEditor.openCrop(dataUrl, { resolve: (blob) => { if (blob) uploadCropped(blob); } });
+      });
+
       const display = el('input', { class: 'input', value: State.user.displayName || '' });
       const bio = el('textarea', { class: 'textarea', placeholder: 'About you (private unless your public profile is on)', value: State.user.bio || '' });
-      pane.append(
-        el('div', { class: 'card stack-12' }, [
-          avatarHost,
-          el('div', { class: 'row' }, [
-            el('button', { class: 'btn sm', text: 'Change picture', onClick: () => fileInput.click() }),
-            fileInput,
-            el('button', { class: 'btn sm', text: 'Remove', onClick: async () => { await API.patch('/api/profile', { avatarId: null }); State.user.avatarId = null; AppShellRefresh(); } }),
-          ]),
-          el('div', { class: 'hint', text: 'Pictures are sealed with your master key; other members receive them through the server as ciphertext only.' }),
+
+      const bubbleCard = el('div', { class: 'card stack-8' }, [
+        el('div', { class: 'uppercase tiny muted', text: '24-hour status note' }),
+        el('div', { class: 'row' }, [
+          el('div', { class: 'grow' }, [StatusBubble.chip(State.user, { compact: true }) || el('div', { class: 'small faint', text: 'No note right now.' })]),
+          el('button', { class: 'btn sm', text: State.user.statusMessage && !State.user.statusMessage.expired ? 'Edit' : 'Set note', onClick: () => StatusBubble.compose(State.user.statusMessage) }),
         ]),
+        el('div', { class: 'hint', text: 'Shows beside your name in chats and in the directory. It clears itself within 24 hours, or the moment you delete it.' }),
+      ]);
+      State.subscribe('statusMessage', () => {
+        const host = bubbleCard.querySelector('.grow');
+        if (!host) return;
+        UI.clear(host).append(StatusBubble.chip(State.user, { compact: true }) || el('div', { class: 'small faint', text: 'No note right now.' }));
+      });
+
+      pane.append(
+        card,
+        bubbleCard,
         el('div', { class: 'field' }, [el('label', { text: 'Display name' }), display]),
         el('div', { class: 'field' }, [el('label', { text: 'Bio (private)' }), bio]),
         el('div', { class: 'row' }, [

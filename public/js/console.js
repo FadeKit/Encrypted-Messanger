@@ -403,7 +403,7 @@ window.ConsoleLog = ConsoleLog;
 
 // Registered as a surface so the start menu, deep links and shortcuts reach it.
 Apps.register({
-  id: 'console', title: 'Console', glyph: '›_', order: 95,
+  id: 'console', title: 'Console', icon: 'console', order: 95,
   description: 'Live activity log, and a command line for local interface settings.',
   keywords: ['log', 'console', 'terminal', 'activity', 'command'],
   run: () => ConsoleLog.toggle(),

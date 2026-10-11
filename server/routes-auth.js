@@ -120,7 +120,7 @@ routes['GET /api/bootstrap'] = async (ctx) => {
       discordUrl: String(process.env.AE_DISCORD_URL || '').trim(),
     },
     clicks: clickerSnapshot(ctx.user),
-    user: ctx.user ? selfView(ctx.user) : null,
+    user: ctx.user ? selfView(ctx.user, { viewerId: ctx.user.id }) : null,
     session: ctx.session ? { id: ctx.session.id, device: ctx.session.device, platform: ctx.session.platform, createdAt: ctx.session.createdAt } : null,
     presence: realtime.presenceSnapshot(),
     features: {
@@ -447,9 +447,77 @@ routes['PATCH /api/profile'] = async (ctx) => {
   const body = ctx.body || {};
   if (body.displayName !== undefined) user.displayName = sanitizeText(body.displayName, 40) || user.username;
   if (body.bio !== undefined) user.bio = sanitizeText(body.bio, 400);
-  if (body.avatarId !== undefined) user.avatarId = body.avatarId ? String(body.avatarId) : null;
+  if (body.avatarId !== undefined) {
+    const next = body.avatarId ? String(body.avatarId) : null;
+    if (next && next !== user.avatarId) {
+      // Keep the three most recent pictures so the profile screen can switch
+      // back and forth without re-uploading anything.
+      user.avatarHistory = [next, ...(user.avatarHistory || []).filter((id) => id !== next)].slice(0, 3);
+      if (user.avatarId) {
+        const older = user.avatarHistory.filter((id) => id !== next);
+        user.avatarHistory = [next, ...older].slice(0, 3);
+      }
+    }
+    user.avatarId = next;
+  }
   store.touch();
   return { ok: true, user: selfView(user) };
+};
+
+// The three most recent profile pictures, newest first, for the picker.
+routes['GET /api/profile/avatars'] = async (ctx) => {
+  const user = requireAuth(ctx);
+  return {
+    current: user.avatarId || null,
+    avatars: (user.avatarHistory || []).slice(0, 3).map((fileId) => {
+      const file = store.db.files[fileId];
+      return { fileId, chunks: file ? file.chunks : 0, createdAt: file ? file.createdAt : null };
+    }),
+  };
+};
+
+// ------------------------------------------------------------ status bubble
+const STATUS_TTL = { '30m': 30, '1h': 60, '4h': 240, '8h': 480, '24h': 1440 };
+
+routes['PUT /api/status'] = async (ctx) => {
+  const user = requireAuth(ctx);
+  const body = ctx.body || {};
+  const text = sanitizeText(body.text, 160);
+  const emoji = sanitizeText(body.emoji, 8);
+  if (!text && !emoji) {
+    user.statusMessage = null;
+    store.touch();
+    realtime.broadcast({ kind: 'status.changed', userId: user.id, statusMessage: null }, 'status', {});
+    return { ok: true, statusMessage: null };
+  }
+  // Discord's shape: the default is 24 hours, "don't clear" keeps it until it is
+  // removed, and any shorter window is allowed.
+  const ttlKey = String(body.ttl || '24h');
+  const clearOnExpiry = body.clearOnExpiry !== false;
+  const minutes = ttlKey === 'keep' ? 1440 : (STATUS_TTL[ttlKey] || clampNumber(body.ttlMinutes, 1, 1440, 1440));
+  const createdAt = now();
+  user.statusMessage = {
+    text,
+    emoji,
+    createdAt,
+    updatedAt: createdAt,
+    expiresAt: createdAt + Math.min(minutes, 1440) * 60000,
+    // "keep" means the bubble stays until it is deleted; the 24-hour ceiling is
+    // still recorded so a client can show the age, but it does not auto-clear.
+    clearOnExpiry: ttlKey === 'keep' ? false : clearOnExpiry,
+    ttl: ttlKey === 'keep' ? 'keep' : ttlKey,
+  };
+  store.touch();
+  realtime.broadcast({ kind: 'status.changed', userId: user.id, statusMessage: user.statusMessage }, 'status', {});
+  return { ok: true, statusMessage: selfView(user).statusMessage };
+};
+
+routes['DELETE /api/status'] = async (ctx) => {
+  const user = requireAuth(ctx);
+  user.statusMessage = null;
+  store.touch();
+  realtime.broadcast({ kind: 'status.changed', userId: user.id, statusMessage: null }, 'status', {});
+  return { ok: true, statusMessage: null };
 };
 
 routes['POST /api/presence'] = async (ctx) => {

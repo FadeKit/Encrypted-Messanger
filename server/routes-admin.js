@@ -501,6 +501,8 @@ route['GET /api/admin/files'] = async (ctx) => {
   if (q) {
     files = files.filter((f) => {
       const owner = store.userById(f.ownerId);
+      // Search by real handle is allowed here: the operator is looking someone
+      // up on purpose, and only the ROW LABEL stays anonymous.
       return (owner && (owner.username.toLowerCase().includes(q) || (owner.displayName || '').toLowerCase().includes(q))) || f.id.includes(q);
     });
   }
@@ -523,12 +525,11 @@ route['GET /api/admin/files'] = async (ctx) => {
         completedAt: f.completedAt,
         meta: f.meta,
         audience: f.audience,
+        // Anonymised on purpose: the operator can see every blob and act on it
+        // without the panel becoming a list of who-uploaded-what.
         owner: owner ? {
           id: owner.id,
-          username: owner.username,
-          displayName: owner.displayName,
-          avatarId: owner.avatarId,
-          verified: owner.verified,
+          label: pseudonym(owner.id),
           role: owner.role,
         } : null,
         ref: {
@@ -928,6 +929,107 @@ route['GET /api/admin/stories'] = async (ctx) => {
     },
     note: 'Story storage is tracked separately from messaging, community and drive uploads.',
   };
+};
+
+/**
+ * Privacy-preserving owner label for the operator views.  Everything the
+ * operator sees in these panels is attached to a stable pseudonym instead of a
+ * handle, so a screenshot of the console never reveals who uploaded what.
+ * The mapping is stable per user and per server run.
+ */
+function pseudonym(userId, index) {
+  if (!userId) return 'system';
+  const users = Object.keys(store.db.users).sort();
+  const position = users.indexOf(userId);
+  const n = position >= 0 ? position + 1 : (index || 0) + 1;
+  return `Member ${String(n).padStart(2, '0')}`;
+}
+
+// ------------------------------------------------- all uploads, anonymised
+route['DELETE /api/admin/messages/:id'] = async (ctx) => {
+  const admin = h.requireAdmin(ctx);
+  const message = store.db.messages[ctx.params.id];
+  if (!message) throw h.fail(404, 'Message not found.', 'not_found');
+  message.deleted = true;
+  message.deletedAt = Date.now();
+  message.deletedBy = admin.id;
+  message.payload = null;
+  message.attachments = [];
+  store.audit(admin.id, 'moderation.message_deleted', { messageId: message.id, channel: message.conversationId || message.forumId || null });
+  store.touch();
+  realtime.broadcast({ kind: 'message.deleted', id: message.id, conversationId: message.conversationId, forumId: message.forumId }, 'message', {});
+  return { ok: true };
+};
+
+route['GET /api/admin/storage'] = async (ctx) => {
+  h.requireAdmin(ctx);
+  const limit = clampNumber(ctx.query.limit, 1, 500, 200);
+  const kind = String(ctx.query.kind || '').trim();
+  const search = String(ctx.query.q || '').trim().toLowerCase();
+
+  const files = Object.values(store.db.files)
+    .filter((file) => (kind ? file.kind === kind : true))
+    .filter((file) => {
+      if (!search) return true;
+      const owner = store.userById(file.ownerId);
+      return String(file.id).toLowerCase().includes(search)
+        || String(file.kind).toLowerCase().includes(search)
+        || (owner && owner.username.toLowerCase().includes(search));
+    })
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  const rows = files.slice(0, limit).map((file) => {
+    const owner = store.userById(file.ownerId);
+    return {
+      id: file.id,
+      kind: file.kind,
+      bytes: file.size || 0,
+      createdAt: file.createdAt,
+      chunks: file.chunks || 0,
+      // who: a pseudonym only. The real handle stays behind /api/admin/users.
+      owner: owner ? pseudonym(owner.id) : 'deleted account',
+      ownerId: file.ownerId,
+      conversationId: file.conversationId || null,
+      metaKeys: Object.keys(file.meta || {}),
+      mime: (file.meta && (file.meta.type || file.meta.mime)) || '',
+    };
+  });
+
+  const byKind = {};
+  for (const file of Object.values(store.db.files)) {
+    byKind[file.kind] = byKind[file.kind] || { files: 0, bytes: 0 };
+    byKind[file.kind].files += 1;
+    byKind[file.kind].bytes += file.size || 0;
+  }
+  return { uploads: rows, total: files.length, byKind };
+};
+
+// ------------------------------------------------- all messages, anonymised
+route['GET /api/admin/messages'] = async (ctx) => {
+  h.requireAdmin(ctx);
+  const limit = clampNumber(ctx.query.limit, 1, 300, 100);
+  const messages = Object.values(store.db.messages)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+    .slice(0, limit)
+    .map((message) => {
+      const conversation = store.db.conversations[message.conversationId];
+      const forum = !conversation && message.forumId ? store.db.forums[message.forumId] : null;
+      return {
+        id: message.id,
+        // The body stays encrypted end to end: the operator sees metadata only.
+        author: pseudonym(message.authorId),
+        authorId: message.authorId,
+        channel: conversation ? conversation.type : (forum ? (forum.isPublic ? 'public forum' : 'private forum') : 'unknown'),
+        conversationId: message.conversationId || message.forumId || message.threadId || null,
+        createdAt: message.createdAt,
+        editedAt: message.editedAt || null,
+        deleted: !!message.deleted || !!message.deletedAt,
+        attachments: (message.attachments || []).length,
+        reactions: Object.values(message.reactions || {}).reduce((n, list) => n + (list.length || 0), 0),
+        bytes: (message.attachments || []).reduce((n, f) => n + (f.size || 0), 0),
+      };
+    });
+  return { messages, total: Object.keys(store.db.messages).length };
 };
 
 route['GET /api/admin/audit'] = async (ctx) => {

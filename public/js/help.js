@@ -236,7 +236,7 @@ const Help = (() => {
     searchInput.addEventListener('input', paint);
     const dialog = UI.dialog({
       title: 'Help centre',
-      glyph: '▣',
+      icon: 'profile',
       size: 'wide',
       subtitle: `${ARTICLES.length} articles · settings docs · feature walkthroughs`,
       content: el('div', { class: 'stack-12' }, [
@@ -257,7 +257,7 @@ const Help = (() => {
   function article_(article) {
     UI.dialog({
       title: article.title,
-      glyph: '▣',
+      icon: 'profile',
       size: 'wide',
       subtitle: article.tags.slice(0, 6).join(' · '),
       content: el('div', { class: 'stack-8' }, [

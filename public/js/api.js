@@ -79,6 +79,7 @@ const API = (() => {
   const get = (path) => request('GET', path);
   const post = (path, body) => request('POST', path, body === undefined ? {} : body);
   const patch = (path, body) => request('PATCH', path, body);
+  const put = (path, body) => request('PUT', path, body === undefined ? {} : body);
   const del = (path) => request('DELETE', path);
   const putRaw = (path, buffer) => request('PUT', path, buffer);
 
@@ -186,7 +187,7 @@ const API = (() => {
     loadToken,
     get token() { return token; },
     get online() { return online; },
-    request, get, post, patch, del,
+    request, get, post, patch, put, del,
     uploadEncrypted,
     downloadDecrypted,
     on, emit, connect, disconnect,

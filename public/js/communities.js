@@ -95,10 +95,10 @@ const CommunityClient = (() => {
         row.addEventListener('contextmenu', (event) => {
           event.preventDefault();
           UI.contextMenu([
-            { glyph: '▣', label: 'Open', onClick: () => openForum(forum.id) },
-            { glyph: '⌗', label: 'Members & keys', onClick: () => membersDialog(forum) },
-            forum.isOwner ? { glyph: '+', label: 'Add member', onClick: () => addMemberDialog(forum) } : null,
-            forum.isMember || forum.isOwner ? { glyph: '◇', label: 'Re-wrap community key', onClick: () => rewrapDialog(forum) } : null,
+            { icon: 'profile', label: 'Open', onClick: () => openForum(forum.id) },
+            { icon: 'members', label: 'Members & keys', onClick: () => membersDialog(forum) },
+            forum.isOwner ? { icon: 'plus', label: 'Add member', onClick: () => addMemberDialog(forum) } : null,
+            forum.isMember || forum.isOwner ? { icon: 'generic', label: 'Re-wrap community key', onClick: () => rewrapDialog(forum) } : null,
           ].filter(Boolean), { x: event.clientX, y: event.clientY });
         });
         items.append(row);
@@ -137,7 +137,7 @@ const CommunityClient = (() => {
     clear(mainNode);
     const forum = currentForum();
     if (!forum) {
-      mainNode.append(UI.empty('communities', 'Pick a community'));
+      mainNode.append(UI.empty('stories', 'Pick a community'));
       return;
     }
     if (activeThreadId) { renderThread(forum); return; }
@@ -205,8 +205,8 @@ const CommunityClient = (() => {
     const isAdmin = State.user.role === 'owner' || State.user.role === 'admin';
     const canDelete = isAdmin || (forum.isPublic && thread.own);
     UI.contextMenu([
-      { glyph: '▣', label: 'Open thread', onClick: () => { activeThreadId = thread.id; renderMain(); } },
-      canDelete ? { glyph: '⌫', label: 'Delete thread', danger: true, onClick: async () => {
+      { icon: 'profile', label: 'Open thread', onClick: () => { activeThreadId = thread.id; renderMain(); } },
+      canDelete ? { icon: 'trash', label: 'Delete thread', danger: true, onClick: async () => {
         const confirmed = await UI.confirm({
           title: 'Delete this thread?',
           message: forum.isPublic ? 'Public threads can be deleted by their author or an administrator.' : 'Only administrators can delete threads in private communities.',
@@ -336,26 +336,26 @@ const CommunityClient = (() => {
         ref.close();
       } }));
     }
-    const ref = UI.dialog({ title: 'React to this post', glyph: '⌾', size: 'narrow', content: host });
+    const ref = UI.dialog({ title: 'React to this post', icon: 'react', size: 'narrow', content: host });
   }
 
   function postMenu(event, forum, thread, post) {
     const isAdmin = State.user.role === 'owner' || State.user.role === 'admin';
     const canDelete = isAdmin || (forum.isPublic && post.own);
     UI.contextMenu([
-      { glyph: '↩', label: 'Reply', onClick: () => {
+      { icon: 'reply', label: 'Reply', onClick: () => {
         const box = UI.$('#thread-composer');
         if (box) { box.dataset.replyTo = post.id; box.focus(); UI.toast({ title: 'Reply target set', duration: 1500 }); }
       } },
-      { glyph: '⌾', label: 'Add reaction', onClick: () => reactionPicker(event, post) },
-      { glyph: '▲', label: 'Upvote', disabled: post.own, onClick: () => API.post(`/api/messages/${post.id}/vote`, { value: 1 }) },
-      { glyph: '▼', label: 'Downvote', disabled: post.own, onClick: () => API.post(`/api/messages/${post.id}/vote`, { value: -1 }) },
+      { icon: 'react', label: 'Add reaction', onClick: () => reactionPicker(event, post) },
+      { icon: 'upvote', label: 'Upvote', disabled: post.own, onClick: () => API.post(`/api/messages/${post.id}/vote`, { value: 1 }) },
+      { icon: 'downvote', label: 'Downvote', disabled: post.own, onClick: () => API.post(`/api/messages/${post.id}/vote`, { value: -1 }) },
       { separator: true },
-      { glyph: '⎘', label: 'Copy text', onClick: async () => {
+      { icon: 'copy', label: 'Copy text', onClick: async () => {
         const plain = await decryptPost(forum, post);
         UI.copy(plain.text || '', 'Post copied');
       } },
-      canDelete ? { glyph: '⌫', label: forum.isPublic && !isAdmin ? 'Delete my post' : 'Delete post (operator)', danger: true, onClick: async () => {
+      canDelete ? { icon: 'trash', label: forum.isPublic && !isAdmin ? 'Delete my post' : 'Delete post (operator)', danger: true, onClick: async () => {
         const confirmed = await UI.confirm({
           title: 'Delete this post?',
           message: forum.isPublic ? 'In public communities authors may delete their own posts.' : 'Posts in private communities can only be removed by an administrator.',
@@ -446,7 +446,7 @@ const CommunityClient = (() => {
     let ref;
     ref = UI.dialog({
       title: `New thread in ${forum.name}`,
-      glyph: '✎',
+      icon: 'editor',
       content: el('div', { class: 'stack-12' }, [
         title, bodyInput, status,
         el('div', { class: 'notice-strip', html: '<span>▨</span><span>Media needs “Media in communities” enabled in Settings.</span>' }),
@@ -484,7 +484,7 @@ const CommunityClient = (() => {
     let ref;
     ref = UI.dialog({
       title: 'Create a community',
-      glyph: '✦',
+      icon: 'star',
       subtitle: 'Public squares are readable by every signed-in member; private rooms stay key-gated.',
       content: el('div', { class: 'stack-12' }, [
         name, description,
@@ -523,7 +523,7 @@ const CommunityClient = (() => {
     }
     UI.dialog({
       title: `${current.name} — members`,
-      glyph: '⌗',
+      icon: 'members',
       subtitle: `${current.memberCount} members${current.isOwner ? ' · you own this community' : ''}`,
       content: el('div', { class: 'stack-8' }, [
         body,
@@ -562,7 +562,7 @@ const CommunityClient = (() => {
     };
     paint();
     search.addEventListener('input', paint);
-    const ref = UI.dialog({ title: `Add members to ${forum.name}`, glyph: '+', content: el('div', { class: 'stack-8' }, [search, results]) });
+    const ref = UI.dialog({ title: `Add members to ${forum.name}`, icon: 'plus', content: el('div', { class: 'stack-8' }, [search, results]) });
   }
 
   async function rewrapDialog(forum) {
@@ -598,11 +598,11 @@ const CommunityClient = (() => {
 window.CommunityClient = CommunityClient;
 
 Apps.register({
-  id: 'communities', title: 'Communities', glyph: '▩', order: 12,
+  id: 'communities', title: 'Communities', icon: 'communities', order: 12,
   description: 'Public squares and private community forums with threads, posts and votes.',
   keywords: ['communities', 'community', 'forum', 'forums', 'thread', 'post', 'square', 'private'],
   run: () => Windows.open({
-    id: 'communities', title: 'Communities', glyph: '▩', geometry: { w: 1120, h: 720 },
+    id: 'communities', title: 'Communities', icon: 'communities', geometry: { w: 1120, h: 720 },
     render: (body, api) => CommunityClient.render(body, api),
     toolbar: [],
   }),

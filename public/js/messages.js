@@ -136,11 +136,11 @@ const ConversationClient = (() => {
     row.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       UI.contextMenu([
-        { glyph: '▣', label: 'Open', onClick: () => openConversation(conversation.id) },
-        { glyph: '◔', label: 'Mark as read', onClick: () => API.post(`/api/conversations/${conversation.id}/read`, {}).then(() => refresh()) },
-        conversation.type === 'group' && conversation.isOwner ? { glyph: '⌗', label: 'Manage members', onClick: () => manageGroup(conversation) } : null,
+        { icon: 'profile', label: 'Open', onClick: () => openConversation(conversation.id) },
+        { icon: 'check', label: 'Mark as read', onClick: () => API.post(`/api/conversations/${conversation.id}/read`, {}).then(() => refresh()) },
+        conversation.type === 'group' && conversation.isOwner ? { icon: 'members', label: 'Manage members', onClick: () => manageGroup(conversation) } : null,
         { separator: true },
-        { glyph: '≡', label: 'Channel details', onClick: () => channelDetails(conversation) },
+        { icon: 'console', label: 'Channel details', onClick: () => channelDetails(conversation) },
       ], { x: event.clientX, y: event.clientY });
     });
     return row;
@@ -374,7 +374,7 @@ const ConversationClient = (() => {
       ref.close();
     } });
     host.append(grid, el('div', { class: 'input-row' }, [custom, send]));
-    const ref = UI.dialog({ title: 'Add a reaction', glyph: '⌾', size: 'narrow', content: host });
+    const ref = UI.dialog({ title: 'Add a reaction', icon: 'react', size: 'narrow', content: host });
   }
 
   function messageMenu(event, conversation, message, author) {
@@ -383,19 +383,19 @@ const ConversationClient = (() => {
     const canDelete = message.deleted ? false : (State.user.role === 'owner' || State.user.role === 'admin') || (isPublicForum && message.own);
     const items = [
       { label: 'Message actions' },
-      { glyph: '↩', label: 'Reply', onClick: () => startReply(conversation, message) },
-      { glyph: '⌾', label: 'Add reaction', onClick: () => reactionPicker(event, message) },
-      { glyph: '▲', label: 'Upvote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: 1 }) },
-      { glyph: '▼', label: 'Downvote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: -1 }) },
-      { glyph: '⭕', label: 'Clear my vote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: 0 }) },
+      { icon: 'reply', label: 'Reply', onClick: () => startReply(conversation, message) },
+      { icon: 'react', label: 'Add reaction', onClick: () => reactionPicker(event, message) },
+      { icon: 'upvote', label: 'Upvote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: 1 }) },
+      { icon: 'downvote', label: 'Downvote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: -1 }) },
+      { icon: 'close', label: 'Clear my vote', disabled: message.own, onClick: () => API.post(`/api/messages/${message.id}/vote`, { value: 0 }) },
       { separator: true },
-      { glyph: '⎘', label: 'Copy message text', onClick: async () => {
+      { icon: 'copy', label: 'Copy message text', onClick: async () => {
         const plain = await decryptMessage(conversation, message);
         UI.copy(plain.text || '', 'Message copied');
       } },
-      message.own ? { glyph: '✎', label: 'Edit message', onClick: () => editMessage(conversation, message) } : null,
+      message.own ? { icon: 'editor', label: 'Edit message', onClick: () => editMessage(conversation, message) } : null,
       State.user.role === 'owner' || State.user.role === 'admin'
-        ? { glyph: '⌫', label: 'Delete message (operator)', danger: true, onClick: () => deleteMessage(message) }
+        ? { icon: 'trash', label: 'Delete message (operator)', danger: true, onClick: () => deleteMessage(message) }
         : null,
     ].filter(Boolean);
     UI.contextMenu(items, { x: event.clientX - 200, y: event.clientY });
@@ -613,7 +613,7 @@ const ConversationClient = (() => {
     let ref;
     ref = UI.dialog({
       title: 'New direct message',
-      glyph: '✎',
+      icon: 'editor',
       subtitle: 'One-to-one channels are encrypted with a key only you two hold.',
       content: el('div', { class: 'stack-8' }, [search, results]),
       footer: [
@@ -665,7 +665,7 @@ const ConversationClient = (() => {
     let ref;
     ref = UI.dialog({
       title: 'New group chat',
-      glyph: '⌗',
+      icon: 'members',
       subtitle: 'You own the group: add or remove members at any time.',
       content: el('div', { class: 'stack-8' }, [title, chips, search, results]),
       footer: [
@@ -731,14 +731,14 @@ const ConversationClient = (() => {
       content.append(el('div', { class: 'divider' }), el('div', { class: 'uppercase', text: 'Add members' }), search, results);
     };
     refreshMembers();
-    UI.dialog({ title: `Manage ${conversation.title}`, glyph: '⌗', subtitle: 'Group membership is under your control as the owner.', content, size: 'wide' });
+    UI.dialog({ title: `Manage ${conversation.title}`, icon: 'members', subtitle: 'Group membership is under your control as the owner.', content, size: 'wide' });
   }
 
   async function channelDetails(conversation) {
     let isAdmin = State.user.role === 'owner' || State.user.role === 'admin';
     UI.dialog({
       title: conversation.title || 'Channel',
-      glyph: '≡',
+      icon: 'console',
       subtitle: conversation.type === 'group' ? 'Group chat' : 'Direct message',
       content: el('div', { class: 'stack-8' }, [
         el('div', { class: 'notice-strip', html: '<span>▨</span><span>This channel uses AES-GCM-256 with a key wrapped for each member through ECDH P-256. The server stores ciphertext and wrapped keys only.</span>' }),
@@ -880,7 +880,7 @@ const Profile = (() => {
           el('button', { class: 'btn', text: 'Copy handle', onClick: () => UI.copy(profile.username, 'Handle copied') }),
         ]) : null,
       ]);
-      UI.dialog({ title: 'Profile', glyph: '◧', size: 'wide', content });
+      UI.dialog({ title: 'Profile', icon: 'profile', size: 'wide', content });
     } catch (error) {
       UI.toast({ level: 'info', title: 'Private profile', body: error.message });
     }
@@ -954,11 +954,11 @@ const Profile = (() => {
 window.Profile = Profile;
 
 Apps.register({
-  id: 'messages', title: 'Messages', glyph: '▤', order: 10,
+  id: 'messages', title: 'Messages', icon: 'messages', order: 10,
   description: 'Encrypted direct and group conversations with replies, reactions and attachments.',
   keywords: ['messages', 'chat', 'dm', 'direct', 'group', 'conversation', 'typing'],
   run: () => Windows.open({
-    id: 'messages', title: 'Messages', glyph: '▤', geometry: { w: 1120, h: 720 },
+    id: 'messages', title: 'Messages', icon: 'messages', geometry: { w: 1120, h: 720 },
     render: (body, api) => ConversationClient.render(body, api),
     toolbar: [],
   }),

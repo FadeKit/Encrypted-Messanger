@@ -28,6 +28,10 @@
 #      AE_TLS=0                 serve plain http instead of https
 #      AE_SOURCE_FILE=<path>    patch from a local .tar.gz/.zip
 #      AE_SOURCE_DIR=<dir>      patch from a local checkout
+#      AE_REBOOT=1              also restart the phone at the end, for a truly
+#                               clean slate (uses termux-reboot if it is
+#                               installed, otherwise svc power reboot, otherwise
+#                               it says what to install)
 # =============================================================================
 
 set -uo pipefail
@@ -35,6 +39,7 @@ set -uo pipefail
 AE_OWNER="${AE_OWNER:-FadeKit}"
 AE_REPO="${AE_REPO:-Encrypted-Messanger}"
 AE_BRANCH="${AE_BRANCH:-arena/442b6c1e-encrypted-messanger}"
+AE_REBOOT="${AE_REBOOT:-0}"
 
 if [ -t 1 ]; then C_DIM=$'\033[2m'; C_OFF=$'\033[0m'; else C_DIM=''; C_OFF=''; fi
 say()  { printf '%s\n' "$*"; }
@@ -288,4 +293,27 @@ say "Open the https address above — accept the certificate once, then"
 say "account creation, sign-in and encryption all work."
 say ""
 note "Details: ae-secure doctor   ·   logs: ae-secure logs   ·   backup: ae-secure backup"
+say ""
+
+# ------------------------------------------------------------------ reboot ---
+# Optional: an operator who wants the phone itself to come up clean can ask for
+# a reboot here. The boot hook the installer wrote starts the server again.
+if [ "$AE_REBOOT" = "1" ]; then
+  step "Restarting the phone"
+  say "the host starts again by itself on boot (Termux:Boot keeps that hook)"
+  if have termux-reboot; then
+    note "termux-reboot"
+    termux-reboot
+  elif [ "$ON_TERMUX" = "1" ] && have svc; then
+    note "svc power reboot"
+    svc power reboot || die "the system refused the reboot — run 'reboot' yourself"
+  elif [ "$ON_TERMUX" = "1" ]; then
+    say "no reboot helper found. Install Termux:API (pkg install termux-api), or"
+    say "run this instead:  svc power reboot"
+  else
+    say "not on Termux, so the phone was left alone (AE_REBOOT was set)"
+  fi
+else
+  note "Reboot the phone too? Run this again with AE_REBOOT=1, or: svc power reboot"
+fi
 say ""

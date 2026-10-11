@@ -70,6 +70,11 @@ route['POST /api/files/init'] = async (ctx) => {
       height: clampNumber(body.meta.height, 0, 100000, 0),
       duration: clampNumber(body.meta.duration, 0, 1000000, 0),
       hasPoster: !!body.meta.hasPoster,
+      // A file made in the editor carries its name as ciphertext sealed with
+      // its own file key, so the drive can list it without the server ever
+      // learning what it is called.
+      nameWrapped: typeof body.meta.nameWrapped === 'string' ? body.meta.nameWrapped.slice(0, 8192) : null,
+      editor: !!body.meta.editor,
     } : null,
     complete: false,
     uploadedChunks: [],
