@@ -216,7 +216,7 @@ const Help = (() => {
       clear(list);
       const matches = search(searchInput.value).slice(0, 40);
       if (!matches.length) {
-        list.append(UI.empty('⌕', 'Nothing matched', 'Try the exact name of a setting or feature.'));
+        list.append(UI.empty('search', 'Nothing matched', 'Try the exact name of a setting or feature.'));
         return;
       }
       for (const article of matches) {

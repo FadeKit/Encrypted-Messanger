@@ -12,6 +12,10 @@ const { now, humanCode, sha256, sanitizeText, sanitizeHandle, isoWeek, RateLimit
 const loginLimiter = new RateLimiter({ points: 10, windowMs: 60000, blockMs: 60000 });
 const registerLimiter = new RateLimiter({ points: 5, windowMs: 300000, blockMs: 120000 });
 const actionLimiter = new RateLimiter({ points: 60, windowMs: 60000 });
+// The click counter is a gag, so it gets its own budget: the shared limiter
+// charged three points a click, which capped one person at twenty clicks a
+// minute and made the counter look broken.
+const clickLimiter = new RateLimiter({ points: 1200, windowMs: 60000 });
 const U = { UNLIMITED: -1 };
 
 function scryptHex(value, salt, len = 32) {
@@ -480,8 +484,8 @@ routes['PATCH /api/public-profile'] = async (ctx) => {
 routes['GET /api/click'] = async (ctx) => clickerSnapshot(ctx.user);
 
 routes['POST /api/click'] = async (ctx) => {
-  const limit = actionLimiter.hit(`click:${ctx.user ? ctx.user.id : ctx.ip}`, 3);
-  if (!limit.allowed) throw fail(429, 'Whoa — one click at a time.', 'rate_limited');
+  const limit = clickLimiter.hit(`click:${ctx.user ? ctx.user.id : ctx.ip}`, 1);
+  if (!limit.allowed) throw fail(429, 'That is a lot of clicking — take a breath and try again.', 'rate_limited');
   const week = isoWeek();
   store.db.counters.clicks = (store.db.counters.clicks || 0) + 1;
   store.db.counters.clickWeeks = store.db.counters.clickWeeks || {};

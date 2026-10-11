@@ -128,6 +128,7 @@ const Shell = (() => {
 
   function setManualStatus(mode) {
     manualStatus = mode;
+    updateStatusPill({ effective: { key: mode || computeStatus() } });
     try {
       if (mode) localStorage.setItem('ae.status', mode);
       else localStorage.removeItem('ae.status');
@@ -645,7 +646,7 @@ const Shell = (() => {
     for (const app of apps) {
       if (S.menuHidden(app.id)) continue;
       grid.append(el('button', { class: 'desk-icon', onClick: () => Apps.open(app.id), ondblclick: () => Apps.open(app.id) }, [
-        el('span', { class: 'glyph', text: app.glyph }),
+        el('span', { class: 'glyph', html: UI.icon(app.id, { title: app.label }) }),
         el('span', { class: 'label', text: app.label }),
       ]));
     }
@@ -654,28 +655,37 @@ const Shell = (() => {
 
   function buildTaskbar() {
     const stack = el('div', { id: 'taskbar-stack', class: 'row-tight' });
-    const startButton = el('button', { class: 'tb-btn', title: 'Start (Ctrl+Esc)', html: '<span>◈</span>', onClick: (event) => toggleStart(event) });
+    const startButton = el('button', { class: 'tb-btn', title: 'Start (Ctrl+Esc)', html: `<span class="tb-glyph">${UI.icon('generic')}</span>`, onClick: (event) => toggleStart(event) });
     stack.append(startButton);
     const pinned = ['messages', 'communities', 'stories', 'drive', 'airdrop'];
     for (const id of pinned) {
       if (S.menuHidden(id)) continue;
       const app = Apps.get(id);
-      stack.append(el('button', { class: 'tb-btn', title: app ? app.title : id, html: `<span>${(app && app.glyph) || '◈'}</span>`, onClick: () => Apps.open(id) }));
+      stack.append(el('button', { class: 'tb-btn', title: app ? app.title : id, html: `<span class="tb-glyph">${UI.icon(id)}</span>`, onClick: () => Apps.open(id) }));
     }
     if (S.user.role === 'owner' || S.user.role === 'admin') {
-      stack.append(el('button', { class: 'tb-btn', title: 'Admin Console', html: '<span>⬢</span>', onClick: () => Apps.open('admin') }));
+      stack.append(el('button', { class: 'tb-btn', title: 'Admin Console', html: `<span class="tb-glyph">${UI.icon('admin')}</span>`, onClick: () => Apps.open('admin') }));
     }
-    const airdropButton = el('button', { class: 'tb-btn', id: 'tb-airdrop', title: 'Airdrop inbox', html: '<span>⇣</span>', onClick: () => Apps.open('airdrop') });
+    const airdropButton = el('button', { class: 'tb-btn', id: 'tb-airdrop', title: 'Airdrop inbox', html: `<span class="tb-glyph">${UI.icon('airdrop')}</span>`, onClick: () => Apps.open('airdrop') });
     if (S.get('airdropCount') > 0) airdropButton.append(el('span', { class: 'tb-badge', text: String(S.get('airdropCount')) }));
     stack.append(airdropButton);
-    stack.append(el('button', { class: 'tb-btn', title: 'Settings', html: '<span>⚙</span>', onClick: () => Apps.open('settings') }));
-    const consoleButton = el('button', { class: 'tb-btn', id: 'tb-console', title: 'Console (Ctrl+Shift+O)', html: '<span>›_</span>' });
+    stack.append(el('button', { class: 'tb-btn', title: 'Settings', html: `<span class="tb-glyph">${UI.icon('settings')}</span>`, onClick: () => Apps.open('settings') }));
+    const consoleButton = el('button', { class: 'tb-btn', id: 'tb-console', title: 'Console (Ctrl+Shift+O)', html: `<span class="tb-glyph">${UI.icon('console')}</span>` });
     stack.append(consoleButton);
     ConsoleLog.mount(consoleButton);
 
+    const statusButton = el('button', {
+      class: 'tb-btn status-btn',
+      id: 'tb-status',
+      title: 'Set activity status',
+      onClick: (event) => statusMenu(event),
+    }, [
+      el('span', { class: 'status-dot', id: 'tb-status-dot' }),
+      el('span', { class: 'status-mode', id: 'tb-status-mode', text: 'AUTO' }),
+    ]);
+
     const tray = el('div', { id: 'taskbar-tray' }, [
-      el('div', { class: 'tray-link', id: 'tb-link', title: 'Realtime channel to this server', text: 'LINK_UP' }),
-      el('button', { class: 'tb-btn', id: 'tb-status', title: 'Set activity status', html: '<span style="width:11px;height:11px;background:var(--status-online);display:block"></span>', onClick: (event) => statusMenu(event) }),
+      statusButton,
       el('div', { class: 'tray-clock' }, [
         el('div', { class: 'time', id: 'clock-time', text: '--:--' }),
         el('div', { class: 'faint tiny', id: 'clock-date', text: '' }),
@@ -704,27 +714,41 @@ const Shell = (() => {
     const items = [];
     if (settings.activityStatus !== false) {
       items.push({ label: 'Availability' });
-      items.push({ glyph: '●', label: 'Online', onClick: () => setManualStatus('online') });
-      items.push({ glyph: '◐', label: 'Idle (stay idle while here)', onClick: () => setManualStatus('idle') });
-      items.push({ glyph: '⊘', label: 'Do Not Disturb', onClick: () => setManualStatus('dnd') });
-      items.push({ glyph: '○', label: 'Invisible (appear offline)', onClick: () => setManualStatus('invisible') });
-      if (S.user.purpleAllowed) items.push({ glyph: '◉', label: 'Purple status (granted by the operator)', onClick: () => setManualStatus('purple') });
+      const mark = (mode) => (manualStatus === mode ? { icon: 'check' } : {});
+      items.push({ label: manualStatus ? `Set by hand: ${UI.statusLabel(manualStatus)}` : `Automatic: ${UI.statusLabel(computeStatus())}` });
+      items.push({ ...mark('online'), icon: manualStatus === 'online' ? 'check' : 'generic', label: 'Online', hint: manualStatus === 'online' ? 'active' : '', onClick: () => setManualStatus('online') });
+      items.push({ icon: manualStatus === 'idle' ? 'check' : 'generic', label: 'Idle (stay idle while here)', hint: manualStatus === 'idle' ? 'active' : '', onClick: () => setManualStatus('idle') });
+      items.push({ icon: manualStatus === 'dnd' ? 'check' : 'generic', label: 'Do Not Disturb', hint: manualStatus === 'dnd' ? 'active' : '', onClick: () => setManualStatus('dnd') });
+      items.push({ icon: manualStatus === 'invisible' ? 'check' : 'generic', label: 'Invisible (appear offline)', hint: manualStatus === 'invisible' ? 'active' : '', onClick: () => setManualStatus('invisible') });
+      if (S.user.purpleAllowed) items.push({ icon: manualStatus === 'purple' ? 'check' : 'generic', label: 'Purple status (granted by the operator)', hint: manualStatus === 'purple' ? 'active' : '', onClick: () => setManualStatus('purple') });
       items.push({ separator: true });
-      items.push({ glyph: '↻', label: 'Automatic (based on activity)', onClick: () => setManualStatus(null) });
+      items.push({ icon: manualStatus ? 'generic' : 'check', label: 'Automatic (based on activity)', hint: manualStatus ? '' : 'active', onClick: () => setManualStatus(null) });
     } else {
       items.push({ label: 'Activity status is off in Settings → Privacy' });
-      items.push({ glyph: '⚙', label: 'Open activity settings', onClick: () => Apps.open('settings', { section: 'privacy' }) });
+      items.push({ icon: 'settings', label: 'Open activity settings', onClick: () => Apps.open('settings', { section: 'privacy' }) });
     }
     UI.contextMenu(items, { x: event.clientX - 120, y: event.clientY - 250 });
   }
 
+  /**
+   * The tray pill always answers two questions: which availability is in force,
+   * and whether you chose it or the app did.  Automatic until set by hand.
+   */
   function updateStatusPill(status) {
     const pill = $('#tb-status');
     if (!pill) return;
     const key = (status && status.effective && status.effective.key) || (status && status.key) || 'offline';
     const color = { online: 'var(--status-online)', idle: 'var(--status-idle)', dnd: 'var(--status-dnd)', purple: 'var(--status-purple)', offline: 'var(--status-offline)' }[key] || 'var(--status-offline)';
-    pill.innerHTML = `<span style="width:11px;height:11px;background:${color};display:block"></span>`;
-    pill.title = `Status: ${UI.statusLabel(key)} — click to change`;
+    const dot = $('#tb-status-dot');
+    if (dot) dot.style.background = color;
+    const mode = manualStatus ? 'SET' : 'AUTO';
+    const label = key === 'offline' ? 'OFFLINE' : UI.statusLabel(key).toUpperCase();
+    const modeNode = $('#tb-status-mode');
+    if (modeNode) modeNode.textContent = `${mode} · ${label}`;
+    pill.dataset.mode = manualStatus || 'auto';
+    pill.title = manualStatus
+      ? `Status: ${UI.statusLabel(key)} — set by hand. Click to change or go back to automatic.`
+      : `Status: ${UI.statusLabel(key)} — automatic, based on your activity. Click to set it by hand.`;
   }
 
   // -------------------------------------------------------------- start menu
@@ -754,7 +778,7 @@ const Shell = (() => {
       }
       for (const app of items) {
         grid.append(el('button', { class: 'start-tile', onClick: () => { closeStart(); Apps.open(app.id); } }, [
-          el('span', { class: 'glyph', text: app.glyph }),
+          el('span', { class: 'glyph', html: UI.icon(app.id, { title: app.title }) }),
           el('span', { class: 'label', text: app.title }),
         ]));
       }
@@ -883,14 +907,12 @@ const Shell = (() => {
     API.on('disconnected', () => {
       const banner = el('div', { class: 'banner-offline', id: 'offline-banner', text: 'Reconnecting to the server…' });
       if (!$('#offline-banner')) document.body.append(banner);
-      const link = $('#tb-link');
-      if (link) { link.textContent = 'LINK_LOST'; link.classList.add('down'); }
+
     });
     API.on('ready', () => {
       const banner = $('#offline-banner');
       if (banner) banner.remove();
-      const link = $('#tb-link');
-      if (link) { link.textContent = 'LINK_UP'; link.classList.remove('down'); }
+
     });
   }
 

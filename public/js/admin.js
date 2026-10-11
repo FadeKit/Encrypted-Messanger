@@ -498,7 +498,7 @@ const AdminClient = (() => {
       el('button', { class: 'btn sm', text: '', onClick: () => paintSection() }),
     ]), scroll);
 
-    if (!data.requests.length) scroll.append(UI.empty('05', 'No requests', 'Members can ask for bigger uploads, drive space or the purple status.'));
+    if (!data.requests.length) scroll.append(UI.empty('generic', 'No requests', 'Members can ask for bigger uploads, drive space or the purple status.'));
     for (const request of data.requests) {
       const card = el('div', { class: 'card stack-8' });
       const user = request.user || { displayName: 'unknown' };

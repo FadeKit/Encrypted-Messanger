@@ -125,7 +125,7 @@ const StoriesClient = (() => {
     // public feed
     const postsHost = el('div', { class: 'stack-12' });
     scroll.append(el('div', { class: 'uppercase', text: `Public posts (${feed.posts.length})` }), postsHost);
-    if (!feed.posts.length) postsHost.append(UI.empty('◍', 'The public square is quiet', 'Posts from public accounts appear here for everyone.'));
+    if (!feed.posts.length) postsHost.append(UI.empty('stories', 'The public square is quiet', 'Posts from public accounts appear here for everyone.'));
     for (const post of feed.posts) {
       const card = el('div', { class: 'card stack-8' });
       card.append(el('div', { class: 'row' }, [

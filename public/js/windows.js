@@ -40,7 +40,8 @@ const Windows = (() => {
     const record = {
       id,
       title: options.title || 'Window',
-      glyph: options.glyph || APP_ICONS[id] || '◈',
+      glyph: options.glyph || APP_ICONS[id] || '',
+      icon: options.icon || id,
       subtitle: options.subtitle || '',
       minimized: false,
       maximized: false,
@@ -58,7 +59,7 @@ const Windows = (() => {
       el('span', { text: record.title }),
       record.subtitle ? el('span', { class: 'sub', text: record.subtitle }) : null,
     ]);
-    const pinButton = el('button', { class: 'caption-btn pin', title: 'Keep on top', html: '⌖', onClick: () => {
+    const pinButton = el('button', { class: 'caption-btn pin', title: 'Keep on top', html: '<svg viewBox="0 0 10 10"><path d="M3.2 0.8h3.6l-0.6 3 1.9 1.9-3 0.6v3.9L4.3 6.3 1.3 5.7 3.2 3.8z" fill="none" stroke="currentColor" stroke-width="1"/></svg>', onClick: () => {
       record.pinned = !record.pinned;
       pinButton.classList.toggle('on', record.pinned);
       if (record.pinned) focus(id, true);
@@ -70,7 +71,7 @@ const Windows = (() => {
       el('button', { class: 'caption-btn close', title: 'Close', html: '<svg viewBox="0 0 10 10"><path d="M0.6 0.6 L9.4 9.4 M9.4 0.6 L0.6 9.4" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>', onClick: () => close(id) }),
     ]);
     const titlebar = el('div', { class: 'window-titlebar' }, [
-      el('span', { class: 'glyph', text: record.glyph }),
+      el('span', { class: 'glyph', html: UI.icon(options.icon || id, { title: record.title }) }),
       titleNode,
       caption,
     ]);
@@ -108,6 +109,7 @@ const Windows = (() => {
     if (!entry) return;
     const { record, content, render } = entry;
     UI.clear(record.body);
+    record.toolbar = null;
     if (options && options.toolbar) {
       const toolbar = el('div', { class: 'toolbar' }, options.toolbar);
       record.body.append(toolbar);
@@ -119,7 +121,7 @@ const Windows = (() => {
       record.body.append(target);
       try { render(target, API(id)); } catch (error) {
         console.error('[ae] render failed for', id, error);
-        target.append(UI.empty('!', 'This panel failed to render', error.message));
+        target.append(UI.empty('close', 'This panel failed to render', error.message));
       }
     }
   }
@@ -350,13 +352,26 @@ const Windows = (() => {
     refreshTaskbar();
   }
 
+  /**
+   * The toolbar is created once and kept at the top of the body.  It must never
+   * clear the body itself: the render target lives there, and wiping it made
+   * every surface that sets a toolbar (settings, drive, files, stories,
+   * airdrop, messages) come up as an empty plate.
+   */
+  function ensureToolbar(record) {
+    if (record.toolbar && record.toolbar.isConnected) return record.toolbar;
+    const toolbar = el('div', { class: 'toolbar' });
+    record.toolbar = toolbar;
+    record.body.prepend(toolbar);
+    return toolbar;
+  }
+
   function setToolbar(id, nodes) {
     const entry = registry.get(id);
     if (!entry) return;
-    UI.clear(entry.record.toolbar || entry.record.body);
-    const toolbar = entry.record.toolbar || el('div', { class: 'toolbar' });
-    if (!entry.record.toolbar) entry.record.body.prepend(toolbar);
-    for (const node of nodes) if (node) toolbar.append(node);
+    const toolbar = ensureToolbar(entry.record);
+    UI.clear(toolbar);
+    for (const node of [].concat(nodes || [])) if (node) toolbar.append(node);
   }
 
   function setContent(id, nodes) {
@@ -374,7 +389,10 @@ const Windows = (() => {
     for (const [id, record] of registry) {
       let button = taskbarButtons.get(id);
       if (!button) {
-        button = el('button', { class: 'tb-btn', title: record.title, dataset: { win: id } }, [el('span', { text: record.glyph })]);
+        button = el('button', { class: 'tb-btn', title: record.title, dataset: { win: id } }, [
+          el('span', { class: 'tb-glyph', html: UI.icon(record.icon || id) }),
+          el('span', { class: 'tb-label', text: record.title }),
+        ]);
         button.addEventListener('click', () => {
           const entry = registry.get(id);
           if (!entry) return;
@@ -385,17 +403,20 @@ const Windows = (() => {
         button.addEventListener('contextmenu', (event) => {
           event.preventDefault();
           UI.contextMenu([
-            { glyph: '⤢', label: 'Restore', onClick: () => restore(id) },
-            { glyph: '—', label: 'Minimize', onClick: () => minimize(id) },
-            { glyph: '□', label: 'Maximize', onClick: () => toggleMaximize(id) },
+            { icon: 'window', label: 'Restore', onClick: () => restore(id) },
+            { icon: 'minimize', label: 'Minimize', onClick: () => minimize(id) },
+            { icon: 'maximize', label: 'Maximize', onClick: () => toggleMaximize(id) },
             { separator: true },
-            { glyph: '✕', label: 'Close', danger: true, onClick: () => close(id) },
+            { icon: 'close', label: 'Close', danger: true, onClick: () => close(id) },
           ], { x: event.clientX, y: event.clientY - 150 });
         });
         stack.append(button);
         taskbarButtons.set(id, button);
       }
-      button.querySelector('span').textContent = record.glyph;
+      const glyphSlot = button.querySelector('.tb-glyph');
+      if (glyphSlot) glyphSlot.innerHTML = UI.icon(record.icon || id);
+      const labelSlot = button.querySelector('.tb-label');
+      if (labelSlot) labelSlot.textContent = record.title;
       button.title = record.title;
       button.classList.toggle('running', true);
       button.classList.toggle('focused', focusedId === id);

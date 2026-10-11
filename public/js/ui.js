@@ -6,6 +6,19 @@ const UI = (() => {
   const $ = (selector, scope = document) => scope.querySelector(selector);
   const $$ = (selector, scope = document) => [...scope.querySelectorAll(selector)];
 
+  /**
+   * One icon, as markup, in the ink style.  Wraps the icon set so callers never
+   * have to know whether it is an SVG or a character:
+   *     el('span', { class: 'glyph', html: UI.icon('messages') })
+   */
+  function icon(name, options) {
+    return typeof Icons === 'undefined' ? '' : Icons.svg(name, options || {});
+  }
+
+  function iconNode(name, options = {}) {
+    return el('span', { class: options.class || 'icon', html: icon(name, options) });
+  }
+
   function el(tag, attrs = {}, children = []) {
     const node = document.createElement(tag);
     for (const [key, value] of Object.entries(attrs || {})) {
@@ -324,7 +337,7 @@ const UI = (() => {
         disabled: item.disabled,
         onClick: () => { closeMenus(); item.onClick && item.onClick(); },
       }, [
-        el('span', { text: item.glyph || '' }),
+        el('span', { class: 'menu-mark', html: item.icon ? icon(item.icon) : '' , text: item.icon ? '' : (item.glyph || '') }),
         el('span', { class: 'grow', text: item.label }),
         item.hint ? el('span', { class: 'hint', text: item.hint }) : null,
       ]));
@@ -435,9 +448,15 @@ const UI = (() => {
     return el('div', { class: 'stack-8 pad-12' }, Array.from({ length: count }, () => el('div', { class: 'skeleton', style: { height: '42px' } })));
   }
 
-  function empty(glyph, title, body, action) {
+  /**
+   * Empty state.  The first argument is an icon name ('drive', 'messages'…) or,
+   * for older call sites, a short text mark.
+   */
+  function empty(glyphOrIcon, title, body, action, iconName) {
+    const name = iconName || glyphOrIcon;
+    const isIcon = typeof Icons !== 'undefined' && Icons.has(name);
     return el('div', { class: 'empty-state' }, [
-      el('div', { class: 'glyph', text: glyph }),
+      isIcon ? el('div', { class: 'glyph', html: icon(name) }) : el('div', { class: 'glyph', text: glyphOrIcon }),
       el('div', { class: 'body-strong', text: title }),
       body ? el('div', { class: 'small muted', text: body }) : null,
       action || null,
@@ -488,6 +507,7 @@ const UI = (() => {
     avatar, statusDot, verifiedBadge, statusLabel,
     toast, dialog, confirm, prompt, contextMenu, closeMenus, swipeBack,
     copy, download, debounce, throttle, sparkline, meter, skeletonList, empty, iconButton,
+    icon, iconNode,
   };
 
   function statusLabel(key) {

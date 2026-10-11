@@ -100,7 +100,7 @@ const ConversationClient = (() => {
       const query = filter.trim().toLowerCase();
       const visible = list.filter((conversation) => !query || (conversation.title || '').toLowerCase().includes(query) || conversation.members.some((member) => (member.displayName || member.username).toLowerCase().includes(query)));
       if (!visible.length) {
-        items.append(UI.empty('▤', filter ? 'No matches' : 'No conversations yet', filter ? 'Try a different name.' : 'Start a direct message or a group chat.',
+        items.append(UI.empty('messages', filter ? 'No matches' : 'No conversations yet', filter ? 'Try a different name.' : 'Start a direct message or a group chat.',
           el('button', { class: 'btn sm primary', text: 'Start a chat', onClick: () => newDirectDialog() })));
         return;
       }
@@ -173,7 +173,7 @@ const ConversationClient = (() => {
     clear(mainNode);
     const conversation = activeId ? conversationById(activeId) : null;
     if (!conversation) {
-      mainNode.append(UI.empty('▨', 'Pick a conversation'));
+      mainNode.append(UI.empty('messages', 'Pick a conversation'));
       return;
     }
     const peer = conversation.members.find((member) => member.id !== State.user.id) || conversation.members[0] || {};
@@ -211,7 +211,7 @@ const ConversationClient = (() => {
     clear(list);
     const messages = (State.get('messages').get(conversation.id) || []);
     if (!messages.length) {
-      list.append(UI.empty('▸', 'No messages yet', 'Say hello.'));
+      list.append(UI.empty('messages', 'No messages yet', 'Say hello.'));
       return;
     }
     let lastAuthor = null;

@@ -75,7 +75,7 @@ const CommunityClient = (() => {
       const query = search.value.trim().toLowerCase();
       const forums = State.get('forums').filter((forum) => !query || forum.name.toLowerCase().includes(query));
       if (!forums.length) {
-        items.append(UI.empty('▩', 'No communities yet', 'Create a public square or a private room for your circle.',
+        items.append(UI.empty('communities', 'No communities yet', 'Create a public square or a private room for your circle.',
           el('button', { class: 'btn sm primary', text: 'Create a community', onClick: () => createDialog() })));
         return;
       }
@@ -137,7 +137,7 @@ const CommunityClient = (() => {
     clear(mainNode);
     const forum = currentForum();
     if (!forum) {
-      mainNode.append(UI.empty('◍', 'Pick a community'));
+      mainNode.append(UI.empty('communities', 'Pick a community'));
       return;
     }
     if (activeThreadId) { renderThread(forum); return; }
@@ -159,7 +159,7 @@ const CommunityClient = (() => {
     if (forum.description) scroll.append(el('div', { class: 'caption', text: forum.description }));
     const threads = State.get('threads');
     if (!threads.length) {
-      scroll.append(UI.empty('✎', 'No threads yet', 'Start the first discussion.'));
+      scroll.append(UI.empty('editor', 'No threads yet', 'Start the first discussion.'));
     }
     for (const thread of threads) scroll.append(threadRow(forum, thread));
     mainNode.append(header, scroll);

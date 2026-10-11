@@ -74,7 +74,7 @@ const AirdropClient = (() => {
     clear(host);
     const drops = State.get('airdrops');
     if (!drops.length) {
-      host.append(UI.empty('⇣', 'No drops yet', 'Drops arrive while airdrop is on and you are online.'));
+      host.append(UI.empty('airdrop', 'No drops yet', 'Drops arrive while airdrop is on and you are online.'));
       return;
     }
     for (const drop of drops) {

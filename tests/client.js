@@ -332,6 +332,25 @@ check('no bare result.session dereference on the sign-in path', !/S\.set\('sessi
 // so reading it there silently drops whatever was being looked for
 check('boot data is read through the state store', !/S\.boot\b/.test(appSrc), (appSrc.match(/S\.boot\b[^\n]*/g) || []).join(' | ').slice(0, 120));
 
+// A window's toolbar must never be built by clearing the window body: the render
+// target lives there, and every surface that set a toolbar came up blank.
+const windowsSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'windows.js'), 'utf8');
+check('setting a toolbar never clears the window body',
+  /function ensureToolbar/.test(windowsSrc) && !/UI\.clear\(entry\.record\.toolbar \|\| entry\.record\.body\)/.test(windowsSrc));
+
+// Icons are inline SVG: unicode symbol glyphs are invisible whenever the device
+// font lacks them (which is what made every surface icon a blank square).
+const iconSrc = fs.readFileSync(path.join(PUBLIC, 'js', 'icons.js'), 'utf8');
+check('an icon set ships with the client', /const Icons/.test(iconSrc) && /function svg/.test(iconSrc));
+check('the icon set is loaded before the interface', html.indexOf('/js/icons.js') < html.indexOf('/js/ui.js') && html.indexOf('/js/icons.js') > 0);
+check('app surfaces draw SVG icons, not unicode glyphs', !/class: 'glyph', text: app\.(glyph|label)/.test(appSrc) && /UI\.icon\(app\.id/.test(appSrc));
+check('taskbar window buttons carry an icon and a label', /tb-glyph/.test(windowsSrc) && /tb-label/.test(windowsSrc));
+check('the LINK_UP chip is gone', !/LINK_UP/.test(appSrc) && !/tb-link/.test(appSrc));
+
+// the click counter is a gag: no per-user ceiling
+const clicker = fs.readFileSync(path.join(ROOT, 'server', 'routes-auth.js'), 'utf8');
+check('clicking is not capped at twenty a minute', /clickLimiter/.test(clicker) && !/actionLimiter\.hit\(`click:/.test(clicker));
+
 // An installer drill once ran with the repository as its home and a watchdog,
 // pid file and self-signed key landed in the checkout.  The layout the
 // installer writes belongs next to the install, never in git.

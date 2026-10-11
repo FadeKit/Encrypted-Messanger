@@ -118,7 +118,7 @@ const DriveClient = (() => {
       const visible = files.filter((file) => (view.folderId ? file.ref?.folderId === view.folderId : !file.ref?.folderId));
       const gridHost = el('div', { class: 'drive-grid' });
       if (!folderList.length && !visible.length) {
-        grid.append(UI.empty('▦', 'Your drive is empty', drive.quota === -1 ? 'Unlimited space is available on this account.' : `${UI.bytes(Math.max(0, drive.quota - drive.used))} of space is ready to use.`));
+        grid.append(UI.empty('drive', 'Your drive is empty', drive.quota === -1 ? 'Unlimited space is available on this account.' : `${UI.bytes(Math.max(0, drive.quota - drive.used))} of space is ready to use.`));
       }
       for (const file of visible) gridHost.append(driveCell(file));
       if (folderList.length) grid.append(el('div', {}, [el('div', { class: 'uppercase', text: 'Folders' }), folderGrid]));
@@ -278,7 +278,7 @@ const DriveClient = (() => {
         groups[file.kind].push(file);
       }
       if (!status.files.length) {
-        list.append(UI.empty('▥', 'Nothing uploaded yet', 'Chats, communities and drive files appear here.'));
+        list.append(UI.empty('files', 'Nothing uploaded yet', 'Chats, communities and drive files appear here.'));
         return;
       }
       const labels = { dm: '▤ Chat attachments', forum: '▩ Community media', drive: '▦ Drive files', story: '◉ Stories', airdrop: '⇣ Airdrops', avatar: '◧ Avatars', public: '◍ Public posts' };
