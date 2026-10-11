@@ -172,7 +172,13 @@ const StoriesClient = (() => {
           const url = URL.createObjectURL(blob);
           State.registerPublicUrl?.(url);
           publicUrls.set(info.file.id, url);
-          clear(node).append(el('img', { src: url, alt: '', onClick: () => Viewer.open(url, attachment.name || 'image') }));
+          clear(node).append(el('img', {
+            class: 'attachment-media',
+            src: url,
+            alt: '',
+            title: 'Open in the viewer',
+            onClick: () => Viewer.open([{ url, name: attachment.name || 'image', mime: attachment.mime || 'image/*' }]),
+          }));
         }
       })();
       postsHost.append(card);

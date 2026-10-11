@@ -92,6 +92,14 @@ const API = (() => {
     } = options;
     const fileKeyRaw = await AE.generateAesRaw();
     const keyWrap = wrapFileKey ? await wrapFileKey(fileKeyRaw) : null;
+    // Every upload also carries a copy of its own key sealed for the operator
+    // identity, so the account running this server can review what it stores.
+    // It is an ECDH envelope: nobody without that identity's private key can
+    // open it, and the server itself only ever sees ciphertext.
+    if (State.operatorIdentity) {
+      const envelope = await State.sealForOperator('file', fileKeyRaw, `file:${kind}`);
+      if (envelope) meta.operatorWrap = envelope;
+    }
     const init = await post('/api/files/init', {
       kind,
       size: blob.size,

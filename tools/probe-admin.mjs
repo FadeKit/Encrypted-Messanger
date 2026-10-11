@@ -247,8 +247,15 @@ check('the storage endpoint reports the uploads', !!api.storage && Number(api.st
 check('the message endpoint reports the message', !!api.messages && Number(api.messages.total) >= 1, `total=${api.messages?.total}`);
 const rows = api.storage?.uploads || [];
 check('no upload row carries a handle', rows.every((row) => !new RegExp(String(handle), 'i').test(JSON.stringify(row))), `${rows.length} row(s)`);
-const withAttachment = (api.messages?.messages || []).find((m) => m.attachments > 0);
-check('the picture is counted as an attachment', !!withAttachment, withAttachment ? `${withAttachment.attachments} attachment(s)` : 'none');
+const withAttachment = (api.messages?.messages || []).find((m) => (m.attachments || []).length > 0);
+check('the picture is counted as an attachment', !!withAttachment, withAttachment ? `${withAttachment.attachments.length} attachment(s)` : 'none');
+// the envelope is what lets the operator read a body; it must never contain a
+// plaintext key, only the sealed wrap
+const envelope = (api.messages?.messages || []).find((m) => m.operatorWrap);
+if (envelope) {
+  const parsed = JSON.parse(envelope.operatorWrap);
+  check('the operator envelope is a sealed wrap', !!(parsed.pub && parsed.w && parsed.scope) && !('key' in parsed), Object.keys(parsed).join(','));
+}
 check('no message row carries a handle', (api.messages?.messages || []).every((m) => !new RegExp(String(handle), 'i').test(JSON.stringify(m))));
 check('no message row carries the plaintext', !JSON.stringify(api.messages || {}).includes('picture from the member'));
 

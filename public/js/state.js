@@ -197,6 +197,60 @@ const State = (() => {
     return AE.wrapKey(key, rawFileKey);
   }
 
+  /* -------------------------------------------------------------- operator
+     The account that runs this server holds a second copy of every key, sealed
+     for its public identity with ECDH.  A device writes these envelopes; only
+     the operator's own device, holding the private half, can open one.  The
+     server stores ciphertext either way.
+  */
+  let operatorPromise = null;
+
+  function operatorIdentity() {
+    if (!operatorPromise) {
+      operatorPromise = API.get('/api/operator-key')
+        .then((payload) => (payload && payload.operator) || null)
+        .catch(() => null);
+    }
+    return operatorPromise;
+  }
+
+  /** Seals raw key bytes for the operator identity. Returns null when there is none. */
+  async function sealForOperator(domain, rawKey, context) {
+    if (!rawKey) return null;
+    try {
+      const operator = await operatorIdentity();
+      if (!operator || !operator.identityPublic) return null;
+      const tag = AE.randomB64(12).replace(/\W/g, '');
+      const scope = `${context || domain}:${tag}`;
+      const shared = await AE.deriveSharedKey(store.vault.identityPrivate, operator.identityPublic, scope);
+      return JSON.stringify({
+        v: 1, domain, scope,
+        by: store.user.id,
+        pub: store.user.identityPublic,
+        w: await AE.wrapKey(shared, rawKey),
+      });
+    } catch (error) {
+      console.warn('[ae] operator envelope could not be written', error);
+      return null;
+    }
+  }
+
+  /** The operator's side of the same envelope: raw key bytes, or null. */
+  async function openOperatorWrap(envelope, domain) {
+    if (!envelope) return null;
+    try {
+      const parsed = typeof envelope === 'string' ? JSON.parse(envelope) : envelope;
+      if (!parsed || parsed.v !== 1) return null;
+      if (domain && parsed.domain && parsed.domain !== domain) return null;
+      if (!parsed.pub || !parsed.w || !parsed.scope) return null;
+      const shared = await AE.deriveSharedKey(store.vault.identityPrivate, parsed.pub, parsed.scope);
+      return await AE.unwrapKey(shared, parsed.w);
+    } catch (error) {
+      console.warn('[ae] operator envelope could not be opened', error);
+      return null;
+    }
+  }
+
   async function unwrapFileKey(conversation, fileKeyWrap, contextPreference) {
     const contexts = contextPreference ? [contextPreference] : ['conv', 'forum'];
     for (const context of contexts) {
@@ -216,6 +270,7 @@ const State = (() => {
     masterKey, unlock, lock, cachedUnlock, clearSession,
     channelKey, channelKeyRaw, wrapChannelKey, memberById,
     wrapFileKeyWithChannel, unwrapFileKey,
+    operatorIdentity, sealForOperator, openOperatorWrap,
     registerObjectUrl, registerPublicUrl: registerObjectUrl,
     get user() { return store.user; },
     get vault() { return store.vault; },

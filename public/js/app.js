@@ -752,7 +752,13 @@ const Shell = (() => {
     // where the rail can only hold so much, the window you are looking for is
     // the first thing in the bar rather than something to scroll to.
     const tabs = el('div', { id: 'taskbar-tabs', class: 'row-tight' });
-    stack.append(startButton, tabs);
+    // The switcher: every open window and every app in one sheet, one tap away.
+    const appsButton = el('button', {
+      class: 'tb-btn', id: 'tb-apps', title: 'Windows and apps (Alt+Tab)', dataset: { app: 'switcher' },
+      html: `<span class="tb-glyph">${UI.icon('switcher')}</span>`,
+      onClick: (event) => { event.stopPropagation(); toggleAppSheet(); },
+    });
+    stack.append(startButton, appsButton, tabs);
     const pinned = ['messages', 'communities', 'stories', 'drive', 'airdrop'];
     for (const [index, id] of pinned.entries()) {
       if (S.menuHidden(id)) continue;
@@ -860,6 +866,113 @@ const Shell = (() => {
       : `Status: ${UI.statusLabel(key)} — automatic, based on your activity. Click to set it by hand.`;
   }
 
+  // ------------------------------------------------------- windows and apps
+  /**
+   * The phone's missing screen: which windows are open, what state they are in,
+   * and every app that can be launched.  On a wide screen the tabs and the dock
+   * cover most of it; on a phone, where a surface fills the display, this is the
+   * one place that always gets you somewhere else.
+   */
+  function buildAppSheet() {
+    if ($('#app-sheet')) return $('#app-sheet');
+    const sheet = el('div', { id: 'app-sheet' });
+    sheet.append(
+      el('div', { class: 'sheet-grab', onClick: () => closeAppSheet() }),
+      el('div', { class: 'sheet-head' }, [
+        el('span', { class: 'title-2', text: 'Windows and apps' }),
+        el('div', { class: 'spacer' }),
+        el('button', { class: 'btn icon subtle', html: UI.icon('close'), title: 'Close (Esc)', onClick: () => closeAppSheet() }),
+      ]),
+      el('div', { class: 'sheet-body', id: 'app-sheet-body' }),
+    );
+    sheet.addEventListener('pointerdown', (event) => event.stopPropagation());
+    document.body.append(sheet);
+    return sheet;
+  }
+
+  function paintAppSheet() {
+    const body = $('#app-sheet-body');
+    if (!body) return;
+    clear(body);
+    const open = Windows.list();
+
+    const windowSection = el('div', { class: 'sheet-section' }, [
+      el('div', { class: 'sheet-label uppercase' }, [
+        el('span', { text: `Open windows · ${open.length}` }),
+        open.length ? el('button', { class: 'btn sm subtle', text: 'Minimise all', onClick: () => { for (const record of open) Windows.minimize(record.id); paintAppSheet(); } }) : null,
+      ]),
+    ]);
+    if (!open.length) windowSection.append(el('div', { class: 'caption pad-8', text: 'Nothing is open. Pick an app below.' }));
+    for (const record of open) {
+      const row = el('div', {
+        class: `sheet-row ${record.minimized ? 'down' : ''}`,
+        onClick: () => { closeAppSheet(); Windows.restore(record.id); },
+      }, [
+        el('span', { class: 'sheet-glyph', html: UI.icon(record.icon || record.id) }),
+        el('div', { class: 'grow' }, [
+          el('div', { class: 'body-strong truncate', text: record.title }),
+          el('div', { class: 'tiny faint', text: record.minimized ? 'In the taskbar' : (Windows.focusedId === record.id ? 'On screen' : 'Behind another window') }),
+        ]),
+        el('button', {
+          class: 'btn icon subtle', html: UI.icon('minimize'), title: 'Put in the taskbar',
+          onClick: (event) => { event.stopPropagation(); Windows.minimize(record.id); paintAppSheet(); },
+        }),
+        el('button', {
+          class: 'btn icon subtle', html: UI.icon('close'), title: 'Close this window',
+          onClick: (event) => { event.stopPropagation(); Windows.close(record.id); paintAppSheet(); },
+        }),
+      ]);
+      windowSection.append(row);
+    }
+    body.append(windowSection);
+
+    const apps = Apps.visible(S.user).filter((app) => !S.menuHidden(app.id));
+    const grid = el('div', { class: 'sheet-grid' });
+    for (const app of apps) {
+      grid.append(el('button', {
+        class: 'sheet-tile',
+        onClick: () => { closeAppSheet(); Apps.open(app.id); },
+      }, [
+        el('span', { class: 'glyph', html: UI.icon(app.icon || app.id, { title: app.title }) }),
+        el('span', { class: 'label', text: app.title }),
+      ]));
+    }
+    body.append(el('div', { class: 'sheet-section' }, [
+      el('div', { class: 'sheet-label uppercase', text: `Apps · ${apps.length}` }),
+      grid,
+    ]));
+  }
+
+  function openAppSheet() {
+    buildAppSheet();
+    paintAppSheet();
+    closeStart();
+    // The sheet is a launcher: whatever it launches gets the screen.
+    document.dispatchEvent(new CustomEvent('ae:sheet-open'));
+    const sheet = $('#app-sheet');
+    sheet.classList.add('open');
+    const button = $('#tb-apps');
+    if (button) button.classList.add('on');
+  }
+
+  function closeAppSheet() {
+    const sheet = $('#app-sheet');
+    if (sheet) sheet.classList.remove('open');
+    const button = $('#tb-apps');
+    if (button) button.classList.remove('on');
+  }
+
+  function toggleAppSheet() {
+    const sheet = $('#app-sheet');
+    if (sheet && sheet.classList.contains('open')) closeAppSheet();
+    else openAppSheet();
+  }
+
+  function appSheetOpen() {
+    const sheet = $('#app-sheet');
+    return !!sheet && sheet.classList.contains('open');
+  }
+
   // -------------------------------------------------------------- start menu
   function buildStartMenu() {
     const menu = el('div', { id: 'start-menu' });
@@ -939,15 +1052,25 @@ const Shell = (() => {
     if (menu) menu.classList.remove('open');
   }
 
+  document.addEventListener('ae:launch', () => { closeAppSheet(); closeStart(); });
+
   document.addEventListener('pointerdown', (event) => {
     const menu = $('#start-menu');
+    const sheet = $('#app-sheet');
+    const onTaskbar = !!event.target.closest('#taskbar-stack');
+    if (sheet && sheet.classList.contains('open') && !sheet.contains(event.target) && !onTaskbar) closeAppSheet();
     if (!menu || !menu.classList.contains('open')) return;
-    if (menu.contains(event.target) || event.target.closest('#taskbar-stack')) return;
+    if (menu.contains(event.target) || onTaskbar) return;
     closeStart();
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') { closeStart(); ConsoleLog.close(); }
+    if (event.key === 'Escape') {
+      if (appSheetOpen()) { closeAppSheet(); return; }
+      closeStart();
+      ConsoleLog.close();
+    }
+    if (event.altKey && event.key === 'Tab') { event.preventDefault(); toggleAppSheet(); return; }
     if (event.ctrlKey && event.key === 'Escape') { event.preventDefault(); toggleStart(); }
     if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'o') { event.preventDefault(); ConsoleLog.toggle(); }
   });

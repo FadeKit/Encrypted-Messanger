@@ -121,7 +121,9 @@ const DriveClient = (() => {
       if (!folderList.length && !visible.length) {
         grid.append(UI.empty('drive', 'Your drive is empty', drive.quota === -1 ? 'Unlimited space is available on this account.' : `${UI.bytes(Math.max(0, drive.quota - drive.used))} of space is ready to use.`));
       }
-      for (const file of visible) gridHost.append(driveCell(file));
+      // Each cell opens the viewer with the whole folder behind it: one tap to
+      // look at a picture, and the arrows then walk to the next file.
+      visible.forEach((file, position) => gridHost.append(driveCell(file, visible, position)));
       if (folderList.length) grid.append(el('div', {}, [el('div', { class: 'uppercase', text: 'Folders' }), folderGrid]));
       if (visible.length) grid.append(el('div', {}, [el('div', { class: 'uppercase', text: 'Files' }), gridHost]));
       grid.prepend(el('div', { class: 'row tiny faint pad-8' }, [
@@ -189,7 +191,7 @@ const DriveClient = (() => {
     return (file.meta && file.meta.editor) || /^text\//.test(type) || /json|javascript|xml|html|csv/.test(type);
   }
 
-  function driveCell(file) {
+  function driveCell(file, siblings = null, position = 0) {
     const cell = el('div', { class: 'drive-cell' });
     const thumb = el('div', { class: 'thumb', text: '' });
     const label = el('div', { class: 'truncate small', text: 'Encrypted file' });
@@ -218,18 +220,16 @@ const DriveClient = (() => {
       else if (mime.startsWith('audio/')) thumb.textContent = '♪';
       else thumb.textContent = '≡';
     })();
-    cell.addEventListener('click', async () => {
-      const raw = await AE.unwrapKey(State.masterKey(), file.keyWrap);
-      if (!raw) { UI.toast({ level: 'warning', title: 'Key unavailable for this file' }); return; }
-      const mime = file.meta?.type || 'application/octet-stream';
-      const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: raw, mime });
-      if (mime.startsWith('image/')) Viewer.open(URL.createObjectURL(blob), 'encrypted image');
-      else if (mime.startsWith('video/')) Viewer.open(URL.createObjectURL(blob), 'encrypted video', 'video');
-      else UI.download(blob, `ae-drive-${file.id.slice(0, 8)}`);
+    cell.addEventListener('click', () => {
+      // The viewer decrypts in place, so the window is on screen immediately
+      // rather than after a file it cannot show yet has finished downloading.
+      if (siblings) Viewer.openDrive(siblings, position);
+      else Viewer.openDrive([file], 0);
     });
     cell.addEventListener('contextmenu', (event) => {
       event.preventDefault();
       UI.contextMenu([
+        { icon: 'image', label: 'Open in the viewer', onClick: () => { if (siblings) Viewer.openDrive(siblings, position); else Viewer.openDrive([file], 0); } },
         isTextish(file) ? { icon: 'editor', label: 'Open in the editor', onClick: () => FileEditor.openFromFile(file) } : null,
         { icon: 'download', label: 'Download & decrypt', onClick: async () => {
           const raw = await AE.unwrapKey(State.masterKey(), file.keyWrap);

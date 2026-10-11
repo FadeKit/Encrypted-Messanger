@@ -576,6 +576,97 @@ const AdminClient = (() => {
     }
   }
 
+  /**
+   * Opens a stored blob in the viewer.  The file key comes out of the operator
+   * envelope this device can open and no other; everything else is the same
+   * decrypt-in-place path a member's device uses.
+   */
+  function viewerItemFor(row, extra = {}) {
+    const file = { id: row.id, chunks: row.chunks, keyWrap: row.keyWrap || null, meta: row.meta || {}, size: row.size };
+    const mime = row.mime || (row.meta && row.meta.type) || 'application/octet-stream';
+    return Object.assign({
+      name: extra.name || row.id,
+      mime,
+      size: row.size,
+      note: 'Encrypted with a key only this server’s operator identity can unseal.',
+      resolve: async () => {
+        const raw = await State.openOperatorWrap(row.operatorWrap, extra.domain || 'file');
+        if (!raw) throw new Error('The operator envelope for this file could not be opened.');
+        const sealedName = await Media.fileName(file, raw);
+        const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: raw, mime });
+        const url = URL.createObjectURL(blob);
+        State.registerObjectUrl(url);
+        return { url, blob, mime, size: blob.size, name: sealedName || extra.name || row.id };
+      },
+    }, extra.overrides || {});
+  }
+
+  /** Every key this message could have been sealed with, strongest first. */
+  async function messageKeys(message) {
+    const keys = [];
+    if (message.operatorWrap) {
+      const domain = message.channel === 'public forum' || message.channel === 'private forum' ? 'forum' : 'conv';
+      const raw = await State.openOperatorWrap(message.operatorWrap, domain);
+      if (raw) keys.push({ key: await AE.importAes(raw), raw });
+    }
+    if (message.publicSeed && message.forumId) {
+      keys.push({ key: await AE.audienceKey(message.publicSeed, `forum:${message.forumId}`), raw: null });
+    }
+    return keys;
+  }
+
+  /** One message body, decrypted with the channel key from its envelope. */
+  async function openMessage(message) {
+    const candidates = await messageKeys(message);
+    if (!candidates.length) {
+      UI.toast({
+        level: 'info', title: 'No key reaches this message',
+        body: message.operatorWrap ? 'That envelope is not for this account — only the identity it was sealed for can open it.' : 'The channel has no operator envelope yet; it appears the next time a member opens the channel.',
+      });
+      return;
+    }
+    let plain = null;
+    let key = null;
+    for (const candidate of candidates) {
+      plain = await AE.decryptJson(candidate.key, message.payload).catch(() => null);
+      if (plain) { key = candidate.key; break; }
+    }
+    if (!plain) { UI.toast({ level: 'danger', title: 'Could not decrypt this message', body: 'The ciphertext does not match any key that reaches this console.' }); return; }
+    const names = new Map((plain.attachments || []).map((entry) => [entry.fileId, entry.name]));
+    const attachments = message.attachments || [];
+    const items = attachments.map((attachment, position) => ({
+      name: names.get(attachment.fileId) || attachment.name || `attachment ${position + 1}`,
+      mime: attachment.mime,
+      size: attachment.size,
+      note: '',
+      resolve: async () => {
+        const info = await API.get(`/api/files/${attachment.fileId}`);
+        const file = info.file;
+        const fileKey = await AE.unwrapKey(key, attachment.keyWrap || file.keyWrap);
+        if (!fileKey) throw new Error('the attachment key is not in this channel');
+        const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: fileKey, mime: attachment.mime || file.meta?.type || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        State.registerObjectUrl(url);
+        const sealed = await Media.fileName(file, fileKey);
+        return { url, blob, mime: attachment.mime || file.meta?.type, size: blob.size, name: sealed || names.get(attachment.fileId) || attachment.name || file.id };
+      },
+    }));
+    if (items.length) Viewer.open(items, { index: 0 });
+    UI.dialog({
+      title: `Message · ${message.author}`,
+      icon: 'messages',
+      content: el('div', { class: 'stack-8' }, [
+        el('div', { class: 'selectable mono small', style: { whiteSpace: 'pre-wrap' }, text: plain.text || '(no text)' }),
+        items.length ? el('div', { class: 'row wrap pad-8' }, items.map((item, position) => el('button', {
+          class: 'btn sm', html: `${UI.icon('image')}<span>Open attachment ${position + 1}</span>`,
+          onClick: () => Viewer.open(items, { index: position }),
+        }))) : null,
+        el('div', { class: 'tiny faint', text: `${message.channel} · ${UI.timeAgo(message.createdAt)} · ${message.id}` }),
+      ]),
+      actions: [{ label: 'Close' }],
+    });
+  }
+
   // ---------------------------------------------------------------- files
   async function paintFiles(kind = '', query = '') {
     hostNode.append(UI.skeletonList(5));
@@ -594,7 +685,7 @@ const AdminClient = (() => {
     hostNode.append(el('div', { class: 'row wrap pad-8' }, Object.entries(data.totals.byKind).map(([key, bytes]) => el('span', { class: 'pill tiny', text: `${key}: ${UI.bytes(bytes)}` }))));
 
     const table = el('table', { class: 'table' }, [
-      el('thead', {}, [el('tr', {}, ['Owner', 'Kind', 'Blob id', 'Size', 'Uploaded', 'Linked to', ''].map((label) => el('th', { text: label })))]),
+      el('thead', {}, [el('tr', {}, ['Owner', 'Kind', 'Blob id', 'Size', 'Uploaded', 'Linked to', 'Contents', ''].map((label) => el('th', { text: label })))]),
       el('tbody', {}, data.files.map((file) => el('tr', {}, [
         el('td', {}, [file.owner ? el('div', { class: 'user-row' }, [
           el('span', { class: 'member-plate', html: UI.icon('profile') }),
@@ -608,6 +699,9 @@ const AdminClient = (() => {
         el('td', { class: 'mono tiny', text: UI.bytes(file.size) }),
         el('td', { class: 'tiny', text: UI.timeAgo(file.completedAt || file.createdAt) }),
         el('td', { class: 'tiny faint', text: file.ref.conversationId || file.ref.threadId || file.ref.storyId || file.audience || '—' }),
+        el('td', {}, [file.operatorWrap
+          ? el('button', { class: 'btn sm', html: `${UI.icon(FileKind.iconFor(FileKind.kindFor(file.mime, '')))}<span>Open</span>`, title: 'Decrypt and open in the viewer', onClick: () => Viewer.open([viewerItemFor(file)]) })
+          : el('span', { class: 'tiny faint', text: 'sealed' })]),
         el('td', {}, [el('button', { class: 'btn sm danger', text: 'Delete', onClick: async () => {
           if (!await UI.confirm({ title: 'Delete this blob?', message: 'The ciphertext is removed from the server; members keep their local copies of keys but not the data.', danger: true, confirmLabel: 'Delete' })) return;
           await API.del(`/api/files/${file.id}`);
@@ -645,18 +739,21 @@ const AdminClient = (() => {
     ]));
     hostNode.append(el('div', { class: 'notice-strip pad-8' }, [
       el('span', { html: UI.icon('profile') }),
-      el('span', { text: 'Authors are shown as pseudonyms. Message text is encrypted end to end and is not readable here.' }),
+      el('span', { text: 'Authors are shown as pseudonyms. Bodies are opened with the channel’s operator envelope; rows without one stay sealed.' }),
     ]));
 
     const table = el('table', { class: 'table' }, [
-      el('thead', {}, [el('tr', {}, ['Author', 'Channel', 'When', 'Attachments', 'Reactions', 'State', ''].map((label) => el('th', { text: label })))]),
+      el('thead', {}, [el('tr', {}, ['Author', 'Channel', 'When', 'Attachments', 'Reactions', 'State', 'Contents', ''].map((label) => el('th', { text: label })))]),
       el('tbody', {}, rows.map((message) => el('tr', {}, [
         el('td', {}, [el('span', { class: 'member-plate', html: UI.icon('profile') }), el('span', { text: message.author })]),
         el('td', {}, [el('span', { class: 'pill tiny', text: message.channel }), el('div', { class: 'mono tiny faint', text: String(message.conversationId || '').slice(0, 10) })]),
         el('td', { class: 'tiny', text: UI.timeAgo(message.createdAt) }),
-        el('td', { class: 'mono tiny', text: String(message.attachments) }),
+        el('td', { class: 'mono tiny', text: String((message.attachments || []).length) }),
         el('td', { class: 'mono tiny', text: String(message.reactions) }),
         el('td', {}, [message.deleted ? el('span', { class: 'pill danger tiny', text: 'deleted' }) : el('span', { class: 'tiny faint', text: 'live' })]),
+        el('td', {}, [message.operatorWrap && message.payload
+          ? el('button', { class: 'btn sm', html: `${UI.icon('eye')}<span>Read</span>`, title: 'Decrypt this message', onClick: () => openMessage(message) })
+          : el('span', { class: 'tiny faint', text: 'sealed' })]),
         el('td', {}, [el('button', { class: 'btn sm danger', text: 'Delete', onClick: async () => {
           if (!await UI.confirm({ title: 'Delete this message?', message: 'The ciphertext is removed from the server for everyone in that channel.', danger: true, confirmLabel: 'Delete' })) return;
           await API.del(`/api/admin/messages/${message.id}`);

@@ -285,7 +285,13 @@ const CommunityClient = (() => {
       const url = URL.createObjectURL(blob);
       State.registerObjectUrl(url);
       mediaUrls.set(file.id, url);
-      clear(node).append(el('img', { src: url, alt: '', onClick: () => Viewer.open(url, 'attachment', 'image') }));
+      clear(node).append(el('img', {
+        class: 'attachment-media',
+        src: url,
+        alt: '',
+        title: 'Open in the viewer',
+        onClick: () => Viewer.open([{ url, name: attachment.name || 'attachment', mime, size: file.size }]),
+      }));
     })();
     return node;
   }
@@ -500,11 +506,14 @@ const CommunityClient = (() => {
           if (name.value.trim().length < 3) { UI.toast({ level: 'warning', title: 'Give the community a name' }); return; }
           const forumId = `f_${AE.b64encode(AE.randomBytes(12)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}`;
           let keyWraps = {};
+          let operatorWrap = null;
           if (!isPublic) {
             const rawKey = await AE.generateAesRaw();
             keyWraps[State.user.id] = await State.wrapChannelKey('forum', forumId, rawKey, State.vault.identityPublic);
+            // a copy of the forum key sealed for the operator identity
+            operatorWrap = await State.sealForOperator('forum', rawKey, `forum:${forumId}`);
           }
-          const created = await API.post('/api/forums', { id: forumId, name: name.value.trim(), description: description.value.trim(), isPublic, keyWraps });
+          const created = await API.post('/api/forums', { id: forumId, name: name.value.trim(), description: description.value.trim(), isPublic, keyWraps, operatorWrap });
           ref.close();
           await refresh();
           openForum(created.forum.id);

@@ -93,6 +93,14 @@ function ensureUniqueHandle(base) {
 const routes = {};
 
 // ------------------------------------------------------------------ bootstrap
+/**
+ * The identity every client seals a second copy of each key for, so the person
+ * running this server can read what they are responsible for.  A public key is
+ * all this returns: without the matching private key, which never leaves the
+ * operator's own device, the envelopes are unreadable.
+ */
+routes['GET /api/operator-key'] = async () => ({ operator: require('./helpers').operatorKeyView() });
+
 routes['GET /api/bootstrap'] = async (ctx) => {
   const global = store.db.global;
   return {

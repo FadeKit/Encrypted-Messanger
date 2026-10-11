@@ -162,6 +162,28 @@ const ConversationClient = (() => {
     API.post(`/api/conversations/${id}/read`, {}).catch(() => {});
     const conversations = State.get('conversations').map((conversation) => conversation.id === id ? Object.assign({}, conversation, { unread: 0 }) : conversation);
     State.set('conversations', conversations);
+    repairOperatorEnvelope(conversationById(id));
+  }
+
+  /**
+   * A channel that predates the operator envelope, or that the other side
+   * opened, gets one the first time this device has the key in hand.  The
+   * server keeps the first envelope it is given and ignores later ones.
+   */
+  async function repairOperatorEnvelope(conversation) {
+    if (!conversation || conversation.operatorWrap) return;
+    try {
+      const raw = await State.channelKeyRaw('conv', conversation);
+      if (!raw) return;
+      const operatorWrap = await operatorEnvelopeFor('conv', conversation.id, raw);
+      if (!operatorWrap) return;
+      const result = await API.post(`/api/conversations/${conversation.id}/operator-wrap`, { operatorWrap }).catch(() => null);
+      if (result && result.stored) {
+        State.set('conversations', State.get('conversations').map((entry) => (
+          entry.id === conversation.id ? Object.assign({}, entry, { operatorWrap }) : entry
+        )));
+      }
+    } catch { /* a channel that cannot be repaired still works for its members */ }
   }
 
   async function loadMessages(id) {
@@ -279,8 +301,11 @@ const ConversationClient = (() => {
       }
       textNode.textContent = plain.text || '';
       if (plain.error) textNode.classList.add('faint');
-      for (const attachment of plain.attachments || []) {
-        attachmentHost.append(attachmentNode(conversation, message, attachment));
+      const attachments = plain.attachments || [];
+      // pictures and clips in one message are one set: the viewer walks them
+      const media = attachments.filter((entry) => /^(image|video)\//.test(entry.mime || ''));
+      for (const attachment of attachments) {
+        attachmentHost.append(attachmentNode(conversation, message, attachment, media));
       }
     });
 
@@ -310,7 +335,25 @@ const ConversationClient = (() => {
     return wrapper;
   }
 
-  function attachmentNode(conversation, message, attachment) {
+  /**
+   * One attachment, decrypted: the key is wrapped for the channel, so this is
+   * the only place that has to know how a bubble and the viewer both get bytes.
+   */
+  async function loadAttachment(conversation, attachment) {
+    const info = await API.get(`/api/files/${attachment.fileId}`);
+    const file = info.file;
+    const wrapped = attachment.keyWrap || file.keyWrap;
+    const rawKey = await State.unwrapFileKey(conversation, wrapped, conversation.type === 'dm' || conversation.type === 'group' ? 'conv' : 'forum');
+    if (!rawKey) throw new Error('the key for this attachment is not on this device');
+    const mime = attachment.mime || file.meta?.type || 'application/octet-stream';
+    const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: rawKey, mime });
+    const url = URL.createObjectURL(blob);
+    State.registerObjectUrl(url);
+    attachmentUrls.set(file.id, url);
+    return { url, blob, mime, size: blob.size, name: attachment.name || `encrypted-${file.id.slice(0, 6)}` };
+  }
+
+  function attachmentNode(conversation, message, attachment, media = []) {
     const node = el('div', { class: 'attachment' });
     const placeholder = el('div', { class: 'locked', html: '<span>▨</span><span>Decrypting attachment…</span>' });
     node.append(placeholder);
@@ -326,20 +369,30 @@ const ConversationClient = (() => {
       const isImage = mime.startsWith('image/') && !attachment.type?.includes('file');
       const isVideo = mime.startsWith('video/');
       if (isImage || isVideo) {
-        const cacheId = `${file.id}`;
-        if (attachmentUrls.has(cacheId)) {
-          const url = attachmentUrls.get(cacheId);
+        // Every picture and clip in this message becomes one set in the viewer:
+        // a tap opens the one under the finger, and the arrows walk the rest.
+        // Each item decrypts on demand, so nothing is downloaded twice.
+        const set = media.some((entry) => entry.fileId === attachment.fileId) ? media : [attachment];
+        const mine = Math.max(0, set.findIndex((entry) => entry.fileId === attachment.fileId));
+        const items = set.map((entry, position) => ({
+          url: attachmentUrls.get(entry.fileId) || '',
+          name: entry.name || `attachment ${position + 1}`,
+          mime: entry.mime || '',
+          resolve: () => loadAttachment(conversation, entry),
+        }));
+        if (!items[mine].url) items[mine].url = attachmentUrls.get(file.id) || '';
+        const openViewer = () => Viewer.open(items, { index: mine });
+        const paint = (url) => {
           clear(node).append(isImage
-            ? el('img', { src: url, alt: name, title: name, onClick: () => Viewer.open(url, name, 'image') })
-            : el('video', { src: url, controls: true, preload: 'metadata' }));
-        } else {
-          const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: rawKey, mime });
-          const url = URL.createObjectURL(blob);
-          State.registerObjectUrl(url);
-          attachmentUrls.set(cacheId, url);
-          clear(node).append(isImage
-            ? el('img', { src: url, alt: name, title: name, onClick: () => Viewer.open(url, name, 'image') })
-            : el('video', { src: url, controls: true, preload: 'metadata' }));
+            ? el('img', { class: 'attachment-media', src: url, alt: name, title: `${name} — open in the viewer`, onClick: () => openViewer() })
+            : el('video', { class: 'attachment-media', src: url, controls: true, preload: 'metadata', playsinline: '', onClick: () => openViewer() }));
+        };
+        // already downloaded once in this session? paint it and skip the round trip
+        if (attachmentUrls.has(file.id)) paint(attachmentUrls.get(file.id));
+        else {
+          const ready = await loadAttachment(conversation, attachment);
+          if (!items[mine].url) items[mine].url = ready.url;
+          paint(ready.url);
         }
       } else {
         clear(node).append(el('div', { class: 'file-row', title: 'Download and decrypt' }, [
@@ -348,6 +401,9 @@ const ConversationClient = (() => {
             el('div', { class: 'truncate', text: name }),
             el('div', { class: 'tiny faint', text: `${UI.bytes(file.size)} · encrypted` }),
           ]),
+          el('button', { class: 'btn sm', html: UI.icon('image'), title: 'Open in the viewer', onClick: () => Viewer.open([
+            Object.assign({ file, name, mime, note: '' }, attachmentUrls.has(file.id) ? { url: attachmentUrls.get(file.id) } : {}),
+          ]) }),
           el('button', { class: 'btn sm primary', text: 'Save', onClick: async () => {
             const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: rawKey, mime });
             UI.download(blob, name);
@@ -683,7 +739,11 @@ const ConversationClient = (() => {
           const wraps = {};
           wraps[State.user.id] = await State.wrapChannelKey('conv', conversationId, rawKey, State.vault.identityPublic);
           for (const member of members) wraps[member.id] = await State.wrapChannelKey('conv', conversationId, rawKey, member.identityPublic);
-          const created = await API.post('/api/conversations', { id: conversationId, type: 'group', title: title.value.trim() || 'Group chat', memberIds: members.map((member) => member.id), keyWraps: wraps });
+          const created = await API.post('/api/conversations', {
+            id: conversationId, type: 'group', title: title.value.trim() || 'Group chat',
+            memberIds: members.map((member) => member.id), keyWraps: wraps,
+            operatorWrap: await operatorEnvelopeFor('conv', conversationId, rawKey),
+          });
           ref.close();
           await refresh();
           await openConversation(created.conversation.id);
@@ -770,6 +830,16 @@ const ConversationClient = (() => {
     return `c_${AE.b64encode(AE.randomBytes(12)).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}`;
   }
 
+  /**
+   * The same channel key, sealed once for the operator identity.  Written when
+   * a channel is created and repaired the first time an older channel is opened
+   * on a device that holds the key, so nothing has to be re-sent to be readable
+   * by the account that runs this server.
+   */
+  async function operatorEnvelopeFor(context, conversationId, rawKey) {
+    return State.sealForOperator(context, rawKey, `${context}:${conversationId}`);
+  }
+
   /** Seals one channel key for both sides of a direct channel. */
   async function wrapForConversation(conversationId, peer, rawKey) {
     const wraps = {};
@@ -791,7 +861,9 @@ const ConversationClient = (() => {
     const wanted = freshConversationId();
     const rawKey = await AE.generateAesRaw();
     const created = await API.post('/api/conversations', {
-      id: wanted, type: 'dm', memberIds: [peerId], keyWraps: await wrapForConversation(wanted, peer, rawKey),
+      id: wanted, type: 'dm', memberIds: [peerId],
+      keyWraps: await wrapForConversation(wanted, peer, rawKey),
+      operatorWrap: await operatorEnvelopeFor('conv', wanted, rawKey),
     });
     const conversation = created.conversation;
     // An id the server could not take, or somebody else's channel: wrap the key
@@ -808,6 +880,9 @@ const ConversationClient = (() => {
   function onIncomingMessage(payload) {
     const conversation = State.get('conversations').find((entry) => entry.id === payload.conversationId);
     if (!conversation) { refresh().catch(() => {}); return; }
+    // A notice about a channel — a removal, the sender's own echo — carries no
+    // message of its own; refreshing the channel is the whole job.
+    if (!payload.message) { refresh().catch(() => {}); return; }
     const map = State.get('messages');
     const list = map.get(payload.conversationId) || [];
     if (!list.some((message) => message.id === payload.message.id)) list.push(payload.message);
@@ -866,25 +941,6 @@ const ConversationClient = (() => {
 })();
 
 window.ConversationClient = ConversationClient;
-
-/* ------------------------------------------------------------- viewer --- */
-const Viewer = (() => {
-  function open(url, name, kind = 'image') {
-    const frame = kind === 'video'
-      ? el('video', { src: url, controls: true, autoplay: true, style: { maxWidth: '92vw', maxHeight: '88vh' } })
-      : el('img', { src: url, alt: name, style: { maxWidth: '92vw', maxHeight: '88vh' } });
-    const overlay = el('div', { class: 'story-viewer', onClick: () => overlay.remove() }, [
-      el('div', { class: 'frame', style: { width: 'auto', height: 'auto', background: 'transparent', border: 'none' }, onClick: (event) => event.stopPropagation() }, [frame]),
-    ]);
-    document.body.append(overlay);
-    document.addEventListener('keydown', function onKey(event) {
-      if (event.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); }
-    });
-  }
-  return { open };
-})();
-
-window.Viewer = Viewer;
 
 /* ------------------------------------------------------------- profile -- */
 const Profile = (() => {

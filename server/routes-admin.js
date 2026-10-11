@@ -525,6 +525,13 @@ route['GET /api/admin/files'] = async (ctx) => {
         completedAt: f.completedAt,
         meta: f.meta,
         audience: f.audience,
+        chunks: f.chunks || 0,
+        mime: (f.meta && (f.meta.type || f.meta.mime)) || '',
+        // The envelope the uploading device sealed for the operator identity.
+        // It opens for exactly one private key, so shipping it here discloses
+        // nothing to anyone else; without it the row stays opaque.
+        operatorWrap: (f.meta && f.meta.operatorWrap) || null,
+        sealedName: (f.meta && f.meta.nameWrapped) || null,
         // Anonymised on purpose: the operator can see every blob and act on it
         // without the panel becoming a list of who-uploaded-what.
         owner: owner ? {
@@ -541,7 +548,7 @@ route['GET /api/admin/files'] = async (ctx) => {
       };
     }),
     totals: { count: Object.keys(store.db.files).length, bytes: total, byKind },
-    note: 'File contents and filenames are end-to-end encrypted. Storage metadata is visible, plaintext is not.',
+    note: 'Every blob is stored as ciphertext. Rows carrying an operator envelope can be opened here, because the uploading device sealed a second copy of that file key for this server’s operator identity.',
   };
 };
 
@@ -646,13 +653,13 @@ route['GET /api/admin/neural'] = async (ctx) => {
           at: message.createdAt,
           author: author ? author.displayName : 'unknown',
           avatarId: author ? author.avatarId : null,
-          attachments: (message.attachments || []).length,
+          payload: message.payload || null,
           bytes: message.payload ? String(message.payload.ct).length : 0,
           payload: message.payload || null,
           decryptable: false,
         };
       }).filter(Boolean),
-      note: 'Message bodies are end-to-end encrypted and cannot be read from the server.',
+      note: 'Message bodies stay sealed to the channel key; the operator envelope opens them for the account that holds the server.',
     };
   }
 
@@ -953,11 +960,15 @@ route['DELETE /api/admin/messages/:id'] = async (ctx) => {
   message.deleted = true;
   message.deletedAt = Date.now();
   message.deletedBy = admin.id;
+  // the realtime notice needs the channel the message actually lives in
+  const channelId = message.convId || message.conversationId || message.forumId || null;
   message.payload = null;
   message.attachments = [];
-  store.audit(admin.id, 'moderation.message_deleted', { messageId: message.id, channel: message.conversationId || message.forumId || null });
+  store.audit(admin.id, 'moderation.message_deleted', { messageId: message.id, channel: channelId });
   store.touch();
-  realtime.broadcast({ kind: 'message.deleted', id: message.id, conversationId: message.conversationId, forumId: message.forumId }, 'message', {});
+  // Its own event name: clients that treat every 'message' event as a new
+  // message must not be handed a removal notice.
+  realtime.broadcast({ kind: 'message.deleted', id: message.id, conversationId: channelId, forumId: message.forumId || null }, 'message.deleted', {});
   return { ok: true };
 };
 
@@ -989,9 +1000,16 @@ route['GET /api/admin/storage'] = async (ctx) => {
       // who: a pseudonym only. The real handle stays behind /api/admin/users.
       owner: owner ? pseudonym(owner.id) : 'deleted account',
       ownerId: file.ownerId,
-      conversationId: file.conversationId || null,
+      conversationId: file.conversationId || (file.ref && file.ref.conversationId) || null,
+      forumId: (file.ref && file.ref.forumId) || null,
       metaKeys: Object.keys(file.meta || {}),
       mime: (file.meta && (file.meta.type || file.meta.mime)) || '',
+      editor: !!(file.meta && file.meta.editor),
+      // The envelope the uploading device sealed for the operator identity:
+      // with the operator's private key this opens the file, and without it the
+      // row is exactly as opaque as before.
+      operatorWrap: (file.meta && file.meta.operatorWrap) || null,
+      sealedName: (file.meta && file.meta.nameWrapped) || null,
     };
   });
 
@@ -1012,7 +1030,11 @@ route['GET /api/admin/messages'] = async (ctx) => {
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     .slice(0, limit)
     .map((message) => {
-      const conversation = store.db.conversations[message.conversationId];
+      // Direct and group messages store their channel as `convId`; forum posts
+      // carry `forumId`.  Resolving both is what makes the channel name and the
+      // operator envelope findable from the feed.
+      const channelId = message.convId || message.conversationId || message.forumId || null;
+      const conversation = channelId ? store.db.conversations[channelId] : null;
       const forum = !conversation && message.forumId ? store.db.forums[message.forumId] : null;
       return {
         id: message.id,
@@ -1020,11 +1042,23 @@ route['GET /api/admin/messages'] = async (ctx) => {
         author: pseudonym(message.authorId),
         authorId: message.authorId,
         channel: conversation ? conversation.type : (forum ? (forum.isPublic ? 'public forum' : 'private forum') : 'unknown'),
-        conversationId: message.conversationId || message.forumId || message.threadId || null,
+        conversationId: channelId || message.threadId || null,
         createdAt: message.createdAt,
         editedAt: message.editedAt || null,
         deleted: !!message.deleted || !!message.deletedAt,
-        attachments: (message.attachments || []).length,
+        // The ciphertext itself, plus the envelope that opens the channel it
+        // was posted in.  Only an operator signed in with the identity the
+        // envelope was sealed for can do anything with either.
+        payload: message.payload || null,
+        operatorWrap: (conversation && conversation.operatorWrap) || (forum && forum.operatorWrap) || null,
+        // a public community is readable by anyone signed in, so its seed is
+        // no more of a secret here than it is inside the community itself
+        forumId: (forum && forum.id) || null,
+        publicSeed: (forum && forum.isPublic && forum.publicSeed) || null,
+        attachments: (message.attachments || []).map((file) => ({
+          fileId: file.fileId, size: file.size || 0, mime: file.mime || '', type: file.type || 'file',
+          keyWrap: file.keyWrap || null,
+        })),
         reactions: Object.values(message.reactions || {}).reduce((n, list) => n + (list.length || 0), 0),
         bytes: (message.attachments || []).reduce((n, f) => n + (f.size || 0), 0),
       };

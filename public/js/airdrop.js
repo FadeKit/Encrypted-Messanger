@@ -111,14 +111,17 @@ const AirdropClient = (() => {
           if (!info?.file) return;
           const mime = info.file.meta?.type || 'application/octet-stream';
           const media = el('div', { class: 'message-attachments' });
-          if (mime.startsWith('image/') && !mediaUrls.has(info.file.id)) {
-            const blob = await API.downloadDecrypted(info.file.id, { chunks: info.file.chunks, fileKeyRaw: rawDropKey, mime });
-            const url = URL.createObjectURL(blob);
-            State.registerObjectUrl(url);
-            mediaUrls.set(info.file.id, url);
-            media.append(el('img', { src: url, alt: '', onClick: () => Viewer.open(url, 'airdrop image') }));
-          } else if (mediaUrls.has(info.file.id)) {
-            media.append(el('img', { src: mediaUrls.get(info.file.id), alt: '' }));
+          const item = () => ({
+            file: info.file, name: drop.name || `airdrop ${info.file.id.slice(0, 6)}`, mime, size: info.file.size,
+          });
+          if (mime.startsWith('image/') || mime.startsWith('video/') || mime.startsWith('audio/')) {
+            // One tap: the viewer decrypts it in place and plays it with sound.
+            media.append(el('button', {
+              class: 'btn sm',
+              html: `${UI.icon('image')}<span>Open in the viewer</span>`,
+              onClick: () => Viewer.open([Object.assign(item(), { url: mediaUrls.get(info.file.id) || '' })]),
+            }));
+            if (mediaUrls.has(info.file.id)) media.append(el('img', { src: mediaUrls.get(info.file.id), alt: '' }));
           }
           media.append(el('button', { class: 'btn sm', text: 'Save & decrypt', onClick: async () => {
             const blob = await API.downloadDecrypted(info.file.id, { chunks: info.file.chunks, fileKeyRaw: rawDropKey, mime });

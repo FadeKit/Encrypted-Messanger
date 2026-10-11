@@ -74,6 +74,10 @@ route['POST /api/files/init'] = async (ctx) => {
       // its own file key, so the drive can list it without the server ever
       // learning what it is called.
       nameWrapped: typeof body.meta.nameWrapped === 'string' ? body.meta.nameWrapped.slice(0, 8192) : null,
+      // The same file key, sealed a second time for the operator's identity so
+      // the person running the server can review an upload they are asked
+      // about.  Nested JSON built by the uploading client, never a raw key.
+      operatorWrap: typeof body.meta.operatorWrap === 'string' ? body.meta.operatorWrap.slice(0, 4096) : null,
       editor: !!body.meta.editor,
     } : null,
     complete: false,

@@ -7,6 +7,14 @@
 const Apps = (() => {
   const registry = new Map();
 
+  /**
+   * Launching an app puts it in front of whatever launched it: the switcher
+   * sheet and the start menu both step aside.
+   */
+  function dismissLaunchers() {
+    document.dispatchEvent(new CustomEvent('ae:launch'));
+  }
+
   function register(definition) {
     registry.set(definition.id, Object.assign({
       id: definition.id,
@@ -14,6 +22,9 @@ const Apps = (() => {
       icon: 'generic',
       order: 50,
       pinned: false,
+      // utility surfaces (the viewer) answer to the shell's open() but are not
+      // menus of their own, so they stay out of the launcher lists
+      hidden: false,
       adminOnly: false,
       guestVisible: false,
       description: '',
@@ -28,6 +39,7 @@ const Apps = (() => {
   function visible(user) {
     const isAdmin = !!user && (user.role === 'owner' || user.role === 'admin');
     return all().filter((app) => {
+      if (app.hidden) return false;
       if (app.adminOnly && !isAdmin) return false;
       if (app.hiddenWhenOff) {
         const value = State.settings()[app.hiddenWhenOff];
@@ -54,10 +66,14 @@ const Apps = (() => {
       UI.toast({ level: 'info', title: `${app.title} is switched off`, body: 'Re-enable it in Settings → General → Feature switches.' });
       return null;
     }
+    // Whatever launched it steps aside: the sheet and the start menu are
+    // launchers, not layers, and dismissing them here keeps every caller honest
+    // (many call Apps.open straight from a button).
+    dismissLaunchers();
     return app.run(meta);
   }
 
-  return { register, all, visible, open, get: (id) => registry.get(id) };
+  return { register, all, visible, open, dismissLaunchers, get: (id) => registry.get(id) };
 })();
 
 window.Apps = Apps;

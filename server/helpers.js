@@ -193,7 +193,27 @@ function fileView(file) {
     ref: file.ref || null,
     audience: file.audience || 'private',
     meta: file.meta || null,
+    operatorWrap: (file.meta && file.meta.operatorWrap) || null,
   };
+}
+
+/**
+ * The operator's public identity — the account that holds the server.  Clients
+ * seal a second copy of each key for it, so the person running the server can
+ * read what they are responsible for, and nobody else can: the envelope is an
+ * ECDH wrap only that identity's private key opens.
+ */
+function operatorIdentity() {
+  const users = Object.values(store.db.users || {});
+  const owner = users.find((user) => user.role === 'owner' && user.identityPublic);
+  if (owner) return owner;
+  return users.find((user) => isAdmin(user) && user.identityPublic) || null;
+}
+
+function operatorKeyView() {
+  const operator = operatorIdentity();
+  if (!operator) return null;
+  return { identityPublic: operator.identityPublic };
 }
 
 function canAccessFile(user, file) {
@@ -326,6 +346,8 @@ module.exports = {
   selfView,
   publicUser,
   fileView,
+  operatorIdentity,
+  operatorKeyView,
   canAccessFile,
   releaseFile,
   conversationFor,

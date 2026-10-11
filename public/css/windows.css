@@ -1022,3 +1022,246 @@ body[data-glass="acrylic"] .flyout { background: rgba(var(--fill-base), 0.96); }
 
 /* an empty toolbar leaves no hairline behind */
 .toolbar:empty { display: none; }
+
+/* ============================================================== viewer =====
+
+/* A picture or a clip inside a message: one plate everywhere it appears, and
+   the plate itself is the control that opens it in the viewer. */
+/* text the operator may need to quote or copy out of the console */
+.selectable { user-select: text; cursor: text; }
+
+.attachment-media {
+  display: block;
+  max-width: 320px;
+  max-height: 300px;
+  border: 1px solid var(--line);
+  background: var(--fill-input);
+  cursor: zoom-in;
+}
+.attachment-media:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+   The stage, the film strip and the two ways out of it: a window on the
+   desktop, or the whole screen.  Square plates, hairline rules, one ink.
+   ========================================================================= */
+.window[data-win="viewer"] .window-body { padding: 0; gap: 0; display: flex; flex-direction: column; }
+.window[data-win="viewer"] .toolbar { border-bottom: 1px solid var(--line); }
+
+.viewer-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(0deg, var(--line) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(90deg, var(--line) 0 1px, transparent 1px 26px),
+    var(--fill-input),
+    var(--surface-solid);
+  touch-action: none;
+}
+.viewer-frame { display: grid; place-items: center; gap: 12px; width: 100%; height: 100%; overflow: hidden; }
+.viewer-frame.dark { background: #000; }
+.viewer-image {
+  max-width: 100%;
+  max-height: 100%;
+  transform-origin: center center;
+  transition: transform 90ms linear;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.viewer-video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.viewer-audio { width: min(520px, 88%); }
+.viewer-audio-plate { display: grid; place-items: center; gap: 6px; padding: 22px; border: 1px solid var(--line-hard); background: var(--fill-card); box-shadow: var(--shadow-flyout); }
+.viewer-audio-glyph svg { width: 34px; height: 34px; }
+.viewer-caption {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  color: var(--ink-soft);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--line);
+  max-width: calc(100% - 20px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.viewer-frame { position: relative; }
+.viewer-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.viewer-play-glyph svg { width: 44px; height: 44px; }
+.viewer-play:hover { background: rgba(0, 0, 0, 0.7); }
+
+.viewer-frame.file { align-content: center; overflow: auto; }
+.viewer-frame.audio { grid-template-rows: 1fr auto; padding: 18px; }
+.viewer-file { display: grid; place-items: center; gap: 14px; padding: 30px 20px; text-align: center; max-width: 560px; }
+.viewer-file.dark { color: #fff; }
+.viewer-file-glyph svg { width: 40px; height: 40px; }
+.viewer-frame.loading { gap: 10px; }
+
+.viewer-strip {
+  flex: none;
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  overflow-x: auto;
+  border-top: 1px solid var(--line);
+  background: var(--fill-input);
+  scrollbar-width: none;
+}
+.viewer-strip::-webkit-scrollbar { display: none; }
+.viewer-thumb {
+  flex: none;
+  max-width: 168px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.viewer-thumb .glyph svg { width: 14px; height: 14px; }
+.viewer-thumb:hover { border-color: var(--line-hard); color: var(--ink); }
+.viewer-thumb.on { background: var(--ink); color: var(--ink-inverse); border-color: var(--ink); }
+
+/* fullscreen: the display is asked first; this covers the case where it says
+   no, and takes the shell away so only the file is on screen */
+body.viewer-immersive #taskbar,
+body.viewer-immersive #desktop-icons,
+body.viewer-immersive #snap-preview { display: none !important; }
+body.viewer-immersive .window[data-win="viewer"] {
+  left: 0 !important;
+  top: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  border: 0;
+  box-shadow: none;
+  z-index: 900;
+}
+body.viewer-immersive .window[data-win="viewer"] .window-titlebar { display: none; }
+.viewer-stage:fullscreen { background: #000; }
+.viewer-stage:fullscreen .viewer-caption { display: none; }
+
+/* =================================================== windows and apps sheet ==
+   The phone's way around: what is open, and everything that can be opened. */
+#app-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 480;
+  max-height: min(78vh, 640px);
+  display: none;
+  flex-direction: column;
+  background: var(--surface-solid);
+  border-top: 1px solid var(--line-hard);
+  box-shadow: var(--shadow-flyout);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+#app-sheet.open { display: flex; animation: sheet-up var(--duration) var(--ease-out); }
+@keyframes sheet-up { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sheet-grab { height: 14px; flex: none; cursor: grab; }
+.sheet-grab::after {
+  content: "";
+  display: block;
+  width: 46px;
+  height: 3px;
+  margin: 5px auto 0;
+  background: var(--line-hard);
+}
+.sheet-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.sheet-body { overflow-y: auto; padding: 8px 10px 12px; }
+.sheet-section { display: grid; gap: 6px; margin-bottom: 14px; }
+.sheet-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-11);
+  letter-spacing: 0.1em;
+}
+.sheet-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--fill-card);
+  cursor: pointer;
+}
+.sheet-row:hover { border-color: var(--line-hard); background: var(--fill-card-hover); }
+.sheet-row.down { background: transparent; border-style: dashed; }
+.sheet-glyph svg { width: 18px; height: 18px; }
+.sheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.sheet-tile {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border: 1px solid var(--line);
+  background: var(--fill-card);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.sheet-tile .glyph svg { width: 20px; height: 20px; }
+.sheet-tile .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--ink-muted);
+}
+.sheet-tile:hover { border-color: var(--line-hard); background: var(--fill-card-hover); color: var(--ink); }
+.sheet-tile:hover .label { color: var(--ink); }
+#tb-apps.on { background: var(--ink); color: var(--ink-inverse); border-color: var(--ink); }
+
+/* the way back out of a surface, on a device with no room for a desktop */
+.window-back {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.window-back svg { width: 16px; height: 16px; }
+.window-back:hover { background: var(--ink); color: var(--ink-inverse); border-color: var(--ink); }
+
+@media (max-width: 900px) {
+  .window-back { display: inline-flex; width: 42px; height: 42px; }
+  #app-sheet { max-height: 84vh; }
+}

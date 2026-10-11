@@ -105,6 +105,9 @@ function conversationView(conversation, viewer, { withMessages = true } = {}) {
     memberIds: conversation.memberIds.filter((id) => id !== viewer.id || conversation.type !== 'dm'),
     members: users,
     keyWrap,
+    // ciphertext for the operator's identity key; members' clients only ever
+    // read its presence, never its contents
+    operatorWrap: conversation.operatorWrap || null,
     anon: !!(conversation.anonAdmin && conversation.anonAdmin[viewer.id]),
     unread,
     lastMessageAt: conversation.lastMessageAt,
@@ -219,6 +222,10 @@ route['POST /api/conversations'] = async (ctx) => {
       conversation.keyWraps = Object.assign({}, conversation.keyWraps, sanitizeWraps(ctx.body.keyWraps, conversation.memberIds));
       store.touch();
     }
+    if (ctx.body.operatorWrap && !conversation.operatorWrap) {
+      conversation.operatorWrap = sanitizeWrap(ctx.body.operatorWrap);
+      store.touch();
+    }
     return { conversation: conversationView(conversation, user) };
   }
   const title = sanitizeText(ctx.body.title, 60) || 'Group chat';
@@ -230,6 +237,7 @@ route['POST /api/conversations'] = async (ctx) => {
     title,
     memberIds: [user.id, ...memberIds],
     keyWraps: sanitizeWraps(ctx.body.keyWraps || {}, [user.id, ...memberIds]),
+    operatorWrap: sanitizeWrap(ctx.body.operatorWrap),
     receipts: {},
     anonAdmin: {},
     origin: 'standard',
@@ -261,6 +269,11 @@ function expandMaskedWraps(input, conversation, viewerId) {
     }
   }
   return out;
+}
+
+/** One operator envelope: a small JSON string the client sealed for the owner. */
+function sanitizeWrap(value) {
+  return typeof value === 'string' && value.length < 4096 ? value : null;
 }
 
 function sanitizeWraps(input, allowedIds) {
@@ -296,6 +309,33 @@ route['POST /api/conversations/:id/keys'] = async (ctx) => {
     realtime.send(member, { event: 'conversation.keys', conversationId: conversation.id }, 'conversation.keys');
   }
   return { ok: true, conversation: conversationView(conversation, user, { withMessages: false }) };
+};
+
+/**
+ * A channel that was opened before this device had an envelope for the operator
+ * gets one the first time a member holds the key open: the wrap is written once
+ * and never overwritten, so no member can swap it for something else.
+ */
+route['POST /api/conversations/:id/operator-wrap'] = async (ctx) => {
+  const user = h.requireAuth(ctx);
+  const conversation = h.assertConversationMember(user, h.conversationFor(ctx.params.id));
+  if (conversation.operatorWrap) return { ok: true, stored: false };
+  const wrap = sanitizeWrap(ctx.body.operatorWrap);
+  if (!wrap) throw h.fail(400, 'An operator envelope is required.', 'bad_request');
+  conversation.operatorWrap = wrap;
+  store.touch();
+  return { ok: true, stored: true };
+};
+
+route['POST /api/forums/:id/operator-wrap'] = async (ctx) => {
+  const user = h.requireAuth(ctx);
+  const forum = h.assertForumAccess(user, h.forumFor(ctx.params.id));
+  if (forum.operatorWrap) return { ok: true, stored: false };
+  const wrap = sanitizeWrap(ctx.body.operatorWrap);
+  if (!wrap) throw h.fail(400, 'An operator envelope is required.', 'bad_request');
+  forum.operatorWrap = wrap;
+  store.touch();
+  return { ok: true, stored: true };
 };
 
 route['POST /api/conversations/:id/members'] = async (ctx) => {
@@ -553,6 +593,7 @@ route['POST /api/forums'] = async (ctx) => {
     ownerId: user.id,
     memberIds,
     keyWraps: sanitizeWraps(ctx.body.keyWraps || {}, memberIds),
+    operatorWrap: sanitizeWrap(ctx.body.operatorWrap),
     publicSeed: isPublic ? require('crypto').randomBytes(32).toString('base64') : null,
     createdAt: now(),
     lastActivityAt: now(),
@@ -577,6 +618,7 @@ function forumView(forum, viewer) {
     isMember,
     memberCount: forum.memberIds.length,
     keyWrap: forum.keyWraps[viewer.id] || null,
+    operatorWrap: forum.operatorWrap || null,
     publicSeed: forum.isPublic ? forum.publicSeed : null,
     createdAt: forum.createdAt,
     lastActivityAt: forum.lastActivityAt,

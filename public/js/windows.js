@@ -72,7 +72,13 @@ const Windows = (() => {
       el('button', { class: 'caption-btn', title: 'Maximize', html: '<svg viewBox="0 0 10 10"><rect x="0.6" y="0.6" width="8.8" height="8.8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>', onClick: () => toggleMaximize(id) }),
       el('button', { class: 'caption-btn close', title: 'Close', html: '<svg viewBox="0 0 10 10"><path d="M0.6 0.6 L9.4 9.4 M9.4 0.6 L0.6 9.4" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>', onClick: () => close(id) }),
     ]);
+    // On a phone a surface covers the screen, so there has to be an obvious way
+    // back: the chevron in the title bar, or a swipe in from the left edge.
+    // Both run the same step: back inside a master/detail surface, otherwise
+    // away from the window and onto whatever was underneath.
+    const backButton = el('button', { class: 'window-back', title: 'Back', html: UI.icon('back'), onClick: () => back(id) });
     const titlebar = el('div', { class: 'window-titlebar' }, [
+      backButton,
       el('span', { class: 'glyph', html: UI.icon(options.icon || id, { title: record.title }) }),
       titleNode,
       caption,
@@ -87,6 +93,8 @@ const Windows = (() => {
     record.body = body;
     record.titleNode = titleNode;
     record.titlebar = titlebar;
+    // the same back step, by thumb: a swipe in from the left edge
+    if (UI.swipeBack) record.unswipe = UI.swipeBack(win, () => back(id));
 
     const geometry = loadGeometry(id, record.geometry);
     place(win, geometry);
@@ -290,6 +298,26 @@ const Windows = (() => {
     if (record.onFocus) record.onFocus();
   }
 
+  /**
+   * One step back.  Inside a surface that has a list and a detail pane, that
+   * means returning to the list; otherwise the window goes down to the taskbar,
+   * leaving the desktop (or the window beneath) in view.
+   */
+  function back(id) {
+    const entry = registry.get(id);
+    if (!entry) return false;
+    const { record } = entry;
+    if (record.node.classList.contains('immersive') && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+      return true;
+    }
+    const split = record.body.querySelector('.split.show-main');
+    if (split) { split.classList.remove('show-main'); return true; }
+    record.onBack && record.onBack();
+    minimize(id);
+    return true;
+  }
+
   function minimize(id) {
     const entry = registry.get(id);
     if (!entry) return;
@@ -444,6 +472,17 @@ const Windows = (() => {
     for (const [id, button] of taskbarButtons) {
       if (!registry.has(id)) { button.remove(); taskbarButtons.delete(id); }
     }
+    // The switcher plate carries the number of open windows, so it reads as
+    // "there is something to come back to" rather than a plain launcher.
+    const switcher = $('#tb-apps');
+    if (switcher) {
+      let badge = switcher.querySelector('.tb-badge');
+      const count = registry.size;
+      if (count && !badge) { badge = el('span', { class: 'tb-badge', text: String(count) }); switcher.append(badge); }
+      else if (badge) { badge.textContent = String(count); badge.hidden = count === 0; }
+      switcher.classList.toggle('running', count > 0);
+    }
+
     // Plates that became tabs go home once their window is gone: closed again,
     // they are launchers, back in the rail in their original order.
     for (const plate of [...document.querySelectorAll('#taskbar-tabs .tb-btn[data-app]')]) {
@@ -493,6 +532,14 @@ const Windows = (() => {
   }, 160));
 
   function exists(id) { return registry.has(id); }
+
+  /** Repaints a window from the render function it was opened with. */
+  function rebuild(id) {
+    const entry = registry.get(id);
+    if (!entry) return false;
+    buildWindowBody(id);
+    return true;
+  }
   function focusOrOpen(id, factory) {
     if (registry.has(id)) { restore(id); return API(id); }
     return factory();
@@ -521,7 +568,7 @@ const Windows = (() => {
     };
   }
 
-  return { open, close, closeAll, focus, minimize, restore, toggleMaximize, get, list, exists, focusOrOpen, setTitle, setToolbar, setContent, refreshTaskbar, APP_ICONS, get focusedId() { return focusedId; } };
+  return { open, close, closeAll, focus, minimize, restore, toggleMaximize, back, get, list, exists, focusOrOpen, setTitle, setToolbar, setContent, rebuild, refreshTaskbar, APP_ICONS, get focusedId() { return focusedId; } };
 })();
 
 window.Windows = Windows;
