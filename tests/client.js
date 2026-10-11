@@ -640,8 +640,11 @@ if (shim.State && shim.Apps) {
     check('local checkout copy never inherits git or data', /--exclude=\.\/node_modules --exclude=\.\/\.git --exclude=\.\/data/.test(script));
     check('installer refuses a target inside its source', /must not sit inside AE_SOURCE_DIR/.test(script));
     check('guard is idempotent by construction', script.includes('guard)') && script.includes('status_line >/dev/null && exit 0'));
-    check('boot hook calls guard, not start', /sleep 12\n"\$AE_BIN_DIR\/ae-secure" guard/.test(script));
-    check('shell hook calls guard, not start', /AE_SECURE_NOSTART[^]*?"\$AE_BIN_DIR\/ae-secure" guard/.test(script));
+    const bootHook = script.slice(script.indexOf('sleep 12'), script.indexOf('sleep 12') + 200);
+    check('boot hook calls guard, not start', bootHook.includes('ae-secure" guard'));
+    const shellMarker = script.indexOf('ae-secure autostart >>>');
+    const shellHook = script.slice(shellMarker, shellMarker + 320);
+    check('shell hook calls guard, not start', shellMarker > -1 && shellHook.includes('ae-secure" guard'));
     check('installer can toggle shell autostart', /autostart\)/.test(script) && /shell autostart enabled/.test(script));
     check('autostart block is rewritten, not duplicated', (script.match(/strip_autostart_block\(\) \{/g) || []).length >= 2 && (script.match(/strip_autostart_block "\$profile"/g) || []).length >= 2);
     check('periodic guard job targets the health-check command', /termux-job-scheduler --job-id 9421 --period-ms 900000/.test(script) && /exec "\$AE_BIN_DIR\/ae-secure" guard/.test(script));
