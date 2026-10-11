@@ -310,7 +310,8 @@ const Settings = (() => {
         const file = event.target.files && event.target.files[0];
         event.target.value = '';
         if (file) await Background.upload(file);
-        Background.invalidate();
+        // upload() already paints the new image. Invalidating here used to
+        // revoke that very blob URL after it reached the desktop.
         paintRefresh();
       },
     });
@@ -330,7 +331,7 @@ const Settings = (() => {
         el('div', { class: 'name', title: entry.name, text: entry.name }),
         el('div', { class: 'row' }, [
           el('span', { class: 'tiny faint grow', text: UI.bytes(entry.size) }),
-          el('button', { class: 'btn icon sm subtle', html: UI.icon('trash'), title: 'Delete this picture', onClick: async () => { await Background.remove(entry.id); Background.invalidate(); paintRefresh(); } }),
+          el('button', { class: 'btn icon sm subtle', html: UI.icon('trash'), title: 'Delete this picture', onClick: async () => { await Background.remove(entry.id); paintRefresh(); } }),
         ]),
       ]));
     }
@@ -358,12 +359,12 @@ const Settings = (() => {
         el('span', { class: 'small muted', text: 'Fit' }),
         selectControl(settings.wallpaperFit || 'cover', [
           ['cover', 'Cover the screen'], ['contain', 'Fit inside'], ['stretch', 'Stretch'], ['tile', 'Tile'], ['centre', 'Centre at full size'],
-        ], (value) => { Background.invalidate(); save({ wallpaperFit: value }); }),
+        ], (value) => save({ wallpaperFit: value })),
       ]),
     ]));
 
     fragment.append(row('Dim the picture', 'A wash between the picture and the grid, so labels stay readable over a bright photograph.', sliderControl(settings.wallpaperDim ?? 35, 0, 80, 5, (value) => save({ wallpaperDim: value }), (value) => `${value}%`), 'Dim the picture'));
-    fragment.append(row('Match the interface', 'Print the picture in the same ink as everything else — desaturated to grayscale, so no wallpaper can break the monochrome rule.', switchControl(settings.wallpaperTone !== false, (value) => { Background.invalidate(); save({ wallpaperTone: value }); }), 'Match the interface'));
+    fragment.append(row('Match the interface', 'Print the picture in the same ink as everything else — desaturated to grayscale, so no wallpaper can break the monochrome rule.', switchControl(settings.wallpaperTone !== false, async (value) => { await save({ wallpaperTone: value }); await Background.refreshPreviews(); }), 'Match the interface'));
   }
 
   // --------------------------------------------------------- accessibility

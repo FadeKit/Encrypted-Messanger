@@ -469,6 +469,13 @@ check('the console registers a flyout a link can open',
     const name = quoted.replace(/'/g, '');
     check(`site theme “${name}” is styled`, tokensCss.includes(`[data-sitetheme="${name}"]`));
   }
+  const backgroundSource = fs.readFileSync(path.join(PUBLIC, 'js', 'background.js'), 'utf8');
+  const fileRoutes = fs.readFileSync(path.join(ROOT, 'server', 'routes-files.js'), 'utf8');
+  check('the six-picture library cap is enforced on the server too', /MAX_STORED = 6/.test(backgroundSource) && /MAX_BACKGROUND_FILES = 6/.test(fileRoutes) && /background_library_full/.test(fileRoutes));
+  check('wallpaper repaint signatures include the tone choice', /function signature\(entry, fit, dim, useTone, wash\)/.test(backgroundSource) && /signature\(entry, fitName, dim, useTone, wash\)/.test(backgroundSource));
+  const stateSource = fs.readFileSync(path.join(PUBLIC, 'js', 'state.js'), 'utf8');
+  check('locking the vault clears the decrypted wallpaper', /function lock\(\) \{[\s\S]{0,320}Background\.reset\(\)/.test(stateSource));
+  check('the visual console lock opens the vault lock screen', /lock: \{ hint: 'lock the vault in this tab', run\(\) \{ Shell\.lock\(\);/.test(fs.readFileSync(path.join(PUBLIC, 'js', 'console.js'), 'utf8')));
   const settingNames = fs.readFileSync(path.join(PUBLIC, 'js', 'settings.js'), 'utf8');
   check('About names the build and whether the page is it', /this page is up to date/.test(settingNames) && /this page is an older copy/.test(settingNames));
   const installer = fs.readFileSync(path.join(ROOT, 'scripts', 'termux-install.sh'), 'utf8');

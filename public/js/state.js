@@ -132,6 +132,9 @@ const State = (() => {
   function lock() {
     store.vault = null;
     store.masterKey = null;
+    // Wallpaper pixels are decrypted with the vault key, so remove their live
+    // render as soon as the tab locks (sign-out also calls reset below).
+    if (typeof Background !== 'undefined' && Background.reset) Background.reset();
     channelKeyCache.clear();
     channelRawCache.clear();
     decryptedCache.clear();
@@ -275,6 +278,11 @@ const State = (() => {
   }
 
   function registerObjectUrl(url) { objectUrls.add(url); return url; }
+  function releaseObjectUrl(url) {
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    objectUrls.delete(url);
+  }
 
   return {
     get, set, patch, subscribe, snapshot, emit,
@@ -283,7 +291,7 @@ const State = (() => {
     channelKey, channelKeyRaw, wrapChannelKey, memberById,
     wrapFileKeyWithChannel, unwrapFileKey,
     operatorIdentity, sealForOperator, openOperatorWrap,
-    registerObjectUrl, registerPublicUrl: registerObjectUrl,
+    registerObjectUrl, releaseObjectUrl, registerPublicUrl: registerObjectUrl,
     get user() { return store.user; },
     get vault() { return store.vault; },
   };

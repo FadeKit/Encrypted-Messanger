@@ -8,6 +8,11 @@ const { now, clampNumber, formatBytes, sanitizeText, RateLimiter } = require('./
 
 const CHUNK_SIZE = 512 * 1024;
 const MAX_CHUNK_OVERHEAD = 4096;
+const MAX_BACKGROUND_FILES = 6;
+
+function backgroundCount(ownerId) {
+  return Object.values(store.db.files).filter((file) => file.ownerId === ownerId && file.kind === 'background' && file.complete).length;
+}
 const uploadLimiter = new RateLimiter({ points: 240, windowMs: 60000 });
 const route = {};
 
@@ -49,6 +54,9 @@ route['POST /api/files/init'] = async (ctx) => {
   const body = ctx.body || {};
   const kind = KINDS[body.kind] ? body.kind : null;
   if (!kind) throw h.fail(400, 'Unknown upload target.', 'bad_kind');
+  if (kind === 'background' && backgroundCount(user.id) >= MAX_BACKGROUND_FILES) {
+    throw h.fail(409, `Your desktop picture library is full (${MAX_BACKGROUND_FILES}). Delete one before adding another.`, 'background_library_full');
+  }
   const size = clampNumber(body.size, 1, store.db.global.maxUploadBytes * 4, 0);
   if (!size) throw h.fail(400, 'File size missing.', 'bad_size');
   if (body.userSettings && user.settings) {
@@ -182,6 +190,15 @@ route['POST /api/files/:id/complete'] = async (ctx) => {
   const received = file.uploadedChunks.length;
   if (received < file.chunks) {
     throw h.fail(409, `Upload incomplete — ${received}/${file.chunks} chunks received.`, 'incomplete');
+  }
+  // The browser limits the shelf for a clear UI; enforce the same cap here so
+  // a hand-crafted client cannot turn the background library into unbounded
+  // hidden server storage. Recheck at completion for simultaneous uploads.
+  if (file.kind === 'background' && backgroundCount(user.id) >= MAX_BACKGROUND_FILES) {
+    store.deleteFileBlobs(file.id);
+    delete store.db.files[file.id];
+    store.touch();
+    throw h.fail(409, `Your desktop picture library is full (${MAX_BACKGROUND_FILES}). Delete one before adding another.`, 'background_library_full');
   }
   file.complete = true;
   file.completedAt = now();

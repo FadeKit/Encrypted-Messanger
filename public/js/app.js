@@ -237,6 +237,9 @@ const Shell = (() => {
     ]);
     const screen = el('div', { class: 'lock-screen', id: 'lock-screen' }, [card]);
     document.body.append(screen);
+    // A lock screen is only a lock if it also drops the in-memory vault key.
+    // This clears the decrypted desktop picture and cached background renders.
+    S.lock();
     input.focus();
     async function attempt() {
       error.textContent = '';
@@ -248,6 +251,8 @@ const Shell = (() => {
         await S.unlock(vault, { password: passphrase, kdf });
         S.locked = false;
         screen.remove();
+        Shell.applyTheme();
+        if (window.Background) await Background.refreshPreviews();
         resetLockTimer();
         UI.toast({ level: 'success', title: 'Unlocked', duration: 1600 });
       } catch {
@@ -1347,6 +1352,7 @@ const Shell = (() => {
     boot, applyTheme, renderAuth, startShell, notify, blip, randomHandle, scorePassword, openMaskedChannel,
     creditRow,
     showRecoveryCodes, setManualStatus, markActivity, resetLockTimer, updateStatusPill, buildStartMenu,
+    lock: showLockScreen,
     get manualStatus() { return manualStatus; },
   };
 })();

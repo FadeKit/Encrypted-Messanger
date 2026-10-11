@@ -219,7 +219,7 @@ const ConsoleLog = (() => {
         banner(`opened ${id}`);
       },
     },
-    lock: { hint: 'lock the vault in this tab', run() { State.lock(); banner('vault locked'); } },
+    lock: { hint: 'lock the vault in this tab', run() { Shell.lock(); banner('vault locked'); } },
     whoami: { hint: 'show the account signed in to this tab', run() { banner(`signed in as ${State.user ? (State.user.publicAlias || State.user.displayName || State.user.username) : 'nobody'}`); } },
     net: { hint: 'show the realtime link state', run() { banner(`realtime channel ${API.connected ? 'established' : 'not established'}`); } },
     time: { hint: 'show the local clock', run() { banner(new Date().toLocaleString()); } },

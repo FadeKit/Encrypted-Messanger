@@ -229,6 +229,24 @@ async function main() {
     const overDrive = await member.post('/api/files/init', { kind: 'drive', size: 1024 * 1024 * 1024 + 1, keyWrap: 'w' });
     check('drive rejects uploads beyond remaining space', overDrive.status === 413, `status ${overDrive.status}`);
 
+    // The six-picture shelf is a storage boundary, not just a disabled button.
+    for (let index = 0; index < 5; index += 1) {
+      const background = await uploadFile(member, { kind: 'background', size: 1, meta: { type: 'image/png' } });
+      check(`background ${index + 1} uploads within the library limit`, background.complete?.status === 200);
+    }
+    const raceA = await member.post('/api/files/init', { kind: 'background', size: 1, keyWrap: 'wrap-a', meta: { type: 'image/png' } });
+    const raceB = await member.post('/api/files/init', { kind: 'background', size: 1, keyWrap: 'wrap-b', meta: { type: 'image/png' } });
+    check('the last background slots allow concurrent preparation', raceA.status === 200 && raceB.status === 200);
+    for (const init of [raceA, raceB]) {
+      if (init.status === 200) await member.put(`/api/files/${init.data.fileId}/chunk/0`, Buffer.from([1]));
+    }
+    const raceCompleteA = raceA.status === 200 ? await member.post(`/api/files/${raceA.data.fileId}/complete`, {}) : raceA;
+    const raceCompleteB = raceB.status === 200 ? await member.post(`/api/files/${raceB.data.fileId}/complete`, {}) : raceB;
+    check('the server enforces the background cap at completion', raceCompleteA.status === 200 && raceCompleteB.status === 409, `completions ${raceCompleteA.status}/${raceCompleteB.status}`);
+    const backgroundCap = await member.post('/api/files/init', { kind: 'background', size: 1, keyWrap: 'wrap', meta: { type: 'image/png' } });
+    const backgrounds = await member.get('/api/files?kind=background');
+    check('a seventh background is refused server-side', backgroundCap.status === 409 && backgrounds.data.files.length === 6, `${backgroundCap.status}; stored ${backgrounds.data.files.length}`);
+
     // ------------------------------------------------------------ messaging
     const dmCreate = await member.post('/api/conversations', {
       type: 'dm',

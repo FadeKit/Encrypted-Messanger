@@ -16,6 +16,11 @@ const Background = (() => {
   const MAX_BYTES = 12 * 1024 * 1024;
   // object urls this module owns; the shell revokes its own set on sign out
   const urls = new Map();
+  // Share a decrypt between the desktop and its library thumbnail. In-flight
+  // work is versioned so a sign-out or setting change cannot paint an old file.
+  const pending = new Map();
+  let cacheRevision = 0;
+  let paintRevision = 0;
   let painted = null;
 
   const FITS = {
@@ -27,6 +32,11 @@ const Background = (() => {
   };
 
   function settings() { return State.settings(); }
+
+  function revoke(url) {
+    if (State.releaseObjectUrl) State.releaseObjectUrl(url);
+    else URL.revokeObjectURL(url);
+  }
 
   /**
    * Saving a setting does not repaint the shell on its own — the settings page
@@ -54,8 +64,8 @@ const Background = (() => {
    * picture printed in the same ink as everything else.  It costs one frame per
    * file and the result is cached for the session.
    */
-  async function tone(blob) {
-    if (!settings().wallpaperTone) return blob;
+  async function tone(blob, enabled = settings().wallpaperTone !== false) {
+    if (!enabled) return blob;
     try {
       const bitmap = await createImageBitmap(blob);
       const canvas = document.createElement('canvas');
@@ -91,30 +101,51 @@ const Background = (() => {
     }
   }
 
-  function keyFor(entry) {
-    return `${entry.id}:${settings().wallpaperTone ? 'tone' : 'plain'}`;
+  function keyFor(entry, useTone = settings().wallpaperTone !== false) {
+    return `${entry.id}:${useTone ? 'tone' : 'plain'}`;
+  }
+
+  function staleError() {
+    const error = new Error('the background changed before it could be drawn');
+    error.backgroundStale = true;
+    return error;
   }
 
   /** The decrypted, toned object url for one library entry, cached per session. */
   async function urlFor(entry) {
-    const key = keyFor(entry);
+    const useTone = settings().wallpaperTone !== false;
+    const key = keyFor(entry, useTone);
     if (urls.has(key)) return urls.get(key);
-    const info = await API.get(`/api/files/${entry.id}`);
-    const file = info.file;
-    const raw = await AE.unwrapKey(State.masterKey(), file.keyWrap);
-    if (!raw) throw new Error('this device does not hold the key for that picture');
-    const mime = file.meta?.type || entry.mime || 'image/*';
-    const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: raw, mime });
-    const picture = await tone(blob);
-    const url = URL.createObjectURL(picture);
-    State.registerObjectUrl(url);
-    urls.set(key, url);
-    return url;
+    if (pending.has(key)) return pending.get(key);
+    const revision = cacheRevision;
+    const task = (async () => {
+      const masterKey = State.masterKey();
+      if (!masterKey) throw staleError();
+      const info = await API.get(`/api/files/${entry.id}`);
+      const file = info.file;
+      const raw = await AE.unwrapKey(masterKey, file.keyWrap);
+      if (!raw) throw new Error('this device does not hold the key for that picture');
+      const mime = file.meta?.type || entry.mime || 'image/*';
+      const blob = await API.downloadDecrypted(file.id, { chunks: file.chunks, fileKeyRaw: raw, mime });
+      const picture = await tone(blob, useTone);
+      if (revision !== cacheRevision || !State.masterKey()) throw staleError();
+      const url = URL.createObjectURL(picture);
+      if (revision !== cacheRevision) { URL.revokeObjectURL(url); throw staleError(); }
+      State.registerObjectUrl(url);
+      urls.set(key, url);
+      return url;
+    })();
+    pending.set(key, task);
+    try {
+      return await task;
+    } finally {
+      if (pending.get(key) === task) pending.delete(key);
+    }
   }
 
   /** What the desktop is currently showing: the picture and how it is drawn. */
-  function signature(entry, fit, dim) {
-    return `${entry.id}|${fit}|${dim}`;
+  function signature(entry, fit, dim, useTone, wash) {
+    return `${entry.id}|${fit}|${dim}|${useTone ? 'tone' : 'plain'}|${wash}`;
   }
 
   function clearPaint() {
@@ -143,6 +174,7 @@ const Background = (() => {
   }
 
   async function paint() {
+    const revision = ++paintRevision;
     const desktop = document.getElementById('desktop');
     if (!desktop) return;
     const entry = active();
@@ -156,15 +188,17 @@ const Background = (() => {
     const fitName = settings().wallpaperFit || 'cover';
     const fit = FITS[fitName] || FITS.cover;
     const dim = Math.max(0, Math.min(80, Number(settings().wallpaperDim) || 0));
+    const useTone = settings().wallpaperTone !== false;
     // A dark wash keeps labels readable on the ink ramps; on the paper ramp it
     // has to lift instead, or the page turns to mud.
     const wash = document.body.dataset.theme === 'chrome' ? '255, 255, 255' : '0, 0, 0';
-    // Fitting, dimming and the wash are part of the draw, not just the file: a
-    // change to any of them repaints even though the picture is the same one.
-    const wanted = `${signature(entry, fitName, dim)}|${wash}`;
+    // Every part of the draw belongs in the cache key. In particular, toggling
+    // grayscale must repaint even though the file, fit and dim have not changed.
+    const wanted = signature(entry, fitName, dim, useTone, wash);
     if (painted === wanted && desktop.style.getPropertyValue('--wall-image')) return;
     try {
       const url = await urlFor(entry);
+      if (revision !== paintRevision) return;
       // The picture is the bottom layer of the desktop; the dim sits above it
       // and the theme's grid stays on top, so the design language survives a
       // photograph the user picked themselves.
@@ -174,6 +208,7 @@ const Background = (() => {
       desktop.style.setProperty('--wall-position', `${fit.position}, ${fit.position}`);
       painted = wanted;
     } catch (error) {
+      if (revision !== paintRevision || error.backgroundStale) return;
       console.warn('[ae] the background could not be shown', error);
       clearPaint();
       UI.toast({ level: 'warning', title: 'That background could not be shown', body: error.message });
@@ -244,34 +279,74 @@ const Background = (() => {
     await State.saveSettings(patch);
     await API.del(`/api/files/${id}`).catch(() => {});
     repaint();
-    const cached = urls.get(`${id}:tone`) || urls.get(`${id}:plain`);
-    if (cached) { URL.revokeObjectURL(cached); urls.delete(`${id}:tone`); urls.delete(`${id}:plain`); }
+    for (const key of [`${id}:tone`, `${id}:plain`]) {
+      const cached = urls.get(key);
+      if (cached) revoke(cached);
+      urls.delete(key);
+    }
     painted = null;
   }
 
   /** After a sign-out: nothing of this account is left on the desktop. */
   function reset() {
+    cacheRevision += 1;
+    paintRevision += 1;
+    pending.clear();
+    for (const url of urls.values()) revoke(url);
     urls.clear();
+    for (const node of document.querySelectorAll('.wall-thumb[data-background-id]')) {
+      node.style.removeProperty('background-image');
+      node.classList.remove('missing');
+    }
     painted = null;
     clearPaint();
   }
 
-  /** Drops every cached render — used when the tone or fit changes. */
+  /** Drops every cached render; the caller should repaint the active surface. */
   function invalidate() {
-    for (const [key, url] of urls.entries()) {
-      if (key.endsWith(':tone') || key.endsWith(':plain')) { URL.revokeObjectURL(url); urls.delete(key); }
+    cacheRevision += 1;
+    paintRevision += 1;
+    pending.clear();
+    for (const url of urls.values()) revoke(url);
+    urls.clear();
+    for (const node of document.querySelectorAll('.wall-thumb[data-background-id]')) {
+      node.style.removeProperty('background-image');
+      node.classList.remove('missing');
     }
     painted = null;
   }
 
   /** A small preview tile for the settings page. */
   function preview(entry, size = 'md') {
-    const node = el('div', { class: `wall-thumb wall-thumb-${size}`, 'data-name': entry.name });
-    urlFor(entry).then((url) => { node.style.backgroundImage = `url("${url}")`; }).catch(() => node.classList.add('missing'));
+    const node = el('div', { class: `wall-thumb wall-thumb-${size}`, 'data-name': entry.name, 'data-background-id': entry.id });
+    const key = keyFor(entry);
+    urlFor(entry).then((url) => {
+      if (node.isConnected && keyFor(entry) === key) node.style.backgroundImage = `url("${url}")`;
+    }).catch((error) => { if (node.isConnected && !error.backgroundStale) node.classList.add('missing'); });
     return node;
   }
 
-  return { list, active, apply, upload, use, remove, invalidate, reset, preview, MAX_STORED, MAX_BYTES, FITS };
+  /** Refreshes the library thumbnails after the tone setting changes. */
+  async function refreshPreviews() {
+    const entries = new Map(list().map((entry) => [entry.id, entry]));
+    const nodes = [...document.querySelectorAll('.wall-thumb[data-background-id]')];
+    await Promise.all(nodes.map(async (node) => {
+      const entry = entries.get(node.dataset.backgroundId);
+      if (!entry) return;
+      try {
+        const key = keyFor(entry);
+        const url = await urlFor(entry);
+        if (node.isConnected && keyFor(entry) === key) {
+          node.style.backgroundImage = `url("${url}")`;
+          node.classList.remove('missing');
+        }
+      } catch (error) {
+        if (node.isConnected && !error.backgroundStale) node.classList.add('missing');
+      }
+    }));
+  }
+
+  return { list, active, apply, upload, use, remove, invalidate, reset, preview, refreshPreviews, MAX_STORED, MAX_BYTES, FITS };
 })();
 
 window.Background = Background;

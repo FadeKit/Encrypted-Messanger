@@ -247,6 +247,137 @@ await wait(600);
 const adjusted = await desktop(owner);
 check('dimming and fitting change the draw', /contain/.test(adjusted.size) && /rgba\(0, 0, 0, 0\.6\)/.test(await owner.evaluate(() => document.getElementById('desktop').style.getPropertyValue('--wall-image'))), JSON.stringify(adjusted));
 
+// Exercise Settings itself, not just Background.remove: removing the active
+// picture must leave the previous picture painted, not revoke its blob URL.
+const secondQueued = await owner.evaluate(() => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 320; canvas.height = 200;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#d05b38'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const input = document.getElementById('background-input');
+  const transfer = new DataTransfer();
+  canvas.toBlob((blob) => {
+    transfer.items.add(new File([blob], 'second.png', { type: 'image/png' }));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, 'image/png');
+  return 'queued';
+});
+check('Settings accepts a second picture', secondQueued === 'queued');
+for (let i = 0; i < 40; i += 1) {
+  if (await owner.evaluate(() => Background.list().length === 2)) break;
+  await wait(300);
+}
+await wait(900); // let the shelf previews finish decrypting, as they do before a tap
+const secondDraw = await owner.evaluate(async () => {
+  const desktop = document.getElementById('desktop');
+  const source = getComputedStyle(desktop).backgroundImage.match(/url\("([^"]+)"\)/)?.[1] || '';
+  const state = { active: State.settings().wallpaperFileId, newest: Background.list()[1]?.id, wall: document.body.dataset.wall, inline: desktop.style.getPropertyValue('--wall-image').slice(0, 60), source: source.slice(0, 16), decodes: false };
+  if (!source) return state;
+  const image = new Image(); image.src = source;
+  try { await image.decode(); state.decodes = true; } catch { /* a stale blob */ }
+  return state;
+});
+check('the newest upload paints on the desktop', secondDraw.decodes && secondDraw.active === secondDraw.newest, JSON.stringify(secondDraw));
+const previousId = await owner.evaluate(() => Background.list()[0]?.id);
+await owner.evaluate(async () => {
+  UI.confirm = async () => true;
+  const buttons = [...document.querySelectorAll('.wall-item button.icon')];
+  buttons.at(-1)?.click();
+});
+for (let i = 0; i < 40; i += 1) {
+  if (await owner.evaluate(() => Background.list().length === 1)) break;
+  await wait(300);
+}
+await wait(1200);
+const afterDelete = await owner.evaluate(async (wantedId) => {
+  const style = getComputedStyle(document.getElementById('desktop'));
+  const source = style.backgroundImage.match(/url\("([^"]+)"\)/)?.[1] || '';
+  let decodes = false;
+  if (source) {
+    const image = new Image(); image.src = source;
+    try { await image.decode(); decodes = true; } catch { /* a revoked blob fails here */ }
+  }
+  return { count: Background.list().length, active: State.settings().wallpaperFileId, wantedId, source: source.slice(0, 16), decodes };
+}, previousId);
+check('removing a picture keeps the remaining background painted', afterDelete.count === 1 && afterDelete.active === previousId && afterDelete.decodes, JSON.stringify(afterDelete));
+
+const thumbBefore = await owner.evaluate(async () => {
+  const node = document.querySelector('.wall-thumb');
+  const source = node && node.style.backgroundImage.match(/url\("([^"]+)"\)/)?.[1];
+  if (!source) return false;
+  const image = new Image(); image.src = source;
+  try { await image.decode(); return true; } catch { return false; }
+});
+check('the picture shelf preview loads', thumbBefore);
+await owner.evaluate(() => {
+  const row = [...document.querySelectorAll('.setting-row')].find((node) => /Match the interface/i.test(node.innerText));
+  row?.querySelector('input[type="checkbox"]')?.click();
+});
+await wait(1000);
+const thumbAfterTone = await owner.evaluate(async () => {
+  const node = document.querySelector('.wall-thumb');
+  const source = node && node.style.backgroundImage.match(/url\("([^"]+)"\)/)?.[1];
+  if (!source) return false;
+  const image = new Image(); image.src = source;
+  try { await image.decode(); return true; } catch { return false; }
+});
+check('changing the picture tone keeps its library preview alive', thumbAfterTone);
+const tonedState = await owner.evaluate(async () => {
+  const source = getComputedStyle(document.getElementById('desktop')).backgroundImage.match(/url\("([^"]+)"\)/)?.[1];
+  if (!source) return { colour: -1 };
+  const image = new Image(); image.src = source; await image.decode();
+  const canvas = document.createElement('canvas'); canvas.width = 24; canvas.height = 24;
+  const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0, 24, 24);
+  const pixels = ctx.getImageData(0, 0, 24, 24).data;
+  let spread = 0;
+  for (let i = 0; i < pixels.length; i += 4) spread = Math.max(spread, Math.abs(pixels[i] - pixels[i + 1]), Math.abs(pixels[i + 1] - pixels[i + 2]));
+  return { spread };
+});
+check('the tone switch repaints the desktop', tonedState.spread > 6, JSON.stringify(tonedState));
+await owner.evaluate(() => {
+  const row = [...document.querySelectorAll('.setting-row')].find((node) => /Match the interface/i.test(node.innerText));
+  row?.querySelector('input[type="checkbox"]')?.click();
+});
+await wait(1000);
+const tonedAgain = await owner.evaluate(async () => {
+  const source = getComputedStyle(document.getElementById('desktop')).backgroundImage.match(/url\("([^"]+)"\)/)?.[1];
+  if (!source) return false;
+  const image = new Image(); image.src = source; await image.decode();
+  const canvas = document.createElement('canvas'); canvas.width = 24; canvas.height = 24;
+  const ctx = canvas.getContext('2d'); ctx.drawImage(image, 0, 0, 24, 24);
+  const pixels = ctx.getImageData(0, 0, 24, 24).data;
+  for (let i = 0; i < pixels.length; i += 4) if (Math.abs(pixels[i] - pixels[i + 1]) > 6 || Math.abs(pixels[i + 1] - pixels[i + 2]) > 6) return false;
+  return true;
+});
+check('matching the interface restores grayscale', tonedAgain);
+
+// The visual-only console's `lock` command must be a real vault lock: the key
+// and decrypted desktop picture leave memory; re-entry unlocks and repaints.
+await owner.evaluate(() => ConsoleLog.execute('lock'));
+await wait(250);
+const locked = await owner.evaluate(() => ({
+  prompt: !!document.querySelector('#lock-screen'),
+  key: !!State.masterKey(),
+  wallpaper: document.getElementById('desktop')?.style.getPropertyValue('--wall-image') || '',
+}));
+check('locking clears the vault key and desktop picture', locked.prompt && !locked.key && !locked.wallpaper, JSON.stringify({ ...locked, wallpaper: !!locked.wallpaper }));
+await owner.type('#lock-screen input[type="password"]', 'correct-horse-battery-staple-9');
+await owner.click('#lock-screen .btn.primary');
+for (let i = 0; i < 40; i += 1) {
+  if (await owner.evaluate(() => !document.querySelector('#lock-screen') && !!State.masterKey())) break;
+  await wait(250);
+}
+await wait(800);
+const unlockedBackground = await owner.evaluate(async () => {
+  const source = getComputedStyle(document.getElementById('desktop')).backgroundImage.match(/url\("([^"]+)"\)/)?.[1];
+  if (!source) return { unlocked: !!State.masterKey(), decodes: false };
+  const image = new Image(); image.src = source;
+  try { await image.decode(); return { unlocked: !!State.masterKey(), decodes: true }; }
+  catch { return { unlocked: !!State.masterKey(), decodes: false }; }
+});
+check('unlocking restores the key and background', unlockedBackground.unlocked && unlockedBackground.decodes, JSON.stringify(unlockedBackground));
+
 // and it survives a reload, decrypted again from the server
 await owner.reload({ waitUntil: 'networkidle2' });
 await wait(2500);
